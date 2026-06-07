@@ -754,3 +754,20 @@ body {
     max-width: calc(800px + var(--nav-width));
   }
 }
+
+/* ── Notification Permission Banner ── */
+.notif-banner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.85rem;
+  font-family: var(--font-sans);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.notif-banner-warn  { background: #7c5a00; color: #ffe8a0; }
+.notif-banner-error { background: #5c1a1a; color: #ffc0c0; }
+.notif-banner-msg   { flex: 1; }
+.notif-banner-btn   { white-space: nowrap; flex-shrink: 0; }
