@@ -421,8 +421,8 @@ window.submitManualBooking = async function () {
   const startMinutes = timeToMinutes(timeVal);
   const endMinutes   = startMinutes + duration;
 
-  if (endMinutes > 20*60+30) {
-    errEl.textContent = "Appointment would end after closing time (8:30 PM).";
+  if (endMinutes > 20*60) {
+    errEl.textContent = "Appointment would end after closing time (8:00 PM).";
     errEl.classList.remove("hidden");
     return;
   }
