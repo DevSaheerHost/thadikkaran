@@ -1,0 +1,170 @@
+{
+  "_comment_structure": "Thadikkaran Salon – Firebase Realtime Database Structure",
+  "_comment_usage": "Import this in Firebase Console > Realtime Database > Import JSON (for initial setup / reference only). Do NOT import into a live database that already has data.",
+
+  "bookings": {
+    "2025-07-15": {
+      "-booking_id_1": {
+        "uid":          "firebase_user_uid_here",
+        "name":         "Ravi Kumar",
+        "phone":        "+919876543210",
+        "serviceId":    "haircut",
+        "serviceName":  "Hair Cut (Mens)",
+        "price":        150,
+        "duration":     30,
+        "dateKey":      "2025-07-15",
+        "startTime":    "10:00",
+        "endTime":      "10:30",
+        "status":       "confirmed",
+        "source":       "client",
+        "createdAt":    1720000000000,
+        "noShowCount":  0
+      },
+      "-booking_id_2": {
+        "uid":          "firebase_user_uid_here_2",
+        "name":         "Karthik S",
+        "phone":        "+919876500001",
+        "serviceId":    "haircut_beard",
+        "serviceName":  "Hair Cut & Beard",
+        "price":        250,
+        "duration":     40,
+        "dateKey":      "2025-07-15",
+        "startTime":    "11:00",
+        "endTime":      "11:40",
+        "status":       "confirmed",
+        "source":       "client",
+        "createdAt":    1720000100000,
+        "noShowCount":  0
+      },
+      "-booking_walkin_1": {
+        "uid":          "",
+        "name":         "Walk-in Customer",
+        "phone":        "",
+        "serviceId":    "beard",
+        "serviceName":  "Beard Setting",
+        "price":        100,
+        "duration":     30,
+        "dateKey":      "2025-07-15",
+        "startTime":    "14:00",
+        "endTime":      "14:30",
+        "status":       "confirmed",
+        "source":       "admin",
+        "createdAt":    1720003600000,
+        "noShowCount":  0
+      }
+    }
+  },
+
+  "blocked": {
+    "2025-07-15": {
+      "-block_id_1": {
+        "startTime":  "13:00",
+        "endTime":    "14:00",
+        "duration":   60,
+        "reason":     "Lunch Break",
+        "source":     "block",
+        "status":     "blocked",
+        "createdAt":  1720000500000
+      }
+    }
+  },
+
+  "users": {
+    "firebase_user_uid_here": {
+      "name":         "Ravi Kumar",
+      "phone":        "+919876543210",
+      "email":        "",
+      "noShowCount":  0,
+      "blocked":      false,
+      "createdAt":    1719900000000,
+      "bookings": {
+        "-ubooking_1": {
+          "dateKey":     "2025-07-15",
+          "startTime":   "10:00",
+          "serviceName": "Hair Cut (Mens)",
+          "status":      "confirmed"
+        }
+      }
+    },
+    "firebase_user_uid_here_2": {
+      "name":         "Karthik S",
+      "phone":        "+919876500001",
+      "email":        "",
+      "noShowCount":  2,
+      "blocked":      false,
+      "createdAt":    1719910000000,
+      "bookings": {}
+    }
+  },
+
+  "noshows": {
+    "firebase_user_uid_here_2": {
+      "name":         "Karthik S",
+      "phone":        "+919876500001",
+      "noShowCount":  2,
+      "blocked":      false,
+      "blockedAt":    null
+    }
+  },
+
+  "admin": {
+    "fcmTokens": {
+      "admin_firebase_uid": {
+        "token":     "fcm_device_token_string_here",
+        "updatedAt": 1720000000000
+      }
+    },
+    "settings": {
+      "shopName":      "Thadikkaran",
+      "openTime":      "09:00",
+      "closeTime":     "20:30",
+      "slotDuration":  30,
+      "maxAdvanceDays": 6,
+      "holidayDays":   [2],
+      "_comment_holidayDays": "0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat"
+    }
+  },
+
+  "services": {
+    "haircut": {
+      "id":       "haircut",
+      "name":     "Hair Cut (Mens)",
+      "price":    150,
+      "duration": 30,
+      "active":   true,
+      "order":    1
+    },
+    "beard": {
+      "id":       "beard",
+      "name":     "Beard Setting",
+      "price":    100,
+      "duration": 30,
+      "active":   true,
+      "order":    2
+    },
+    "haircut_beard": {
+      "id":       "haircut_beard",
+      "name":     "Hair Cut & Beard",
+      "price":    250,
+      "duration": 40,
+      "active":   true,
+      "order":    3
+    },
+    "facial": {
+      "id":       "facial",
+      "name":     "Facial",
+      "price":    null,
+      "duration": 40,
+      "active":   true,
+      "order":    4
+    },
+    "hair_spa": {
+      "id":       "hair_spa",
+      "name":     "Hair Spa",
+      "price":    null,
+      "duration": 20,
+      "active":   true,
+      "order":    5
+    }
+  }
+}
