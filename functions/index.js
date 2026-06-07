@@ -54,19 +54,19 @@ exports.notifyAdminOnNewBooking = onValueCreated(
         clientName: clientName,
         serviceName: serviceName,
         startTime: startTime,
-        url: "/admin.html",
+        url: "https://devsaheerhost.github.io/thadikkaran/admin.html",
       },
       webpush: {
         notification: {
           title: "\uD83D\uDCC5 New Booking \u2013 Thadikkaran",
           body: `${clientName} \u2192 ${serviceName} at ${timeDisplay}`,
-          icon: "/icon-192.png",
-          badge: "/badge-72.png",
+          icon: "https://devsaheerhost.github.io/thadikkaran/icon-192.png",
+          badge: "https://devsaheerhost.github.io/thadikkaran/badge-72.png",
           tag: "thadikkaran-booking",
           requireInteraction: true,
         },
         fcmOptions: {
-          link: "/admin.html",
+          link: "https://devsaheerhost.github.io/thadikkaran/admin.html",
         },
       },
       tokens: tokens,
