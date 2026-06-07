@@ -159,17 +159,18 @@ function clearAuthError() { document.getElementById("auth-error").classList.add(
 //  FCM – PUSH NOTIFICATIONS
 // ═══════════════════════════════════
 
+let _swReg = null;
+
 async function initFCM() {
   try {
     if (!("serviceWorker" in navigator) || !("Notification" in window)) {
-      console.warn("Push notifications not supported in this browser.");
+      showNotifBanner("unsupported");
       return;
     }
 
     const swUrl = new URL("./firebase-messaging-sw.js", import.meta.url).href;
-    const swReg = await navigator.serviceWorker.register(swUrl, { scope: "./" });
+    _swReg = await navigator.serviceWorker.register(swUrl, { scope: "./" });
 
-    // Listen for messages from the service worker (notification click → refresh bookings)
     navigator.serviceWorker.addEventListener("message", (event) => {
       if (event.data?.type === "BOOKING_NOTIFICATION_CLICK") {
         loadBookings();
@@ -177,32 +178,75 @@ async function initFCM() {
       }
     });
 
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") {
-      console.warn("Notification permission denied.");
-      showToast("Enable notifications to receive booking alerts.", 5000);
-      return;
+    if (Notification.permission === "granted") {
+      await registerFCMToken();
+    } else if (Notification.permission === "denied") {
+      showNotifBanner("denied");
+    } else {
+      // "default" — must wait for a user click to call requestPermission()
+      showNotifBanner("prompt");
     }
 
-    const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
+  } catch (err) {
+    console.error("FCM init error:", err);
+  }
+}
+
+async function registerFCMToken() {
+  try {
+    const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: _swReg });
     if (token) {
-      await set(ref(db, `admin/fcmTokens/${currentUser.uid}`), {
-        token,
-        updatedAt: Date.now()
-      });
+      await set(ref(db, `admin/fcmTokens/${currentUser.uid}`), { token, updatedAt: Date.now() });
     }
-
-    // Handle foreground messages (app is open)
     onMessage(messaging, (payload) => {
       const title = payload.notification?.title || "New Booking";
       const body  = payload.notification?.body  || "A new appointment was made.";
       showToast(`🔔 ${title}: ${body}`, 6000);
       loadBookings();
     });
-
+    hideNotifBanner();
   } catch (err) {
-    console.error("FCM init error:", err);
+    console.error("FCM token error:", err);
   }
+}
+
+// Called when the admin clicks the "Enable Notifications" button
+window.enableNotifications = async function () {
+  const permission = await Notification.requestPermission();
+  if (permission === "granted") {
+    await registerFCMToken();
+    showToast("✓ Notifications enabled! You'll be alerted for every new booking.", 4000);
+  } else {
+    showNotifBanner("denied");
+  }
+};
+
+function showNotifBanner(state) {
+  const banner = document.getElementById("notif-banner");
+  if (!banner) return;
+  banner.classList.remove("hidden");
+  const msg  = banner.querySelector(".notif-banner-msg");
+  const btn  = banner.querySelector(".notif-banner-btn");
+  if (state === "prompt") {
+    banner.className = "notif-banner notif-banner-warn";
+    msg.textContent = "Enable notifications to get alerted for every new booking.";
+    btn.textContent = "Enable Notifications";
+    btn.onclick = enableNotifications;
+    btn.classList.remove("hidden");
+  } else if (state === "denied") {
+    banner.className = "notif-banner notif-banner-error";
+    msg.textContent = "Notifications blocked. Go to browser Settings → Site Settings → Notifications → Allow for this site.";
+    btn.classList.add("hidden");
+  } else if (state === "unsupported") {
+    banner.className = "notif-banner notif-banner-error";
+    msg.textContent = "This browser doesn't support push notifications. Use Chrome on Android or desktop.";
+    btn.classList.add("hidden");
+  }
+}
+
+function hideNotifBanner() {
+  const banner = document.getElementById("notif-banner");
+  if (banner) banner.classList.add("hidden");
 }
 
 // ═══════════════════════════════════
