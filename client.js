@@ -490,12 +490,20 @@ window.confirmBooking = async function () {
 
   try {
     const bookingsRef = ref(db, `bookings/${dateKey}`);
-    await push(bookingsRef, booking);
+    const newRef = await push(bookingsRef, booking);
+    const bookingId = newRef.key;
 
     // Also update user's booking history
     await push(ref(db, `users/${currentUser.uid}/bookings`), {
       dateKey, startTime: startStr, serviceName: selectedService.name, status: "confirmed"
     });
+
+    // Fire-and-forget: notify admin via Vercel serverless function
+    fetch("/api/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bookingId, dateKey, booking }),
+    }).catch(() => {});
 
     showSuccessModal();
   } catch (err) {
