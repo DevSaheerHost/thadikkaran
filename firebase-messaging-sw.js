@@ -26,7 +26,7 @@ messaging.onBackgroundMessage((payload) => {
     requireInteraction: true,
     vibrate:          [200, 100, 200],
     data: {
-      url:        payload.data?.url        || "/admin.html",
+      url:        payload.data?.url        || "https://devsaheerhost.github.io/thadikkaran/admin.html",
       bookingId:  payload.data?.bookingId  || null,
       dateKey:    payload.data?.dateKey    || null,
       clientName: payload.data?.clientName || null,

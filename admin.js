@@ -166,7 +166,8 @@ async function initFCM() {
       return;
     }
 
-    const swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+    const swUrl = new URL("./firebase-messaging-sw.js", import.meta.url).href;
+    const swReg = await navigator.serviceWorker.register(swUrl, { scope: "./" });
 
     // Listen for messages from the service worker (notification click → refresh bookings)
     navigator.serviceWorker.addEventListener("message", (event) => {
