@@ -1,4 +1,27 @@
 {
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "functions/**",
+      "notifier.js",
+      "firebase-database-structure.json",
+      "firebase-messaging-sw-1.js",
+      "skills-lock.json",
+      "SETUP-GUIDE.md"
+    ],
+    "headers": [
+      {
+        "source": "/firebase-messaging-sw.js",
+        "headers": [
+          { "key": "Service-Worker-Allowed", "value": "/" },
+          { "key": "Cache-Control", "value": "no-cache" }
+        ]
+      }
+    ]
+  },
   "functions": [
     {
       "source": "functions",

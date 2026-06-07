@@ -161,32 +161,42 @@ function clearAuthError() { document.getElementById("auth-error").classList.add(
 
 async function initFCM() {
   try {
-    // Register service worker
-    if ("serviceWorker" in navigator) {
-      await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+    if (!("serviceWorker" in navigator) || !("Notification" in window)) {
+      console.warn("Push notifications not supported in this browser.");
+      return;
     }
+
+    const swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+
+    // Listen for messages from the service worker (notification click → refresh bookings)
+    navigator.serviceWorker.addEventListener("message", (event) => {
+      if (event.data?.type === "BOOKING_NOTIFICATION_CLICK") {
+        loadBookings();
+        switchTab("bookings", document.querySelector('.nav-link[data-tab="bookings"]'));
+      }
+    });
 
     const permission = await Notification.requestPermission();
     if (permission !== "granted") {
       console.warn("Notification permission denied.");
+      showToast("Enable notifications to receive booking alerts.", 5000);
       return;
     }
 
-    const token = await getToken(messaging, { vapidKey: VAPID_KEY });
+    const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
     if (token) {
-      // Save FCM token to DB for server-side use
       await set(ref(db, `admin/fcmTokens/${currentUser.uid}`), {
         token,
         updatedAt: Date.now()
       });
-      console.log("FCM Token registered:", token);
     }
 
-    // Handle foreground messages
+    // Handle foreground messages (app is open)
     onMessage(messaging, (payload) => {
       const title = payload.notification?.title || "New Booking";
       const body  = payload.notification?.body  || "A new appointment was made.";
-      showToast(`🔔 ${title}: ${body}`);
+      showToast(`🔔 ${title}: ${body}`, 6000);
+      loadBookings();
     });
 
   } catch (err) {
