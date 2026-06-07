@@ -26,7 +26,7 @@ messaging.onBackgroundMessage((payload) => {
     requireInteraction: true,
     vibrate:          [200, 100, 200],
     data: {
-      url:        payload.data?.url        || "https://thadikkaran.vercel.app/admin.html",
+      url:        payload.data?.url        || "https://thadikkaran.vercel.app/admin",
       bookingId:  payload.data?.bookingId  || null,
       dateKey:    payload.data?.dateKey    || null,
       clientName: payload.data?.clientName || null,
@@ -43,7 +43,7 @@ self.addEventListener("notificationclick", (event) => {
 
   if (event.action === "dismiss") return;
 
-  const targetUrl = event.notification.data?.url || "/admin.html";
+  const targetUrl = event.notification.data?.url || "/admin";
 
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {

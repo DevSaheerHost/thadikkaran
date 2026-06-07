@@ -55,7 +55,7 @@ exports.notifyAdminOnNewBooking = onValueCreated(
           clientName: clientName,
           serviceName: serviceName,
           startTime: startTime,
-          url: "https://thadikkaran.vercel.app/admin.html",
+          url: "https://thadikkaran.vercel.app/admin",
         },
         webpush: {
           notification: {
@@ -67,7 +67,7 @@ exports.notifyAdminOnNewBooking = onValueCreated(
             requireInteraction: true,
           },
           fcmOptions: {
-            link: "https://thadikkaran.vercel.app/admin.html",
+            link: "https://thadikkaran.vercel.app/admin",
           },
         },
         tokens: tokens,

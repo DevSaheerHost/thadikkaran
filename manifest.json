@@ -1,7 +1,7 @@
 {
   "name": "Thadikkaran Admin",
   "short_name": "Thadikkaran",
-  "start_url": "/admin.html",
+  "start_url": "/admin",
   "display": "standalone",
   "background_color": "#0f0a06",
   "theme_color": "#d4a34e",

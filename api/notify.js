@@ -63,7 +63,7 @@ module.exports = async function handler(req, res) {
           badge: "https://thadikkaran.vercel.app/badge-72.png",
           requireInteraction: true,
         },
-        fcmOptions: { link: "https://thadikkaran.vercel.app/admin.html" },
+        fcmOptions: { link: "https://thadikkaran.vercel.app/admin" },
       },
       data: {
         bookingId,
@@ -71,7 +71,7 @@ module.exports = async function handler(req, res) {
         clientName: name,
         serviceName: svc,
         startTime: booking.startTime || "",
-        url: "https://thadikkaran.vercel.app/admin.html",
+        url: "https://thadikkaran.vercel.app/admin",
       },
       tokens: entries.map((e) => e.token),
     };
