@@ -1,0 +1,16 @@
+{
+  "name": "Thadikkaran Admin",
+  "short_name": "Thadikkaran",
+  "start_url": "/admin.html",
+  "display": "standalone",
+  "background_color": "#0f0a06",
+  "theme_color": "#d4a34e",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
