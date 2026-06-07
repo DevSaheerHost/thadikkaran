@@ -1,17 +1,11 @@
 {
-  "name": "thadikkaran-functions",
-  "description": "Firebase Cloud Functions for Thadikkaran Salon",
-  "scripts": {
-    "serve": "firebase emulators:start --only functions",
-    "deploy": "firebase deploy --only functions"
-  },
+  "name": "thadikkaran",
+  "description": "Thadikkaran Salon – booking system",
   "engines": {
     "node": "20"
   },
-  "main": "index.js",
   "dependencies": {
-    "firebase-admin": "^12.7.0",
-    "firebase-functions": "^4.9.0"
+    "firebase-admin": "^12.7.0"
   },
   "private": true
 }
