@@ -52,8 +52,8 @@ const SERVICES = [
 const SHOP = {
   openHour:  9,    // 9:00 AM
   openMin:   0,
-  closeHour: 20,   // 8:00 PM (last slot starts at 8:30 PM)
-  closeMin:  30,
+  closeHour: 20,   // 8:00 PM
+  closeMin:  0,
   slotStep:  30,   // minutes per base slot
   maxAdvanceDays: 6,
   holidayDays: [2] // Tuesday = 2 (0=Sun, 1=Mon, 2=Tue...)
