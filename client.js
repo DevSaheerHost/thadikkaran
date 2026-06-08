@@ -352,8 +352,8 @@ function isSlotUnavailable(slot, duration, bookedSlots, allSlots) {
   const slotEnd   = slotStart + duration;
   const shopEnd   = SHOP.closeHour * 60 + SHOP.closeMin;
 
-  // Would extend past closing time?
-  if (slotEnd > shopEnd) return true;
+  // Disallow slots that start at or after closing time
+  if (slotStart >= shopEnd) return true;
 
   // ── PAST SLOT CHECK ──
   // If the selected date is TODAY, hide any slot whose start time
