@@ -193,8 +193,6 @@ function buildServicesUI() {
         <div class="service-name">${svc.name}</div>
         <div class="service-meta">
           <span>${svc.duration} mins</span>
-          <span class="service-meta-dot"></span>
-          <span>Grooming</span>
         </div>
       </div>
       <div class="service-right">
