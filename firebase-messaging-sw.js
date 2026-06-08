@@ -13,37 +13,36 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
+// ── Background FCM (works for both admin new-booking and client reminders) ──
 messaging.onBackgroundMessage((payload) => {
-  const title = payload.notification?.title || "New Booking – Thadikkaran";
-  const body  = payload.notification?.body  || "A new appointment has been made.";
+  const type  = payload.data?.type || "booking";
+  const isClient = ["reminder", "ontime", "thankyou"].includes(type);
+
+  const title = payload.notification?.title || (isClient ? "✂ Thadikkaran" : "New Booking – Thadikkaran");
+  const body  = payload.notification?.body  || (isClient ? "Appointment reminder" : "A new appointment has been made.");
+  const url   = payload.data?.url || (isClient ? "https://thadikkaran.vercel.app/" : "https://thadikkaran.vercel.app/admin");
 
   self.registration.showNotification(title, {
     body,
-    icon:             "/icon-192.png",
-    badge:            "/badge-72.png",
-    tag:              "thadikkaran-booking",
-    renotify:         true,
-    requireInteraction: true,
-    vibrate:          [200, 100, 200],
-    data: {
-      url:        payload.data?.url        || "https://thadikkaran.vercel.app/admin",
-      bookingId:  payload.data?.bookingId  || null,
-      dateKey:    payload.data?.dateKey    || null,
-      clientName: payload.data?.clientName || null,
-    },
-    actions: [
-      { action: "view",    title: "View Booking" },
-      { action: "dismiss", title: "Dismiss" }
-    ]
+    icon:  "/icon-192.png",
+    badge: "/badge-72.png",
+    tag:   isClient ? "thadikkaran-reminder" : "thadikkaran-booking",
+    renotify: true,
+    requireInteraction: !isClient,
+    vibrate: [200, 100, 200],
+    data: { url, ...payload.data },
+    actions: isClient
+      ? [{ action: "view", title: "View Booking" }]
+      : [{ action: "view", title: "View Booking" }, { action: "dismiss", title: "Dismiss" }]
   });
 });
 
+// ── Notification click ──
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-
   if (event.action === "dismiss") return;
 
-  const targetUrl = event.notification.data?.url || "/admin";
+  const targetUrl = event.notification.data?.url || "/";
 
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
@@ -52,16 +51,50 @@ self.addEventListener("notificationclick", (event) => {
           client.postMessage({ type: "BOOKING_NOTIFICATION_CLICK", data: event.notification.data });
           return client.focus();
         }
+        if (!client.url.includes("admin") && "focus" in client) {
+          return client.focus();
+        }
       }
       return clients.openWindow(targetUrl);
     })
   );
 });
 
-self.addEventListener("install", () => self.skipWaiting());
+// ── Local notification trigger (from client.js setTimeout) ──
+self.addEventListener("message", (event) => {
+  const d = event.data;
+  if (d?.type !== "SHOW_REMINDER") return;
+  self.registration.showNotification(d.title, {
+    body:    d.body,
+    icon:    "/icon-192.png",
+    badge:   "/badge-72.png",
+    tag:     "thadikkaran-reminder",
+    renotify: true,
+    vibrate: [150, 80, 150],
+    data:    { url: "https://thadikkaran.vercel.app/", type: d.reminderType }
+  });
+});
+
+// ── PWA caching (network-first, cache fallback) ──
+const CACHE = "thadikkaran-sw-v2";
+const PRECACHE = ["/", "/client.css", "/favicon.png", "/icon-192.png", "/icon-512.png"];
+
+self.addEventListener("install", (e) => {
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)));
+  self.skipWaiting();
+});
+
 self.addEventListener("activate", (e) => e.waitUntil(clients.claim()));
+
 self.addEventListener("fetch", (e) => {
-  if (e.request.method === "GET") {
-    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
-  }
+  if (e.request.method !== "GET") return;
+  e.respondWith(
+    fetch(e.request)
+      .then((resp) => {
+        const clone = resp.clone();
+        caches.open(CACHE).then((c) => c.put(e.request, clone));
+        return resp;
+      })
+      .catch(() => caches.match(e.request))
+  );
 });
