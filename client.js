@@ -6,8 +6,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
   getAuth,
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
   GoogleAuthProvider,
   signInWithPopup,
   onAuthStateChanged,
@@ -17,6 +15,7 @@ import {
   getDatabase,
   ref,
   push,
+  set,
   get,
   query,
   orderByChild,
@@ -62,22 +61,34 @@ const SHOP = {
 // ── State ──
 let currentStep = 1;
 let selectedService = null;
-let selectedDate = null;     // Date object
-let selectedSlot = null;     // "09:00"
-let confirmationResult = null;
+let selectedDate = null;
+let selectedSlot = null;
 let currentUser = null;
+let userPhone   = null;   // collected phone number
 
 // ═══════════════════════════════════
 //  AUTH LOGIC
 // ═══════════════════════════════════
 
-// Monitor auth state
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
-    showApp(user);
+    // Resolve phone: Google profile → Firebase DB → ask user
+    if (user.phoneNumber) {
+      userPhone = user.phoneNumber;
+      showApp(user);
+    } else {
+      const snap = await get(ref(db, `users/${user.uid}/phone`));
+      if (snap.exists() && snap.val()) {
+        userPhone = snap.val();
+        showApp(user);
+      } else {
+        showPhoneModal();
+      }
+    }
   } else {
     currentUser = null;
+    userPhone   = null;
     showAuthScreen();
   }
 });
@@ -104,72 +115,44 @@ function showApp(user) {
   buildCalendarUI();
 }
 
-// Setup reCAPTCHA
-function setupRecaptcha() {
-  if (!window.recaptchaVerifier) {
-    window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", {
-      size: "invisible",
-      callback: () => {},
-      "expired-callback": () => { window.recaptchaVerifier = null; }
-    });
-  }
-}
-
-// Send OTP
-window.sendOTP = async function () {
-  const phone = document.getElementById("phone-input").value.trim();
-  if (phone.length !== 10) {
-    showAuthError("Please enter a valid 10-digit mobile number.");
-    return;
-  }
-
-  setAuthLoading(true);
-  try {
-    setupRecaptcha();
-    const phoneNumber = "+91" + phone;
-    confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier);
-    document.getElementById("otp-section").classList.remove("hidden");
-    document.getElementById("btn-send-otp").textContent = "Resend OTP";
-    clearAuthError();
-  } catch (err) {
-    showAuthError("Failed to send OTP. " + (err.message || "Please try again."));
-    window.recaptchaVerifier = null;
-  } finally {
-    setAuthLoading(false);
-  }
-};
-
-// Verify OTP
-window.verifyOTP = async function () {
-  const code = document.getElementById("otp-input").value.trim();
-  if (!code || code.length < 6) { showAuthError("Enter the 6-digit OTP."); return; }
-  if (!confirmationResult) { showAuthError("Please request an OTP first."); return; }
-
-  setAuthLoading(true);
-  try {
-    await confirmationResult.confirm(code);
-    clearAuthError();
-  } catch (err) {
-    showAuthError("Invalid OTP. Please try again.");
-  } finally {
-    setAuthLoading(false);
-  }
-};
-
-// Resend OTP
-window.resendOTP = function () { window.sendOTP(); };
-
 // Google Sign-In
 window.signInWithGoogle = async function () {
   setAuthLoading(true);
   try {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+    await signInWithPopup(auth, new GoogleAuthProvider());
     clearAuthError();
   } catch (err) {
-    showAuthError("Google sign-in failed. " + (err.message || ""));
+    showAuthError("Google sign-in failed. Please try again.");
   } finally {
     setAuthLoading(false);
+  }
+};
+
+function showPhoneModal() {
+  document.getElementById("modal-phone").classList.remove("hidden");
+  document.getElementById("modal-phone-input").focus();
+}
+
+window.submitPhoneModal = async function () {
+  const raw = document.getElementById("modal-phone-input").value.trim();
+  const errEl = document.getElementById("modal-phone-error");
+  errEl.classList.add("hidden");
+
+  if (!/^\d{10}$/.test(raw)) {
+    errEl.textContent = "Enter a valid 10-digit mobile number.";
+    errEl.classList.remove("hidden");
+    return;
+  }
+
+  const phone = "+91" + raw;
+  try {
+    await set(ref(db, `users/${currentUser.uid}/phone`), phone);
+    userPhone = phone;
+    document.getElementById("modal-phone").classList.add("hidden");
+    showApp(currentUser);
+  } catch (e) {
+    errEl.textContent = "Could not save. Please try again.";
+    errEl.classList.remove("hidden");
   }
 };
 
@@ -474,7 +457,7 @@ window.confirmBooking = async function () {
   const booking = {
     uid:         currentUser.uid,
     name:        currentUser.displayName || "Client",
-    phone:       currentUser.phoneNumber || "",
+    phone:       userPhone || "",
     serviceId:   selectedService.id,
     serviceName: selectedService.name,
     price:       selectedService.price,
