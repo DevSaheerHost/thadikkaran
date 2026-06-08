@@ -519,3 +519,14 @@ window.resetBooking = function () {
   document.querySelectorAll(".service-card").forEach(c => c.classList.remove("selected"));
   document.getElementById("btn-next-1").disabled = true;
 };
+
+// ═══════════════════════════════════
+//  PWA SERVICE WORKER
+// ═══════════════════════════════════
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register(
+    new URL("./client-sw.js", import.meta.url).href,
+    { scope: "./" }
+  ).catch(() => {});
+}
