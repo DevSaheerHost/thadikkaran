@@ -552,15 +552,32 @@ async function loadMyBookings() {
   const entries = [];
   snap.forEach(c => entries.push(c.val()));
 
-  // Fetch live canonical data for entries that have a bookingId
+  // Fetch live canonical data for each entry
   const liveData = await Promise.all(
     entries.map(async e => {
+      // Fast path: bookingId stored (new bookings)
       if (e.bookingId && e.dateKey) {
         const s = await get(ref(db, `bookings/${e.dateKey}/${e.bookingId}`));
         if (s.exists()) return { ...s.val(), dateKey: e.dateKey, bookingId: e.bookingId };
       }
-      // Fallback: use snapshot data (old bookings without bookingId)
-      return e;
+      // Fallback: scan the day's bookings by uid + startTime match
+      // Handles old bookings that didn't store bookingId, AND admin-rescheduled times
+      // (originalStartTime === e.startTime covers the rescheduled case)
+      if (e.dateKey && currentUser) {
+        const daySnap = await get(ref(db, `bookings/${e.dateKey}`));
+        if (daySnap.exists()) {
+          let found = null;
+          daySnap.forEach(child => {
+            const b = child.val();
+            if (b.uid === currentUser.uid &&
+                (b.startTime === e.startTime || b.originalStartTime === e.startTime)) {
+              found = { ...b, dateKey: e.dateKey, bookingId: child.key };
+            }
+          });
+          if (found) return found;
+        }
+      }
+      return e; // absolute fallback (snapshot data only)
     })
   );
 
