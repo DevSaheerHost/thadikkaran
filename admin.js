@@ -298,8 +298,11 @@ function loadBookings() {
 
   // Update label
   const d = new Date(currentDateKey + "T00:00:00");
-  document.getElementById("bookings-date-label").textContent =
-    d.toLocaleDateString("en-IN", { weekday:"long", day:"numeric", month:"long", year:"numeric" });
+  const dd  = String(d.getDate()).padStart(2, "0");
+  const mm  = String(d.getMonth() + 1).padStart(2, "0");
+  const yy  = String(d.getFullYear()).slice(-2);
+  const day = d.toLocaleDateString("en-IN", { weekday: "long" });
+  document.getElementById("bookings-date-label").textContent = `${dd}/${mm}/${yy} · ${day}`;
 
   // Detach old listener
   if (unsubBookings) unsubBookings();
