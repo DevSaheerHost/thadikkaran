@@ -3,6 +3,8 @@
    Monochrome / Luxury Minimal
 ═══════════════════════════════════════════════ */
 
+* { user-select: none; -webkit-user-select: none; }
+
 /* ── CSS Variables ── */
 :root {
   --black:       #0a0a0a;

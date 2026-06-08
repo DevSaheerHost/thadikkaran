@@ -3,6 +3,8 @@
    Monochrome / Utilitarian Precision
 ═══════════════════════════════════════════════ */
 
+* { user-select: none; -webkit-user-select: none; }
+
 :root {
   --black:      #0a0a0a;
   --charcoal:   #1a1a1a;
@@ -522,6 +524,13 @@ body {
   font-size: 0.78rem;
   color: var(--mid);
   margin-top: 0.15rem;
+}
+
+.booking-phone {
+  font-size: 0.78rem;
+  color: var(--dark);
+  margin-top: 0.2rem;
+  font-family: var(--font-mono, monospace);
 }
 
 .booking-meta {

@@ -374,10 +374,10 @@ function buildBookingCard(item) {
     <div class="booking-info">
       <div class="booking-name">${item.name || "Blocked"}</div>
       <div class="booking-service">${isBlock ? (item.reason || "Break") : item.serviceName}</div>
+      ${!isBlock && item.phone ? `<div class="booking-phone">📞 +91 ${item.phone}</div>` : ""}
       <div class="booking-meta">
         <span class="status-badge ${badgeClass}">${statusLabel}</span>
         ${sourceBadge}
-        ${item.phone ? `<span class="source-tag">${item.phone}</span>` : ""}
       </div>
     </div>
     <div class="booking-actions">${actionsHtml}</div>
