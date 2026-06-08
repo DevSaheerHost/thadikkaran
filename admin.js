@@ -611,7 +611,7 @@ window.openEditModal = async function (bookingKey, dateKey) {
   grid.innerHTML = "";
   const OPEN = 9 * 60, CLOSE = 20 * 60;
 
-  for (let min = OPEN; min + b.duration <= CLOSE; min += 30) {
+  for (let min = OPEN; min <= CLOSE; min += 30) {
     const timeStr  = minutesToTime(min);
     const slotEnd  = min + b.duration;
     const hits     = occupied.filter(o => min < o.end && slotEnd > o.start);
