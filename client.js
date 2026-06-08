@@ -121,7 +121,7 @@ function showApp(user) {
 
   buildServicesUI();
   buildCalendarUI();
-  checkRescheduledBookings();
+  watchRescheduledBookings();
 }
 
 // Google Sign-In
@@ -167,6 +167,8 @@ window.submitPhoneModal = async function () {
 
 // Sign Out
 window.signOut = async function () {
+  dotListeners.forEach(u => u());
+  dotListeners = [];
   await fbSignOut(auth);
   resetBooking();
 };
@@ -655,14 +657,39 @@ function buildMyBookingCard(b) {
   return card;
 }
 
-async function checkRescheduledBookings() {
+// ── state ──
+let dotListeners = [];
+
+async function watchRescheduledBookings() {
+  // Tear down any previous listeners (e.g. on re-login)
+  dotListeners.forEach(u => u());
+  dotListeners = [];
   if (!currentUser) return;
+
   const snap = await get(ref(db, `users/${currentUser.uid}/bookings`));
   if (!snap.exists()) return;
 
   const entries = [];
   snap.forEach(c => entries.push(c.val()));
 
+  // Track which paths we've already subscribed to (avoid duplicates)
+  const watched = new Set();
+
+  entries.forEach(e => {
+    if (!e.dateKey) return;
+    // For new bookings we have a direct ID; for old ones listen to the whole day
+    const path = e.bookingId
+      ? `bookings/${e.dateKey}/${e.bookingId}`
+      : `bookings/${e.dateKey}`;
+    if (watched.has(path)) return;
+    watched.add(path);
+
+    const unsub = onValue(ref(db, path), () => evaluateDot(entries));
+    dotListeners.push(unsub);
+  });
+}
+
+async function evaluateDot(entries) {
   for (const e of entries) {
     let booking = null;
     if (e.bookingId && e.dateKey) {
@@ -687,6 +714,8 @@ async function checkRescheduledBookings() {
       return;
     }
   }
+  // All clear — dot only hidden here if it was previously shown for a reverted edit
+  document.getElementById("bookings-notif-dot")?.classList.add("hidden");
 }
 
 function fmtTimeStr(timeStr) {
