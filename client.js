@@ -474,9 +474,9 @@ window.confirmBooking = async function () {
     const newRef = await push(bookingsRef, booking);
     const bookingId = newRef.key;
 
-    // Also update user's booking history
+    // Also update user's booking history (bookingId links to live data)
     await push(ref(db, `users/${currentUser.uid}/bookings`), {
-      dateKey, startTime: startStr, serviceName: selectedService.name, status: "confirmed"
+      bookingId, dateKey, startTime: startStr, serviceName: selectedService.name, status: "confirmed"
     });
 
     // Fire-and-forget: notify admin via Vercel serverless function
@@ -519,6 +519,119 @@ window.resetBooking = function () {
   document.querySelectorAll(".service-card").forEach(c => c.classList.remove("selected"));
   document.getElementById("btn-next-1").disabled = true;
 };
+
+// ═══════════════════════════════════
+//  MY BOOKINGS DRAWER
+// ═══════════════════════════════════
+
+window.openMyBookings = function () {
+  const drawer = document.getElementById("drawer-bookings");
+  drawer.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+  loadMyBookings();
+};
+
+window.closeMyBookings = function (event) {
+  if (event && event.target !== document.getElementById("drawer-bookings")) return;
+  document.getElementById("drawer-bookings").classList.add("hidden");
+  document.body.style.overflow = "";
+};
+
+async function loadMyBookings() {
+  const container = document.getElementById("my-bookings-list");
+  container.innerHTML = `<div class="mb-loading"><div class="spinner" style="border-color:#e0e0e0;border-top-color:#0a0a0a"></div></div>`;
+
+  if (!currentUser) return;
+
+  const snap = await get(ref(db, `users/${currentUser.uid}/bookings`));
+  if (!snap.exists()) {
+    container.innerHTML = `<p class="mb-empty">No bookings yet.</p>`;
+    return;
+  }
+
+  const entries = [];
+  snap.forEach(c => entries.push(c.val()));
+
+  // Fetch live canonical data for entries that have a bookingId
+  const liveData = await Promise.all(
+    entries.map(async e => {
+      if (e.bookingId && e.dateKey) {
+        const s = await get(ref(db, `bookings/${e.dateKey}/${e.bookingId}`));
+        if (s.exists()) return { ...s.val(), dateKey: e.dateKey, bookingId: e.bookingId };
+      }
+      // Fallback: use snapshot data (old bookings without bookingId)
+      return e;
+    })
+  );
+
+  const valid = liveData.filter(Boolean).filter(b => b.dateKey);
+
+  // Sort: upcoming first (ascending), then past (descending)
+  const now = Date.now();
+  valid.sort((a, b) => {
+    const aMs = new Date(`${a.dateKey}T${a.startTime || "00:00"}:00`).getTime();
+    const bMs = new Date(`${b.dateKey}T${b.startTime || "00:00"}:00`).getTime();
+    const aUp = aMs >= now, bUp = bMs >= now;
+    if (aUp && !bUp) return -1;
+    if (!aUp && bUp) return 1;
+    return aUp ? aMs - bMs : bMs - aMs;
+  });
+
+  if (!valid.length) {
+    container.innerHTML = `<p class="mb-empty">No bookings yet.</p>`;
+    return;
+  }
+
+  container.innerHTML = "";
+  valid.forEach(b => container.appendChild(buildMyBookingCard(b)));
+}
+
+function buildMyBookingCard(b) {
+  const dateObj = new Date(b.dateKey + "T00:00:00");
+  const dateStr = dateObj.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "2-digit" });
+
+  const isRescheduled = b.originalStartTime && b.originalStartTime !== b.startTime;
+  const isPast = new Date(`${b.dateKey}T${b.startTime || "00:00"}:00`).getTime() < Date.now();
+
+  const statusMap = {
+    confirmed: { label: "Confirmed", cls: "mb-badge-confirmed" },
+    cancelled:  { label: "Cancelled",  cls: "mb-badge-cancelled" },
+    noshow:     { label: "No Show",    cls: "mb-badge-noshow" },
+  };
+  const { label: sLabel, cls: sCls } = statusMap[b.status] || statusMap.confirmed;
+
+  let timeHtml;
+  if (isRescheduled) {
+    timeHtml = `
+      <div class="mb-time-row">
+        <span class="mb-time-old">${fmtTimeStr(b.originalStartTime)}</span>
+        <span class="mb-time-arrow">→</span>
+        <span class="mb-time-new">${fmtTimeStr(b.startTime)}</span>
+      </div>
+      <div class="mb-reschedule-note">⚠ Time changed by shop</div>`;
+  } else {
+    timeHtml = `<div class="mb-time-row"><span class="mb-time">${fmtTimeStr(b.startTime)}</span></div>`;
+  }
+
+  const card = document.createElement("div");
+  card.className = `mb-card${isRescheduled ? " mb-rescheduled" : ""}${isPast ? " mb-past" : ""}`;
+  card.innerHTML = `
+    <div class="mb-top">
+      <span class="mb-service">${b.serviceName || "—"}</span>
+      <span class="mb-badge ${sCls}">${sLabel}</span>
+    </div>
+    <div class="mb-date">${dateStr}</div>
+    ${timeHtml}
+    <div class="mb-price">${b.price ? `₹${b.price} · Pay at Store` : "Pay at Store"}</div>
+  `;
+  return card;
+}
+
+function fmtTimeStr(timeStr) {
+  if (!timeStr) return "—";
+  const [h, m] = timeStr.split(":").map(Number);
+  return formatTime([h, m]);
+}
 
 // ═══════════════════════════════════
 //  PWA SERVICE WORKER

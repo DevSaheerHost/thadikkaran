@@ -672,10 +672,15 @@ async function applyEditTime(newTime) {
   const duration = b.duration;
   const newEnd   = minutesToTime(timeToMinutes(newTime) + duration);
 
-  await update(ref(db, `bookings/${editingBooking.dateKey}/${editingBooking.key}`), {
-    startTime: newTime,
-    endTime:   newEnd
-  });
+  const updateData = {
+    startTime:    newTime,
+    endTime:      newEnd,
+    timeModified: Date.now(),
+  };
+  // Preserve the very first original time so client can detect changes
+  if (!b.originalStartTime) updateData.originalStartTime = b.startTime;
+
+  await update(ref(db, `bookings/${editingBooking.dateKey}/${editingBooking.key}`), updateData);
 
   showToast("✓ Booking time updated.");
   closeEditModal();
