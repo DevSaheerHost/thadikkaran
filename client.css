@@ -57,6 +57,83 @@ body {
 .active { display: block !important; }
 
 /* ══════════════════════════════════════════
+   LOADING SPLASH SCREEN
+══════════════════════════════════════════ */
+.screen-loading {
+  position: fixed;
+  inset: 0;
+  background: #0a0a0a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2.5rem;
+  z-index: 9999;
+  transition: opacity 0.38s ease;
+}
+
+.screen-loading.sl-fade-out { opacity: 0; pointer-events: none; }
+
+.sl-brand { text-align: center; }
+
+.sl-ornament {
+  color: #d4a34e;
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+}
+
+.sl-name {
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+}
+
+.sl-tagline {
+  font-size: 0.72rem;
+  color: #444;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-top: 0.4rem;
+}
+
+.sl-cut-wrap {
+  position: relative;
+  width: 160px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+}
+
+.sl-dashed {
+  position: absolute;
+  top: 50%; left: 0; right: 0;
+  height: 1px;
+  transform: translateY(-50%);
+  background: repeating-linear-gradient(90deg,
+    rgba(212,163,78,0.4) 0, rgba(212,163,78,0.4) 5px,
+    transparent 5px, transparent 10px);
+}
+
+.sl-scissors {
+  position: relative;
+  z-index: 1;
+  font-size: 1.35rem;
+  color: #d4a34e;
+  display: block;
+  animation: sl-cut 2s ease-in-out infinite;
+}
+
+@keyframes sl-cut {
+  0%   { transform: translateX(0)     scaleX(1);  }
+  46%  { transform: translateX(130px) scaleX(1);  }
+  50%  { transform: translateX(130px) scaleX(-1); }
+  96%  { transform: translateX(0)     scaleX(-1); }
+  100% { transform: translateX(0)     scaleX(1);  }
+}
+
+/* ══════════════════════════════════════════
    AUTH SCREEN
 ══════════════════════════════════════════ */
 .screen { min-height: 100dvh; }
@@ -340,6 +417,24 @@ body {
   display: flex;
   align-items: center;
   gap: 0.25rem;
+}
+
+/* notification dot on My Bookings button */
+.notif-btn { position: relative; }
+
+.notif-dot {
+  position: absolute;
+  top: 1px; right: 1px;
+  width: 9px; height: 9px;
+  background: #f59e0b;
+  border-radius: 50%;
+  border: 2px solid #0a0a0a;
+  animation: notif-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes notif-pulse {
+  0%, 100% { transform: scale(1);    opacity: 1; }
+  50%       { transform: scale(1.35); opacity: 0.8; }
 }
 
 .btn-icon {

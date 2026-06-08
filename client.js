@@ -71,6 +71,7 @@ let userPhone   = null;   // collected phone number
 // ═══════════════════════════════════
 
 onAuthStateChanged(auth, async (user) => {
+  hideSplash();
   if (user) {
     currentUser = user;
     // Resolve phone: Google profile → Firebase DB → ask user
@@ -93,6 +94,13 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
+function hideSplash() {
+  const el = document.getElementById("screen-loading");
+  if (!el || el.classList.contains("hidden")) return;
+  el.classList.add("sl-fade-out");
+  setTimeout(() => el.classList.add("hidden"), 380);
+}
+
 function showAuthScreen() {
   document.getElementById("screen-auth").classList.add("active");
   document.getElementById("screen-auth").classList.remove("hidden");
@@ -113,6 +121,7 @@ function showApp(user) {
 
   buildServicesUI();
   buildCalendarUI();
+  checkRescheduledBookings();
 }
 
 // Google Sign-In
@@ -525,6 +534,8 @@ window.resetBooking = function () {
 // ═══════════════════════════════════
 
 window.openMyBookings = function () {
+  // Clear notification dot when user opens the drawer
+  document.getElementById("bookings-notif-dot")?.classList.add("hidden");
   const drawer = document.getElementById("drawer-bookings");
   drawer.classList.remove("hidden");
   document.body.style.overflow = "hidden";
@@ -642,6 +653,40 @@ function buildMyBookingCard(b) {
     <div class="mb-price">${b.price ? `₹${b.price} · Pay at Store` : "Pay at Store"}</div>
   `;
   return card;
+}
+
+async function checkRescheduledBookings() {
+  if (!currentUser) return;
+  const snap = await get(ref(db, `users/${currentUser.uid}/bookings`));
+  if (!snap.exists()) return;
+
+  const entries = [];
+  snap.forEach(c => entries.push(c.val()));
+
+  for (const e of entries) {
+    let booking = null;
+    if (e.bookingId && e.dateKey) {
+      const s = await get(ref(db, `bookings/${e.dateKey}/${e.bookingId}`));
+      if (s.exists()) booking = s.val();
+    } else if (e.dateKey) {
+      const daySnap = await get(ref(db, `bookings/${e.dateKey}`));
+      if (daySnap.exists()) {
+        daySnap.forEach(child => {
+          const b = child.val();
+          if (b.uid === currentUser.uid &&
+              (b.startTime === e.startTime || b.originalStartTime === e.startTime)) {
+            booking = b;
+          }
+        });
+      }
+    }
+    if (booking?.originalStartTime &&
+        booking.originalStartTime !== booking.startTime &&
+        booking.status !== "cancelled" && booking.status !== "noshow") {
+      document.getElementById("bookings-notif-dot")?.classList.remove("hidden");
+      return;
+    }
+  }
 }
 
 function fmtTimeStr(timeStr) {
