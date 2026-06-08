@@ -298,8 +298,11 @@ function loadBookings() {
 
   // Update label
   const d = new Date(currentDateKey + "T00:00:00");
-  document.getElementById("bookings-date-label").textContent =
-    d.toLocaleDateString("en-IN", { weekday:"long", day:"numeric", month:"long", year:"numeric" });
+  const dd  = String(d.getDate()).padStart(2, "0");
+  const mm  = String(d.getMonth() + 1).padStart(2, "0");
+  const yy  = String(d.getFullYear()).slice(-2);
+  const day = d.toLocaleDateString("en-IN", { weekday: "long" });
+  document.getElementById("bookings-date-label").textContent = `${dd}/${mm}/${yy} · ${day}`;
 
   // Detach old listener
   if (unsubBookings) unsubBookings();
@@ -556,68 +559,107 @@ window.removeBlock = async function (key, dateKey) {
 //  EDIT BOOKING TIME + OVERLAP ALERT
 // ═══════════════════════════════════
 
+let selectedEditTime = null;
+
 window.openEditModal = async function (bookingKey, dateKey) {
   const snap = await get(ref(db, `bookings/${dateKey}/${bookingKey}`));
   if (!snap.exists()) return;
 
   editingBooking = { key: bookingKey, dateKey, booking: snap.val() };
-  const b = editingBooking.booking;
+  selectedEditTime = editingBooking.booking.startTime;
+  pendingEditTime  = null;
 
+  const b = editingBooking.booking;
   document.getElementById("edit-booking-label").textContent =
-    `${b.name} – ${b.serviceName} @ ${formatDisplayTime(b.startTime)}`;
-  document.getElementById("edit-time-input").value = b.startTime;
+    `${b.name} – ${b.serviceName} (${b.duration} min)`;
   document.getElementById("overlap-warning").classList.add("hidden");
   document.getElementById("edit-overlap-confirm").classList.add("hidden");
+  document.getElementById("btn-save-edit").classList.remove("hidden");
+
+  // Load bookings + blocks to detect conflicts
+  const [bookSnap, blkSnap] = await Promise.all([
+    get(ref(db, `bookings/${dateKey}`)),
+    get(ref(db, `blocked/${dateKey}`))
+  ]);
+
+  const occupied = [];
+  if (bookSnap.exists()) {
+    bookSnap.forEach(child => {
+      if (child.key === bookingKey) return;
+      const o = child.val();
+      if (o.status === "cancelled" || o.status === "noshow") return;
+      occupied.push({
+        start: timeToMinutes(o.startTime),
+        end:   timeToMinutes(o.startTime) + o.duration,
+        label: `${o.name} (${formatDisplayTime(o.startTime)})`
+      });
+    });
+  }
+  if (blkSnap.exists()) {
+    blkSnap.forEach(child => {
+      const bl = child.val();
+      occupied.push({
+        start: timeToMinutes(bl.startTime),
+        end:   timeToMinutes(bl.startTime) + (bl.duration || 30),
+        label: bl.reason || "Break"
+      });
+    });
+  }
+
+  // Build slot grid 9:00 AM – 8:00 PM
+  const grid = document.getElementById("edit-slots-grid");
+  grid.innerHTML = "";
+  const OPEN = 9 * 60, CLOSE = 20 * 60;
+
+  for (let min = OPEN; min + b.duration <= CLOSE; min += 30) {
+    const timeStr  = minutesToTime(min);
+    const slotEnd  = min + b.duration;
+    const hits     = occupied.filter(o => min < o.end && slotEnd > o.start);
+    const isActive = timeStr === b.startTime;
+
+    const btn = document.createElement("button");
+    btn.className  = "edit-slot-btn" + (hits.length ? " conflicted" : "") + (isActive ? " selected" : "");
+    btn.textContent = formatDisplayTime(timeStr);
+    btn.dataset.time = timeStr;
+    btn.onclick = () => onEditSlotClick(timeStr, hits);
+    grid.appendChild(btn);
+  }
 
   document.getElementById("modal-edit").classList.remove("hidden");
 };
 
-window.closeEditModal = function () {
-  document.getElementById("modal-edit").classList.add("hidden");
-  editingBooking = null;
-  pendingEditTime = null;
-};
+function onEditSlotClick(timeStr, hits) {
+  selectedEditTime = timeStr;
 
-window.saveEditTime = async function () {
-  if (!editingBooking) return;
-  const newTime  = document.getElementById("edit-time-input").value;
-  if (!newTime) return;
+  document.querySelectorAll(".edit-slot-btn").forEach(btn =>
+    btn.classList.toggle("selected", btn.dataset.time === timeStr)
+  );
 
-  const b        = editingBooking.booking;
-  const duration = b.duration;
-
-  // Load all bookings for this date
-  const snap = await get(ref(db, `bookings/${editingBooking.dateKey}`));
-  let conflicts = [];
-
-  if (snap.exists()) {
-    snap.forEach(child => {
-      if (child.key === editingBooking.key) return;  // skip self
-      const other = child.val();
-      if (other.status === "cancelled" || other.status === "noshow") return;
-
-      const newStart  = timeToMinutes(newTime);
-      const newEnd    = newStart + duration;
-      const otherStart = timeToMinutes(other.startTime);
-      const otherEnd   = otherStart + other.duration;
-
-      if (newStart < otherEnd && newEnd > otherStart) {
-        conflicts.push(other);
-      }
-    });
-  }
-
-  if (conflicts.length > 0) {
-    const conflictNames = conflicts.map(c => `${c.name} (${formatDisplayTime(c.startTime)})`).join(", ");
+  if (hits.length > 0) {
     document.getElementById("overlap-detail").textContent =
-      `Conflicts with: ${conflictNames}`;
+      "Conflicts with: " + hits.map(h => h.label).join(", ");
     document.getElementById("overlap-warning").classList.remove("hidden");
     document.getElementById("edit-overlap-confirm").classList.remove("hidden");
     document.getElementById("btn-save-edit").classList.add("hidden");
-    pendingEditTime = newTime;
+    pendingEditTime = timeStr;
   } else {
-    await applyEditTime(newTime);
+    document.getElementById("overlap-warning").classList.add("hidden");
+    document.getElementById("edit-overlap-confirm").classList.add("hidden");
+    document.getElementById("btn-save-edit").classList.remove("hidden");
+    pendingEditTime = null;
   }
+}
+
+window.closeEditModal = function () {
+  document.getElementById("modal-edit").classList.add("hidden");
+  editingBooking   = null;
+  selectedEditTime = null;
+  pendingEditTime  = null;
+};
+
+window.saveEditTime = async function () {
+  if (!editingBooking || !selectedEditTime) return;
+  await applyEditTime(selectedEditTime);
 };
 
 window.forceEditTime = async function () {

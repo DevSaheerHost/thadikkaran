@@ -20,39 +20,14 @@
       <div class="auth-brand">
         <div class="brand-ornament">✦</div>
         <h1 class="brand-name">Thadikkaran</h1>
-        <p class="brand-tagline">Classic Cuts & Grooming</p>
+        <p class="brand-tagline">Classic Cuts</p>
       </div>
 
       <div class="auth-card">
-        <h2 class="auth-title">Welcome Back</h2>
-        <p class="auth-subtitle">Sign in to book your appointment</p>
+        <h2 class="auth-title">Book Your Visit</h2>
+        <p class="auth-subtitle">Sign in to continue</p>
 
-        <!-- Phone Auth -->
-        <div id="phone-auth-section">
-          <div class="input-group">
-            <label class="input-label">Phone Number</label>
-            <div class="phone-input-row">
-              <span class="country-code">+91</span>
-              <input type="tel" id="phone-input" class="input-field" placeholder="98765 43210" maxlength="10" />
-            </div>
-          </div>
-          <div id="recaptcha-container"></div>
-          <button id="btn-send-otp" class="btn btn-primary" onclick="sendOTP()">Send OTP</button>
-
-          <div id="otp-section" class="hidden">
-            <div class="input-group" style="margin-top:1.2rem">
-              <label class="input-label">Enter OTP</label>
-              <input type="number" id="otp-input" class="input-field" placeholder="6-digit code" maxlength="6" />
-            </div>
-            <button class="btn btn-primary" onclick="verifyOTP()">Verify & Continue</button>
-            <button class="btn btn-ghost" onclick="resendOTP()">Resend OTP</button>
-          </div>
-        </div>
-
-        <div class="divider"><span>or</span></div>
-
-        <!-- Google Auth Fallback -->
-        <button class="btn btn-outline" onclick="signInWithGoogle()">
+        <button class="btn btn-outline btn-google" onclick="signInWithGoogle()">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
             <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
             <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
@@ -211,6 +186,27 @@
       <p class="modal-body" id="success-body">Your appointment has been confirmed.</p>
       <div class="success-details" id="success-details"></div>
       <button class="btn btn-primary btn-full" onclick="resetBooking()">Book Another</button>
+    </div>
+  </div>
+
+  <!-- Phone Number Collection Modal -->
+  <div id="modal-phone" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="success-icon" style="background:var(--gold,#d4a34e);color:#0f0a06">📱</div>
+      <h3 class="modal-title">Your Phone Number</h3>
+      <p class="modal-body">We need your number so we can reach you about your booking.</p>
+      <div class="input-group" style="margin-top:1rem">
+        <div class="phone-input-row">
+          <span class="country-code">+91</span>
+          <input type="tel" id="modal-phone-input" class="input-field"
+                 placeholder="98765 43210" maxlength="10" inputmode="numeric"
+                 onkeydown="if(event.key==='Enter') submitPhoneModal()" />
+        </div>
+      </div>
+      <div id="modal-phone-error" class="error-msg hidden"></div>
+      <button class="btn btn-primary btn-full" style="margin-top:1rem" onclick="submitPhoneModal()">
+        Save &amp; Continue
+      </button>
     </div>
   </div>
 
