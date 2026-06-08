@@ -22,6 +22,11 @@ import {
   equalTo,
   onValue
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import {
+  getMessaging,
+  getToken,
+  onMessage
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
 
 // ── Firebase Config ──
 const firebaseConfig = {
@@ -34,9 +39,16 @@ const firebaseConfig = {
   appId: "1:377052629282:web:f981c4ec54aee921b0fd7b"
 };
 
-const app  = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db   = getDatabase(app);
+const app       = initializeApp(firebaseConfig);
+const auth      = getAuth(app);
+const db        = getDatabase(app);
+const messaging = getMessaging(app);
+
+const VAPID_KEY = "BJljfSryCZol-Pg9YfT2x9OKMP4kom5Q6OBeuzgN4773-PLqhvhTPFOVA2PRvwTKDCc3ZeN1h1Uc0ilieNj6NQQ";
+// Shop location — update coordinates after confirming on Google Maps
+const SHOP_MAPS_URL = "https://maps.app.goo.gl/jXQPye2JHpAyTq4M9";
+const SHOP_LAT = null; // e.g. 10.8505
+const SHOP_LNG = null; // e.g. 76.2711
 
 // ── Services Data ──
 const SERVICES = [
@@ -122,6 +134,7 @@ function showApp(user) {
   buildServicesUI();
   buildCalendarUI();
   watchRescheduledBookings();
+  initClientFCM();
 }
 
 // Google Sign-In
@@ -497,6 +510,9 @@ window.confirmBooking = async function () {
       body: JSON.stringify({ bookingId, dateKey, booking }),
     }).catch(() => {});
 
+    // Schedule client reminder notifications
+    scheduleReminders(bookingId, booking);
+
     showSuccessModal();
   } catch (err) {
     document.getElementById("booking-error").textContent = "Booking failed. Please try again.";
@@ -530,6 +546,141 @@ window.resetBooking = function () {
   document.querySelectorAll(".service-card").forEach(c => c.classList.remove("selected"));
   document.getElementById("btn-next-1").disabled = true;
 };
+
+// ═══════════════════════════════════
+//  LOCATION
+// ═══════════════════════════════════
+
+window.openLocationPanel = function () {
+  document.getElementById("drawer-location").classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+  // Try to calculate distance if coordinates are configured
+  if (SHOP_LAT && SHOP_LNG && navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(({ coords }) => {
+      const km = haversineKm(coords.latitude, coords.longitude, SHOP_LAT, SHOP_LNG);
+      const walkMin = Math.round(km / 5 * 60);
+      const driveMin = Math.round(km / 30 * 60);
+      document.getElementById("loc-distance").textContent =
+        `${km < 1 ? (km * 1000).toFixed(0) + " m" : km.toFixed(1) + " km"} away · ~${driveMin} min drive`;
+    }, () => {});
+  }
+};
+
+window.closeLocationPanel = function (event) {
+  if (event && event.target !== document.getElementById("drawer-location")) return;
+  document.getElementById("drawer-location").classList.add("hidden");
+  document.body.style.overflow = "";
+};
+
+window.openDirections = function () {
+  if (navigator.geolocation && SHOP_LAT && SHOP_LNG) {
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        window.open(`https://www.google.com/maps/dir/${coords.latitude},${coords.longitude}/${SHOP_LAT},${SHOP_LNG}`, "_blank");
+      },
+      () => window.open(SHOP_MAPS_URL, "_blank")
+    );
+  } else {
+    window.open(SHOP_MAPS_URL, "_blank");
+  }
+};
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371, dLat = (lat2 - lat1) * Math.PI / 180, dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.asin(Math.sqrt(a));
+}
+
+// ═══════════════════════════════════
+//  CLIENT FCM + REMINDERS
+// ═══════════════════════════════════
+
+let _clientSwReg = null;
+
+async function initClientFCM() {
+  if (!("serviceWorker" in navigator) || !("Notification" in window)) return;
+  try {
+    _clientSwReg = await navigator.serviceWorker.getRegistration(
+      new URL("./firebase-messaging-sw.js", import.meta.url).href
+    ) || await navigator.serviceWorker.ready;
+
+    if (Notification.permission === "granted") {
+      await saveClientFCMToken();
+    }
+    // Listen for foreground FCM messages (app is open)
+    onMessage(messaging, (payload) => {
+      const type = payload.data?.type;
+      if (!type || type === "booking") return; // admin message, ignore on client
+      triggerSwNotification(
+        payload.notification?.title || "✂ Thadikkaran",
+        payload.notification?.body  || "",
+        type
+      );
+    });
+  } catch (e) { /* silent — notifications are enhancement only */ }
+}
+
+async function saveClientFCMToken() {
+  try {
+    const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: _clientSwReg });
+    if (token && currentUser) {
+      await set(ref(db, `users/${currentUser.uid}/fcmToken`), token);
+    }
+  } catch (e) { /* ignore */ }
+}
+
+function triggerSwNotification(title, body, reminderType) {
+  if (!_clientSwReg?.active) return;
+  _clientSwReg.active.postMessage({ type: "SHOW_REMINDER", title, body, reminderType });
+}
+
+async function scheduleReminders(bookingId, booking) {
+  const startMs = new Date(`${booking.dateKey}T${booking.startTime}:00`).getTime();
+  const endMs   = new Date(`${booking.dateKey}T${booking.endTime}:00`).getTime();
+  const name    = currentUser?.displayName?.split(" ")[0] || "there";
+
+  const reminders = [
+    {
+      key: "tenMin",
+      time: startMs - 10 * 60 * 1000,
+      title: "✂ Appointment in 10 Minutes",
+      body:  `Your ${booking.serviceName} starts at ${fmtTimeStr(booking.startTime)}. Head over now!`
+    },
+    {
+      key: "onTime",
+      time: startMs,
+      title: "✂ Your Appointment Starts Now",
+      body:  `Time for your ${booking.serviceName} at Thadikkaran!`
+    },
+    {
+      key: "thanks",
+      time: endMs + 5 * 60 * 1000,
+      title: `✂ Thank You, ${name}!`,
+      body:  `Hope you loved your ${booking.serviceName}. See you again at Thadikkaran!`
+    }
+  ];
+
+  // Save to Firebase for server-side cron delivery (works when app is closed)
+  if (currentUser) {
+    const reminderData = { serviceName: booking.serviceName, dateKey: booking.dateKey, startTime: booking.startTime };
+    reminders.forEach(r => { reminderData[r.key] = { time: r.time, sent: false }; });
+    set(ref(db, `reminders/${currentUser.uid}/${bookingId}`), reminderData).catch(() => {});
+  }
+
+  // Also schedule in-browser timers (works when app/tab stays open or in background)
+  if (Notification.permission !== "granted") {
+    // Silently request permission for future reminders
+    Notification.requestPermission().then(p => { if (p === "granted") saveClientFCMToken(); });
+  }
+
+  const now = Date.now();
+  reminders.forEach(r => {
+    const delay = r.time - now;
+    if (delay > 0 && delay < 24 * 60 * 60 * 1000) {
+      setTimeout(() => triggerSwNotification(r.title, r.body, r.key), delay);
+    }
+  });
+}
 
 // ═══════════════════════════════════
 //  MY BOOKINGS DRAWER
@@ -728,9 +879,10 @@ function fmtTimeStr(timeStr) {
 //  PWA SERVICE WORKER
 // ═══════════════════════════════════
 
+// firebase-messaging-sw.js handles both PWA caching and FCM for client
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register(
-    new URL("./client-sw.js", import.meta.url).href,
+    new URL("./firebase-messaging-sw.js", import.meta.url).href,
     { scope: "./" }
-  ).catch(() => {});
+  ).then(reg => { _clientSwReg = reg; }).catch(() => {});
 }

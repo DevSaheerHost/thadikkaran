@@ -95,6 +95,12 @@
           <span class="header-name">Thadikkaran</span>
         </div>
         <div class="header-actions">
+          <button class="btn-icon" onclick="openLocationPanel()" title="Shop Location">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1118 0z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
+          </button>
           <button class="btn-icon notif-btn" onclick="openMyBookings()" title="My Bookings">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
@@ -256,6 +262,43 @@
       <button class="btn btn-primary btn-full" style="margin-top:1rem" onclick="submitPhoneModal()">
         Save &amp; Continue
       </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       DRAWER: LOCATION
+  ══════════════════════════════════════ -->
+  <div id="drawer-location" class="drawer-overlay hidden" onclick="closeLocationPanel(event)">
+    <div class="drawer-sheet">
+      <div class="drawer-handle"></div>
+      <div class="drawer-head">
+        <h3 class="drawer-title">Find Us</h3>
+        <button class="btn-icon drawer-close" onclick="closeLocationPanel()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="location-body">
+        <div class="loc-pin-row">
+          <div class="loc-pin-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1118 0z"/><circle cx="12" cy="10" r="3"/>
+            </svg>
+          </div>
+          <div>
+            <div class="loc-name">Thadikkaran Barbershop</div>
+            <div class="loc-distance" id="loc-distance">Getting your distance…</div>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-full loc-nav-btn" onclick="openDirections()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:.5rem">
+            <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+          </svg>
+          Get Directions
+        </button>
+        <p class="loc-hint">Opens Google Maps with turn-by-turn directions from your location.</p>
+      </div>
     </div>
   </div>
 
