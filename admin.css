@@ -771,3 +771,46 @@ body {
 .notif-banner-error { background: #5c1a1a; color: #ffc0c0; }
 .notif-banner-msg   { flex: 1; }
 .notif-banner-btn   { white-space: nowrap; flex-shrink: 0; }
+
+/* ── Edit Time Slot Grid ── */
+.edit-slots-wrap {
+  max-height: 240px;
+  overflow-y: auto;
+  margin: 0.75rem 0;
+}
+.edit-slots-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+.edit-slot-btn {
+  padding: 0.6rem 0.25rem;
+  border: 1.5px solid var(--border, #2a2520);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text, #f0e6d3);
+  font-size: 0.78rem;
+  font-family: var(--font-sans, sans-serif);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.edit-slot-btn:hover:not(.selected) {
+  border-color: var(--gold, #d4a34e);
+  color: var(--gold, #d4a34e);
+}
+.edit-slot-btn.selected {
+  background: var(--text, #f0e6d3);
+  color: var(--bg, #0f0a06);
+  border-color: var(--text, #f0e6d3);
+  font-weight: 600;
+}
+.edit-slot-btn.conflicted {
+  border-color: #7a3535;
+  color: #c47a7a;
+}
+.edit-slot-btn.conflicted.selected {
+  background: #7a3535;
+  color: #fff;
+  border-color: #7a3535;
+}
