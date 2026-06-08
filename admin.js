@@ -374,10 +374,10 @@ function buildBookingCard(item) {
     <div class="booking-info">
       <div class="booking-name">${item.name || "Blocked"}</div>
       <div class="booking-service">${isBlock ? (item.reason || "Break") : item.serviceName}</div>
+      ${!isBlock && item.phone ? `<div class="booking-phone">📞 +91 ${item.phone}</div>` : ""}
       <div class="booking-meta">
         <span class="status-badge ${badgeClass}">${statusLabel}</span>
         ${sourceBadge}
-        ${item.phone ? `<span class="source-tag">${item.phone}</span>` : ""}
       </div>
     </div>
     <div class="booking-actions">${actionsHtml}</div>
@@ -672,10 +672,15 @@ async function applyEditTime(newTime) {
   const duration = b.duration;
   const newEnd   = minutesToTime(timeToMinutes(newTime) + duration);
 
-  await update(ref(db, `bookings/${editingBooking.dateKey}/${editingBooking.key}`), {
-    startTime: newTime,
-    endTime:   newEnd
-  });
+  const updateData = {
+    startTime:    newTime,
+    endTime:      newEnd,
+    timeModified: Date.now(),
+  };
+  // Preserve the very first original time so client can detect changes
+  if (!b.originalStartTime) updateData.originalStartTime = b.startTime;
+
+  await update(ref(db, `bookings/${editingBooking.dateKey}/${editingBooking.key}`), updateData);
 
   showToast("✓ Booking time updated.");
   closeEditModal();
