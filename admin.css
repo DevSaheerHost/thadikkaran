@@ -774,43 +774,61 @@ body {
 
 /* ── Edit Time Slot Grid ── */
 .edit-slots-wrap {
-  max-height: 240px;
+  max-height: 260px;
   overflow-y: auto;
   margin: 0.75rem 0;
+  /* subtle scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: #d0c8c0 transparent;
 }
 .edit-slots-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.5rem;
+  gap: 0.45rem;
 }
+
+/* Available slot */
 .edit-slot-btn {
-  padding: 0.6rem 0.25rem;
-  border: 1.5px solid var(--border, #2a2520);
+  padding: 0.6rem 0.2rem;
+  border: 1.5px solid #c8bfb5;
   border-radius: 8px;
-  background: transparent;
-  color: var(--text, #f0e6d3);
+  background: #fff;
+  color: #1a1208;
   font-size: 0.78rem;
   font-family: var(--font-sans, sans-serif);
+  font-weight: 500;
   cursor: pointer;
   text-align: center;
-  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  transition: all 0.12s;
 }
-.edit-slot-btn:hover:not(.selected) {
-  border-color: var(--gold, #d4a34e);
-  color: var(--gold, #d4a34e);
+.edit-slot-btn:hover:not(.selected):not(.conflicted) {
+  border-color: #1a1208;
+  background: #f5f0ea;
 }
+
+/* Selected available slot */
 .edit-slot-btn.selected {
-  background: var(--text, #f0e6d3);
-  color: var(--bg, #0f0a06);
-  border-color: var(--text, #f0e6d3);
-  font-weight: 600;
-}
-.edit-slot-btn.conflicted {
-  border-color: #7a3535;
-  color: #c47a7a;
-}
-.edit-slot-btn.conflicted.selected {
-  background: #7a3535;
+  background: #1a1208;
   color: #fff;
-  border-color: #7a3535;
+  border-color: #1a1208;
+  font-weight: 700;
+}
+
+/* Booked / conflicted — faded out */
+.edit-slot-btn.conflicted {
+  opacity: 0.28;
+  border-color: #c8bfb5;
+  color: #1a1208;
+  text-decoration: line-through;
+  cursor: pointer; /* admin can still force it */
+}
+
+/* Conflicted but admin force-selected */
+.edit-slot-btn.conflicted.selected {
+  opacity: 1;
+  background: #8b2020;
+  color: #fff;
+  border-color: #8b2020;
+  text-decoration: none;
+  font-weight: 700;
 }
