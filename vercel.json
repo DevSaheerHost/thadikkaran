@@ -1,7 +1,4 @@
 {
-  "crons": [
-    { "path": "/api/cron/reminders", "schedule": "* * * * *" }
-  ],
   "rewrites": [
     { "source": "/admin", "destination": "/admin.html" },
     { "source": "/book",  "destination": "/index.html"  }
