@@ -47,8 +47,8 @@ const messaging = getMessaging(app);
 const VAPID_KEY = "BJljfSryCZol-Pg9YfT2x9OKMP4kom5Q6OBeuzgN4773-PLqhvhTPFOVA2PRvwTKDCc3ZeN1h1Uc0ilieNj6NQQ";
 // Shop location — update coordinates after confirming on Google Maps
 const SHOP_MAPS_URL = "https://maps.app.goo.gl/jXQPye2JHpAyTq4M9";
-const SHOP_LAT = null; // e.g. 10.8505
-const SHOP_LNG = null; // e.g. 76.2711
+const SHOP_LAT = 10.17878;
+const SHOP_LNG = 76.330631;
 
 // ── Services Data ──
 const SERVICES = [
