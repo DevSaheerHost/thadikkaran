@@ -637,6 +637,84 @@ body {
   margin: 0.5rem 0 0.5rem;
 }
 
+/* ── Service Settings ── */
+.settings-section { margin-bottom: 2rem; }
+
+.settings-hint {
+  font-size: 0.82rem;
+  color: var(--mid);
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+.service-settings-list { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.svc-setting-card {
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.svc-setting-info { flex: 1; min-width: 120px; }
+.svc-setting-name  { font-weight: 600; font-size: 0.9rem; }
+.svc-setting-default { font-size: 0.75rem; color: var(--mid); margin-top: 0.15rem; }
+
+.svc-setting-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+}
+
+.svc-dur-adj {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: var(--off-white);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--transition);
+}
+.svc-dur-adj:hover { background: var(--silver); border-color: var(--mid); }
+
+.svc-dur-display {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.svc-duration-input {
+  width: 52px;
+  text-align: center;
+  padding: 0.35rem 0.4rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--black);
+  background: var(--white);
+}
+.svc-duration-input:focus { outline: none; border-color: var(--black); }
+
+.svc-dur-unit {
+  font-size: 0.78rem;
+  color: var(--mid);
+  white-space: nowrap;
+}
+
 /* ── No Shows ── */
 .noshow-card {
   background: var(--white);
