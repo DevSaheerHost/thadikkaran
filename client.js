@@ -269,10 +269,16 @@ function buildServicesUI() {
     `;
 
     card.addEventListener("click", () => {
+      const isAlreadySelected = card.classList.contains("selected");
       document.querySelectorAll(".service-card").forEach(c => c.classList.remove("selected"));
-      card.classList.add("selected");
-      selectedService = svc;
-      document.getElementById("btn-next-1").disabled = false;
+      if (isAlreadySelected) {
+        selectedService = null;
+        document.getElementById("btn-next-1").disabled = true;
+      } else {
+        card.classList.add("selected");
+        selectedService = svc;
+        document.getElementById("btn-next-1").disabled = false;
+      }
     });
 
     container.appendChild(card);
