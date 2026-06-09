@@ -56,6 +56,10 @@ body {
 .hidden { display: none !important; }
 .active { display: block !important; }
 
+/* Restore flex where .active would override it */
+#screen-app.active { display: flex !important; }
+.step-content.active { display: flex !important; }
+
 /* ══════════════════════════════════════════
    LOADING SPLASH SCREEN
 ══════════════════════════════════════════ */
@@ -610,7 +614,7 @@ body {
 }
 .service-card.selected::before { transform: scaleY(1); background: var(--silver); }
 
-.service-info { flex: 1; }
+.service-info { flex: 1; min-width: 0; }
 
 .service-name {
   font-size: 0.975rem;
@@ -618,6 +622,9 @@ body {
   color: var(--text-main);
   margin-bottom: 0.2rem;
   transition: color var(--transition);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .service-card.selected .service-name { color: var(--white); }
