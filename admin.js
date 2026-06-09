@@ -67,7 +67,8 @@ let currentDateKey  = formatDateKey(new Date());
 let editingBooking  = null;   // { key, dateKey, booking }
 let noshowBooking   = null;   // { key, dateKey, booking }
 let pendingEditTime = null;   // new start time string "HH:MM"
-let unsubBookings   = null;   // real-time listener unsubscribe
+let unsubBookings          = null;  // real-time listener unsubscribe
+let unsubNewBookingWatcher = null;  // always-on watcher for new bookings today
 
 // ═══════════════════════════════════
 //  AUTH
@@ -137,6 +138,7 @@ function showApp() {
   if (bDate) bDate.value = today;
 
   initServiceDurations();
+  startNewBookingWatcher();
   switchTab("bookings", document.querySelector('.nav-link[data-tab="bookings"]'));
   loadNoshows();
 }
@@ -186,7 +188,8 @@ window.signInWithGoogle = async function () {
 };
 
 window.signOut = async function () {
-  if (unsubBookings) unsubBookings();
+  if (unsubBookings)           unsubBookings();
+  if (unsubNewBookingWatcher)  unsubNewBookingWatcher();
   await fbSignOut(auth);
 };
 
@@ -288,6 +291,87 @@ function hideNotifBanner() {
   if (banner) banner.classList.add("hidden");
 }
 
+async function loadNotifStatus() {
+  const perm  = document.getElementById("ns-permission");
+  const token = document.getElementById("ns-token");
+  if (!perm || !token) return;
+
+  // Permission
+  const p = Notification.permission;
+  perm.textContent  = p === "granted" ? "✓ Granted" : p === "denied" ? "✗ Blocked" : "⚠ Not set";
+  perm.className    = "notif-status-val " + (p === "granted" ? "notif-ok" : p === "denied" ? "notif-err" : "notif-warn");
+
+  // Token
+  if (!currentUser) { token.textContent = "—"; return; }
+  const snap = await get(ref(db, `admin/fcmTokens/${currentUser.uid}`));
+  token.textContent = snap.exists() && snap.val().token ? "✓ Saved" : "✗ Not saved";
+  token.className   = "notif-status-val " + (snap.exists() && snap.val().token ? "notif-ok" : "notif-warn");
+}
+
+window.retryNotifSetup = async function () {
+  const permission = await Notification.requestPermission();
+  if (permission === "granted") {
+    await registerFCMToken();
+    showToast("✓ Notifications enabled!", 3000);
+  } else {
+    showToast("Notifications blocked in browser settings.", 4000);
+  }
+  loadNotifStatus();
+};
+
+// ═══════════════════════════════════
+//  REAL-TIME NEW BOOKING WATCHER
+//  Works via Firebase onValue — no FCM or server needed.
+//  Fires toast + chime the instant a client submits a booking.
+// ═══════════════════════════════════
+
+function startNewBookingWatcher() {
+  if (unsubNewBookingWatcher) { unsubNewBookingWatcher(); unsubNewBookingWatcher = null; }
+
+  const todayKey    = formatDateKey(new Date());
+  const watchedAt   = Date.now(); // only alert for bookings created AFTER this moment
+
+  unsubNewBookingWatcher = onValue(ref(db, `bookings/${todayKey}`), (snap) => {
+    if (!snap.exists()) return;
+    snap.forEach(child => {
+      const b = child.val();
+      if (b && b.source !== "admin"
+          && b.status !== "cancelled" && b.status !== "noshow"
+          && b.createdAt && b.createdAt > watchedAt) {
+        onNewBookingAlert(b);
+      }
+    });
+  });
+}
+
+function onNewBookingAlert(booking) {
+  const name = booking.name || "A client";
+  const svc  = booking.serviceName || "service";
+  const time = formatDisplayTime(booking.startTime);
+  showToast(`🔔 New booking! ${name} – ${svc} at ${time}`, 7000);
+  playBookingChime();
+  // Refresh list if admin is on today's bookings tab
+  if (currentDateKey === formatDateKey(new Date())) loadBookings();
+}
+
+function playBookingChime() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [[880, 0], [1108, 0.13], [1320, 0.26]].forEach(([freq, delay]) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+      gain.gain.linearRampToValueAtTime(0.22, ctx.currentTime + delay + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.45);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + 0.45);
+    });
+  } catch (e) { /* audio not supported on this browser */ }
+}
+
 // ═══════════════════════════════════
 //  TAB NAVIGATION
 // ═══════════════════════════════════
@@ -307,7 +391,7 @@ window.switchTab = function (tabId, btn) {
   if (tabId === "bookings") loadBookings();
   if (tabId === "block")    loadActiveBlocks();
   if (tabId === "noshows")  loadNoshows();
-  if (tabId === "settings") loadServiceSettings();
+  if (tabId === "settings") { loadServiceSettings(); loadNotifStatus(); }
 };
 
 // ═══════════════════════════════════

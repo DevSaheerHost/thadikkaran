@@ -267,6 +267,33 @@
           </div>
         </div>
 
+        <!-- Notification Status -->
+        <div class="settings-section">
+          <h3 class="section-mini-title">Push Notifications</h3>
+          <div id="notif-status-card" class="notif-status-card">
+            <div class="notif-status-row">
+              <span class="notif-status-label">Browser permission</span>
+              <span class="notif-status-val" id="ns-permission">Checking…</span>
+            </div>
+            <div class="notif-status-row">
+              <span class="notif-status-label">FCM token saved</span>
+              <span class="notif-status-val" id="ns-token">Checking…</span>
+            </div>
+            <div class="notif-status-row">
+              <span class="notif-status-label">In-page alerts</span>
+              <span class="notif-status-val notif-ok">✓ Always active</span>
+            </div>
+            <button class="btn btn-sm btn-primary" style="margin-top:0.75rem" onclick="retryNotifSetup()">
+              Enable / Refresh Notifications
+            </button>
+            <p class="settings-hint" style="margin-top:0.75rem;margin-bottom:0">
+              Background push (when page is closed) requires the Firebase Cloud Function to be deployed:
+              <code style="font-size:0.78rem;background:var(--off-white);padding:2px 6px;border-radius:4px">firebase deploy --only functions</code>
+            </p>
+          </div>
+        </div>
+
+        <!-- Service Durations -->
         <div class="settings-section">
           <h3 class="section-mini-title">Service Durations</h3>
           <p class="settings-hint">Changes take effect for new bookings immediately. The client slot grid updates on next page load.</p>
