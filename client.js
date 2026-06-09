@@ -17,6 +17,7 @@ import {
   push,
   set,
   get,
+  update,
   query,
   orderByChild,
   equalTo,
@@ -366,7 +367,7 @@ function rerenderSlots() {
 
   const bookedSlots = [];
   Object.values(liveSlotData.bookings).forEach(b => {
-    if (b && b.status !== "cancelled") bookedSlots.push({ start: b.startTime, duration: b.duration });
+    if (b && b.status !== "cancelled" && b.status !== "finished") bookedSlots.push({ start: b.startTime, duration: b.duration });
   });
   Object.values(liveSlotData.blocks).forEach(bl => {
     if (bl) bookedSlots.push({ start: bl.startTime, duration: bl.duration || 30 });
@@ -598,7 +599,7 @@ window.confirmBooking = async function () {
     const txResult = await runTransaction(bookingsRef, (current) => {
       const data = current || {};
       for (const b of Object.values(data)) {
-        if (!b || b.status === "cancelled") continue;
+        if (!b || b.status === "cancelled" || b.status === "finished") continue;
         const bS = timeStrToMin(b.startTime), bE = bS + (b.duration || 30);
         if (sMin < bE && eMin > bS) return; // conflict — abort
       }
@@ -896,10 +897,17 @@ function buildMyBookingCard(b) {
 
   const statusMap = {
     confirmed: { label: "Confirmed", cls: "mb-badge-confirmed" },
-    cancelled:  { label: "Cancelled",  cls: "mb-badge-cancelled" },
-    noshow:     { label: "No Show",    cls: "mb-badge-noshow" },
+    cancelled: { label: "Cancelled", cls: "mb-badge-cancelled" },
+    noshow:    { label: "No Show",   cls: "mb-badge-noshow" },
+    finished:  { label: "Done",      cls: "mb-badge-confirmed" },
   };
   const { label: sLabel, cls: sCls } = statusMap[b.status] || statusMap.confirmed;
+
+  const canCancel = !isPast
+    && b.bookingId
+    && b.status !== "cancelled"
+    && b.status !== "noshow"
+    && b.status !== "finished";
 
   let timeHtml;
   if (isRescheduled) {
@@ -924,9 +932,52 @@ function buildMyBookingCard(b) {
     <div class="mb-date">${dateStr}</div>
     ${timeHtml}
     <div class="mb-price">${b.price ? `₹${b.price} · Pay at Store` : "Pay at Store"}</div>
+    ${canCancel ? `<button class="btn btn-sm mb-cancel-btn" onclick="openClientCancelModal('${b.bookingId}','${b.dateKey}')">Cancel Booking</button>` : ""}
   `;
   return card;
 }
+
+// ═══════════════════════════════════
+//  CLIENT BOOKING CANCELLATION
+// ═══════════════════════════════════
+
+let cancelTarget = null; // { bookingId, dateKey }
+
+window.openClientCancelModal = function (bookingId, dateKey) {
+  cancelTarget = { bookingId, dateKey };
+  document.getElementById("client-cancel-reason").value = "";
+  document.getElementById("client-cancel-error").classList.add("hidden");
+  document.getElementById("modal-client-cancel").classList.remove("hidden");
+};
+
+window.closeClientCancelModal = function () {
+  document.getElementById("modal-client-cancel").classList.add("hidden");
+  cancelTarget = null;
+};
+
+window.confirmClientCancel = async function () {
+  if (!cancelTarget || !currentUser) return;
+  const { bookingId, dateKey } = cancelTarget;
+  const reason = document.getElementById("client-cancel-reason").value.trim();
+  const btn = document.getElementById("btn-client-cancel-confirm");
+  btn.textContent = "Cancelling…";
+  btn.disabled = true;
+  try {
+    await update(ref(db, `bookings/${dateKey}/${bookingId}`), {
+      status:       "cancelled",
+      cancelledAt:  Date.now(),
+      cancelReason: reason || "Cancelled by customer",
+      cancelledBy:  "client"
+    });
+    window.closeClientCancelModal();
+    loadMyBookings();
+  } catch (e) {
+    document.getElementById("client-cancel-error").textContent = "Failed to cancel. Please try again.";
+    document.getElementById("client-cancel-error").classList.remove("hidden");
+    btn.textContent = "Yes, Cancel Booking";
+    btn.disabled = false;
+  }
+};
 
 // ── state ──
 let dotListeners = [];

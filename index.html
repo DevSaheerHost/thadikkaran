@@ -321,6 +321,27 @@
   </div>
 
   <!-- ══════════════════════════════════════
+       MODAL: CANCEL BOOKING (CLIENT)
+  ══════════════════════════════════════ -->
+  <div id="modal-client-cancel" class="modal-overlay hidden" onclick="if(event.target===this)closeClientCancelModal()">
+    <div class="modal-box">
+      <div class="cancel-icon">✕</div>
+      <h3 class="modal-title">Cancel Booking?</h3>
+      <p class="modal-body">Let us know why you're cancelling (optional).</p>
+      <div class="input-group" style="margin-top:1rem">
+        <textarea id="client-cancel-reason" class="input-field"
+                  rows="3" placeholder="e.g. Schedule conflict, change of plans…"
+                  style="resize:none;line-height:1.5"></textarea>
+      </div>
+      <div id="client-cancel-error" class="error-msg hidden"></div>
+      <div class="modal-actions" style="margin-top:1rem">
+        <button class="btn btn-ghost" onclick="closeClientCancelModal()">Go Back</button>
+        <button class="btn btn-danger" id="btn-client-cancel-confirm" onclick="confirmClientCancel()">Yes, Cancel Booking</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
        SCREEN: BLOCKED
   ══════════════════════════════════════ -->
   <div id="screen-blocked" class="screen hidden">

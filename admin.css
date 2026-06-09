@@ -218,6 +218,9 @@ body {
 .btn-success { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
 .btn-success:hover { background: #a7f3d0; }
 
+.btn-warning { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+.btn-warning:hover { background: #ffedd5; }
+
 .btn-sm {
   padding: 0.4rem 0.75rem;
   font-size: 0.78rem;

@@ -325,6 +325,26 @@
     </div>
   </div>
 
+  <!-- ══════════════════════════════════════
+       MODAL: CANCEL BOOKING
+  ══════════════════════════════════════ -->
+  <div id="modal-cancel" class="modal-overlay hidden">
+    <div class="modal-box">
+      <h3 class="modal-title">Cancel Booking?</h3>
+      <p class="modal-sub" id="cancel-label">Booking details</p>
+      <div class="input-group" style="margin-top:0.75rem">
+        <label class="input-label">Reason <span style="color:var(--light);font-weight:400">(optional)</span></label>
+        <textarea id="cancel-reason" class="input-field" rows="2"
+                  placeholder="e.g. Customer called to cancel"
+                  style="resize:none;line-height:1.5"></textarea>
+      </div>
+      <div class="modal-actions" style="margin-top:1rem">
+        <button class="btn btn-ghost" onclick="closeModal('modal-cancel')">Go Back</button>
+        <button class="btn btn-danger" onclick="confirmCancelBooking()">Confirm Cancellation</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification -->
   <div id="toast" class="toast hidden"></div>
 
