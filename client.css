@@ -769,6 +769,18 @@ body {
   text-decoration: line-through;
 }
 
+.slot-taken-banner {
+  background: #fff0f0;
+  color: #c0392b;
+  border: 1.5px solid #f5c6cb;
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  margin-bottom: 0.75rem;
+  animation: fadeIn 0.25s ease;
+}
+
 .no-slots-msg {
   text-align: center;
   color: var(--text-muted);
