@@ -1039,3 +1039,92 @@ body {
   text-decoration: none;
   font-weight: 700;
 }
+
+/* ── Lunch Break Settings Card ── */
+.lunch-card {
+  background: var(--off-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  margin-top: 12px;
+}
+
+.lunch-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Toggle switch */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-knob {
+  position: absolute;
+  inset: 0;
+  background: var(--silver);
+  border-radius: 24px;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.toggle-knob::before {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  top: 3px;
+  background: var(--white);
+  border-radius: 50%;
+  transition: transform var(--transition);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+}
+.toggle-switch input:checked + .toggle-knob { background: var(--charcoal); }
+.toggle-switch input:checked + .toggle-knob::before { transform: translateX(20px); }
+
+/* Time row */
+.lunch-times {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  transition: opacity 0.2s;
+}
+.lunch-time-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+.lunch-time-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--mid);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.lunch-time-input {
+  padding: 7px 10px;
+  font-size: 0.9rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  color: var(--black);
+  width: 100%;
+}
+.lunch-time-input:focus {
+  outline: none;
+  border-color: var(--charcoal);
+}
+.lunch-time-sep {
+  font-size: 1.1rem;
+  color: var(--mid);
+  margin-top: 20px;
+  flex-shrink: 0;
+}

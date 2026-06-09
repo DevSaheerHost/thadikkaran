@@ -282,6 +282,32 @@
           </div>
         </div>
 
+        <!-- Lunch Break -->
+        <div class="settings-section">
+          <h3 class="section-mini-title">Lunch Break</h3>
+          <p class="settings-hint">Blocked every day on the client booking page. You can still add walk-in bookings manually during this time.</p>
+          <div class="lunch-card">
+            <div class="lunch-toggle-row">
+              <span class="svc-setting-name">🍱 Daily Lunch Break</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="lunch-enabled" onchange="saveLunchBreak()" />
+                <span class="toggle-knob"></span>
+              </label>
+            </div>
+            <div class="lunch-times" id="lunch-times-row">
+              <div class="lunch-time-field">
+                <span class="lunch-time-label">From</span>
+                <input type="time" id="lunch-start" class="input-field lunch-time-input" value="13:00" onchange="saveLunchBreak()" />
+              </div>
+              <span class="lunch-time-sep">→</span>
+              <div class="lunch-time-field">
+                <span class="lunch-time-label">To</span>
+                <input type="time" id="lunch-end" class="input-field lunch-time-input" value="14:30" onchange="saveLunchBreak()" />
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Notification Status -->
         <div class="settings-section">
           <h3 class="section-mini-title">Push Notifications</h3>

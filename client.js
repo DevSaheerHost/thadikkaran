@@ -79,6 +79,8 @@ let selectedDate = null;
 let selectedSlot = null;
 let currentUser = null;
 let userPhone   = null;   // collected phone number
+let lunchBreakConfig = { enabled: true, startTime: "13:00", endTime: "14:30" };
+let unsubLunchBreak  = null;
 
 // ═══════════════════════════════════
 //  AUTH LOGIC
@@ -151,6 +153,7 @@ async function showApp(user) {
   document.getElementById("header-greeting").textContent = `${greeting}${name}`;
 
   await loadServiceDurations();
+  watchLunchBreak();
   buildServicesUI();
   buildCalendarUI();
   watchRescheduledBookings();
@@ -166,6 +169,14 @@ async function loadServiceDurations() {
       if (svc && child.val().duration) svc.duration = child.val().duration;
     });
   } catch (e) { /* keep built-in defaults on error */ }
+}
+
+function watchLunchBreak() {
+  if (unsubLunchBreak) { unsubLunchBreak(); unsubLunchBreak = null; }
+  unsubLunchBreak = onValue(ref(db, "settings/lunchBreak"), snap => {
+    if (snap.exists()) lunchBreakConfig = { ...lunchBreakConfig, ...snap.val() };
+    scheduleRerender();
+  });
 }
 
 // Google Sign-In
@@ -213,6 +224,7 @@ window.submitPhoneModal = async function () {
 window.signOut = async function () {
   dotListeners.forEach(u => u());
   dotListeners = [];
+  if (unsubLunchBreak) { unsubLunchBreak(); unsubLunchBreak = null; }
   await fbSignOut(auth);
   resetBooking();
 };
@@ -372,6 +384,11 @@ function rerenderSlots() {
   Object.values(liveSlotData.blocks).forEach(bl => {
     if (bl) bookedSlots.push({ start: bl.startTime, duration: bl.duration || 30 });
   });
+  if (lunchBreakConfig.enabled && lunchBreakConfig.startTime && lunchBreakConfig.endTime) {
+    const [lh, lm] = lunchBreakConfig.startTime.split(":").map(Number);
+    const [eh, em] = lunchBreakConfig.endTime.split(":").map(Number);
+    bookedSlots.push({ start: lunchBreakConfig.startTime, duration: (eh * 60 + em) - (lh * 60 + lm) });
+  }
 
   const allSlots    = generateSlots(bookedSlots);
   const svcDuration = selectedService?.duration;
