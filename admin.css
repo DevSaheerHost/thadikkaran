@@ -640,6 +640,28 @@ body {
   margin: 0.5rem 0 0.5rem;
 }
 
+/* ── Notification Status Card ── */
+.notif-status-card {
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+}
+.notif-status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--off-white);
+  font-size: 0.85rem;
+}
+.notif-status-row:last-of-type { border-bottom: none; }
+.notif-status-label { color: var(--mid); }
+.notif-status-val   { font-weight: 600; font-size: 0.82rem; }
+.notif-ok           { color: #276749; }
+.notif-warn         { color: var(--warn); }
+.notif-err          { color: var(--danger); }
+
 /* ── Service Settings ── */
 .settings-section { margin-bottom: 2rem; }
 
