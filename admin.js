@@ -236,19 +236,26 @@ async function initFCM() {
 
 async function registerFCMToken() {
   try {
-    const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: _swReg });
+    // Wait for an active service worker — more reliable than storing _swReg
+    const swReg = await navigator.serviceWorker.ready;
+    const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
     if (token) {
       await set(ref(db, `admin/fcmTokens/${currentUser.uid}`), { token, updatedAt: Date.now() });
+      onMessage(messaging, (payload) => {
+        const title = payload.notification?.title || "New Booking";
+        const body  = payload.notification?.body  || "A new appointment was made.";
+        showToast(`🔔 ${title}: ${body}`, 6000);
+        loadBookings();
+      });
+      hideNotifBanner();
+      return true;
+    } else {
+      console.warn("FCM: getToken returned empty — check VAPID key in Firebase Console → Project Settings → Cloud Messaging → Web Push certificates");
+      return false;
     }
-    onMessage(messaging, (payload) => {
-      const title = payload.notification?.title || "New Booking";
-      const body  = payload.notification?.body  || "A new appointment was made.";
-      showToast(`🔔 ${title}: ${body}`, 6000);
-      loadBookings();
-    });
-    hideNotifBanner();
   } catch (err) {
-    console.error("FCM token error:", err);
+    console.error("FCM token error:", err.message);
+    return false;
   }
 }
 
@@ -311,10 +318,10 @@ async function loadNotifStatus() {
 window.retryNotifSetup = async function () {
   const permission = await Notification.requestPermission();
   if (permission === "granted") {
-    await registerFCMToken();
-    showToast("✓ Notifications enabled!", 3000);
+    const ok = await registerFCMToken();
+    showToast(ok ? "✓ Notifications enabled!" : "⚠ Permission granted but token failed — check browser console for details.", ok ? 3000 : 6000);
   } else {
-    showToast("Notifications blocked in browser settings.", 4000);
+    showToast("Notifications blocked — allow them in browser Settings → Site Settings.", 5000);
   }
   loadNotifStatus();
 };
