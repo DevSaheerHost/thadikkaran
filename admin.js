@@ -403,6 +403,7 @@ function buildBookingCard(item) {
       ? `
         <button class="btn btn-sm btn-success" onclick="finishBooking('${item.key}', '${currentDateKey}')">Finish</button>
         <button class="btn btn-sm btn-outline" onclick="openEditModal('${item.key}', '${currentDateKey}')">Edit Time</button>
+        <button class="btn btn-sm btn-warning" onclick="openCancelModal('${item.key}', '${currentDateKey}')">Cancel</button>
         <button class="btn btn-sm btn-danger"  onclick="openNoshowModal('${item.key}', '${currentDateKey}')">No-Show</button>
       `
       : `<span class="source-tag">${statusLabel}</span>`;
@@ -629,7 +630,7 @@ window.openEditModal = async function (bookingKey, dateKey) {
     bookSnap.forEach(child => {
       if (child.key === bookingKey) return;
       const o = child.val();
-      if (o.status === "cancelled" || o.status === "noshow") return;
+      if (o.status === "cancelled" || o.status === "noshow" || o.status === "finished") return;
       occupied.push({
         start: timeToMinutes(o.startTime),
         end:   timeToMinutes(o.startTime) + o.duration,
@@ -845,6 +846,36 @@ window.saveServiceDuration = async function (svcId) {
   await set(ref(db, `settings/services/${svcId}/duration`), val);
   serviceDurations[svcId] = val;
   showToast(`✓ Duration updated to ${val} min.`);
+};
+
+// ── Admin Cancellation ──
+let cancellingBooking = null;
+
+window.openCancelModal = async function (key, dateKey) {
+  const snap = await get(ref(db, `bookings/${dateKey}/${key}`));
+  if (!snap.exists()) return;
+  const b = snap.val();
+  cancellingBooking = { key, dateKey };
+  document.getElementById("cancel-label").textContent =
+    `${b.name} – ${b.serviceName} at ${formatDisplayTime(b.startTime)}`;
+  document.getElementById("cancel-reason").value = "";
+  document.getElementById("modal-cancel").classList.remove("hidden");
+};
+
+window.confirmCancelBooking = async function () {
+  if (!cancellingBooking) return;
+  const { key, dateKey } = cancellingBooking;
+  const reason = document.getElementById("cancel-reason").value.trim();
+  await update(ref(db, `bookings/${dateKey}/${key}`), {
+    status:       "cancelled",
+    cancelledAt:  Date.now(),
+    cancelReason: reason || "Cancelled by shop",
+    cancelledBy:  "admin"
+  });
+  closeModal("modal-cancel");
+  showToast("Booking cancelled.");
+  loadBookings();
+  cancellingBooking = null;
 };
 
 window.finishBooking = async function (key, dateKey) {
