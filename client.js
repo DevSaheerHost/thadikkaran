@@ -138,7 +138,7 @@ function showBlockedScreen() {
   document.getElementById("screen-blocked").classList.add("active");
 }
 
-function showApp(user) {
+async function showApp(user) {
   document.getElementById("screen-auth").classList.remove("active");
   document.getElementById("screen-auth").classList.add("hidden");
   document.getElementById("screen-app").classList.remove("hidden");
@@ -149,10 +149,22 @@ function showApp(user) {
   const name = user.displayName ? `, ${user.displayName.split(" ")[0]}` : "";
   document.getElementById("header-greeting").textContent = `${greeting}${name}`;
 
+  await loadServiceDurations();
   buildServicesUI();
   buildCalendarUI();
   watchRescheduledBookings();
   initClientFCM();
+}
+
+async function loadServiceDurations() {
+  try {
+    const snap = await get(ref(db, "settings/services"));
+    if (!snap.exists()) return;
+    snap.forEach(child => {
+      const svc = SERVICES.find(s => s.id === child.key);
+      if (svc && child.val().duration) svc.duration = child.val().duration;
+    });
+  } catch (e) { /* keep built-in defaults on error */ }
 }
 
 // Google Sign-In
