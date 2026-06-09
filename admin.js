@@ -63,16 +63,44 @@ let unsubBookings   = null;   // real-time listener unsubscribe
 //  AUTH
 // ═══════════════════════════════════
 
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    currentUser = user;
-    showApp();
-    initFCM();
-  } else {
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
     currentUser = null;
     showAuthScreen();
+    return;
   }
+
+  // Guard: only explicitly allowed UIDs can access the admin panel
+  try {
+    const snap = await get(ref(db, `admin/allowedUids/${user.uid}`));
+    if (!snap.exists() || snap.val() !== true) {
+      showAccessDenied();
+      return;
+    }
+  } catch (e) {
+    showAccessDenied();
+    return;
+  }
+
+  currentUser = user;
+  showApp();
+  initFCM();
 });
+
+function showAccessDenied() {
+  document.body.innerHTML = `
+    <div style="min-height:100dvh;display:flex;align-items:center;justify-content:center;
+                background:#0a0a0a;font-family:sans-serif;padding:2rem;text-align:center">
+      <div>
+        <div style="color:#d4a34e;font-size:2rem;margin-bottom:1rem">✦</div>
+        <h2 style="color:#fff;font-size:1.3rem;font-weight:600;margin-bottom:.5rem">Access Denied</h2>
+        <p style="color:#666;font-size:.9rem;margin-bottom:2rem;line-height:1.6">
+          This page is for shop staff only.<br>Your account doesn't have admin access.
+        </p>
+        <a href="/" style="color:#d4a34e;font-size:.9rem;text-decoration:none">← Back to Booking Page</a>
+      </div>
+    </div>`;
+}
 
 function showAuthScreen() {
   document.getElementById("screen-auth").classList.remove("hidden");
