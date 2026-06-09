@@ -146,6 +146,30 @@ body {
   padding: 2rem 1.25rem;
 }
 
+/* ── Blocked Screen ── */
+.blocked-wrapper {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+  text-align: center;
+}
+.blocked-icon { font-size: 3.5rem; margin-bottom: 1rem; }
+.blocked-title {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  color: var(--danger, #c0392b);
+  margin-bottom: 0.75rem;
+}
+.blocked-body {
+  color: var(--mid-gray);
+  max-width: 300px;
+  line-height: 1.6;
+  margin-bottom: 1.75rem;
+}
+
 .auth-wrapper {
   width: 100%;
   max-width: var(--max-width);
@@ -767,6 +791,18 @@ body {
   cursor: not-allowed;
   border-color: var(--border);
   text-decoration: line-through;
+}
+
+.slot-taken-banner {
+  background: #fff0f0;
+  color: #c0392b;
+  border: 1.5px solid #f5c6cb;
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  margin-bottom: 0.75rem;
+  animation: fadeIn 0.25s ease;
 }
 
 .no-slots-msg {

@@ -20,7 +20,8 @@ import {
   query,
   orderByChild,
   equalTo,
-  onValue
+  onValue,
+  runTransaction
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import {
   getMessaging,
@@ -86,6 +87,14 @@ onAuthStateChanged(auth, async (user) => {
   hideSplash();
   if (user) {
     currentUser = user;
+
+    // Check if user is blocked before showing anything
+    const blockedSnap = await get(ref(db, `users/${user.uid}/blocked`));
+    if (blockedSnap.exists() && blockedSnap.val() === true) {
+      showBlockedScreen();
+      return;
+    }
+
     // Resolve phone: Google profile → Firebase DB → ask user
     if (user.phoneNumber) {
       userPhone = user.phoneNumber;
@@ -118,6 +127,15 @@ function showAuthScreen() {
   document.getElementById("screen-auth").classList.remove("hidden");
   document.getElementById("screen-app").classList.add("hidden");
   document.getElementById("screen-app").classList.remove("active");
+}
+
+function showBlockedScreen() {
+  document.getElementById("screen-auth").classList.add("hidden");
+  document.getElementById("screen-auth").classList.remove("active");
+  document.getElementById("screen-app").classList.add("hidden");
+  document.getElementById("screen-app").classList.remove("active");
+  document.getElementById("screen-blocked").classList.remove("hidden");
+  document.getElementById("screen-blocked").classList.add("active");
 }
 
 function showApp(user) {
@@ -280,65 +298,93 @@ function buildCalendarUI() {
 //  TIME SLOTS
 // ═══════════════════════════════════
 
-async function loadSlots() {
+// ── Real-time slot state ──
+let liveSlotData  = { bookings: null, blocks: null }; // null = not yet loaded
+let slotsUnsubFns = [];
+let rerenderTimer = null;
+
+function loadSlots() {
   if (!selectedDate || !selectedService) return;
 
-  const slotsGrid = document.getElementById("slots-grid");
-  const noSlotsMsg = document.getElementById("no-slots-msg");
-  const loading = document.getElementById("slots-loading");
-
-  slotsGrid.innerHTML = "";
-  noSlotsMsg.classList.add("hidden");
-  loading.classList.remove("hidden");
+  document.getElementById("slots-grid").innerHTML = "";
+  document.getElementById("no-slots-msg").classList.add("hidden");
+  document.getElementById("slots-loading").classList.remove("hidden");
   document.getElementById("btn-next-3").disabled = true;
+  hideSlotTakenBanner();
 
-  const dateKey = formatDateKey(selectedDate);
   document.getElementById("slots-sub").textContent =
     `Available for ${selectedDate.toLocaleDateString("en-IN", { weekday:"long", day:"numeric", month:"short" })}`;
 
-  // Fetch bookings for this date (including admin blocks)
-  const bookingsRef = ref(db, `bookings/${dateKey}`);
-  let bookedSlots = [];
+  const dateKey = formatDateKey(selectedDate);
+  liveSlotData = { bookings: null, blocks: null };
+  stopLiveSlotWatch();
 
-  try {
-    const snap = await get(bookingsRef);
-    if (snap.exists()) {
-      snap.forEach(child => {
-        const b = child.val();
-        if (b.status !== "cancelled") {
-          bookedSlots.push({ start: b.startTime, duration: b.duration });
-        }
-      });
-    }
-  } catch (e) {
-    console.error("Error fetching slots:", e);
-  }
+  // Live listener: bookings
+  const u1 = onValue(ref(db, `bookings/${dateKey}`), (snap) => {
+    liveSlotData.bookings = {};
+    if (snap.exists()) snap.forEach(c => { liveSlotData.bookings[c.key] = c.val(); });
+    scheduleRerender();
+  }, () => { liveSlotData.bookings = {}; scheduleRerender(); });
 
-  // Also fetch blocked slots
-  const blockedRef = ref(db, `blocked/${dateKey}`);
-  try {
-    const snap2 = await get(blockedRef);
-    if (snap2.exists()) {
-      snap2.forEach(child => {
-        const bl = child.val();
-        bookedSlots.push({ start: bl.startTime, duration: bl.duration || 30 });
-      });
-    }
-  } catch (e) {}
+  // Live listener: admin blocks
+  const u2 = onValue(ref(db, `blocked/${dateKey}`), (snap) => {
+    liveSlotData.blocks = {};
+    if (snap.exists()) snap.forEach(c => { liveSlotData.blocks[c.key] = c.val(); });
+    scheduleRerender();
+  }, () => { liveSlotData.blocks = {}; scheduleRerender(); });
 
-  loading.classList.add("hidden");
+  slotsUnsubFns = [u1, u2];
+}
 
-  // Generate all possible slots
-  const allSlots = generateSlots();
-  const svcDuration = selectedService.duration;
-  let hasAvailable = false;
+function stopLiveSlotWatch() {
+  slotsUnsubFns.forEach(u => u());
+  slotsUnsubFns = [];
+  clearTimeout(rerenderTimer);
+}
+
+function scheduleRerender() {
+  clearTimeout(rerenderTimer);
+  rerenderTimer = setTimeout(rerenderSlots, 40); // debounce rapid twin-listener fires
+}
+
+function rerenderSlots() {
+  if (currentStep !== 3) return;
+  // Wait until both sources have responded at least once
+  if (liveSlotData.bookings === null || liveSlotData.blocks === null) return;
+
+  const bookedSlots = [];
+  Object.values(liveSlotData.bookings).forEach(b => {
+    if (b && b.status !== "cancelled") bookedSlots.push({ start: b.startTime, duration: b.duration });
+  });
+  Object.values(liveSlotData.blocks).forEach(bl => {
+    if (bl) bookedSlots.push({ start: bl.startTime, duration: bl.duration || 30 });
+  });
+
+  const allSlots    = generateSlots();
+  const svcDuration = selectedService?.duration;
+  const grid        = document.getElementById("slots-grid");
+  const prevSlot    = selectedSlot; // capture before any mutation
+  let hasAvailable  = false;
+  let selectedGone  = false;
+
+  grid.innerHTML = "";
 
   allSlots.forEach(slot => {
     const isUnavailable = isSlotUnavailable(slot, svcDuration, bookedSlots, allSlots);
+    const wasSelected   = prevSlot && slot[0] === prevSlot[0] && slot[1] === prevSlot[1];
+
+    if (wasSelected && isUnavailable) {
+      selectedSlot = null;
+      document.getElementById("btn-next-3").disabled = true;
+      selectedGone = true;
+    }
+
     const btn = document.createElement("button");
-    btn.className = "slot-btn" + (isUnavailable ? " booked" : "");
+    btn.className = "slot-btn" +
+      (isUnavailable ? " booked" : "") +
+      (wasSelected && !isUnavailable ? " selected" : "");
     btn.textContent = formatTime(slot);
-    btn.disabled = isUnavailable;
+    btn.disabled    = isUnavailable;
 
     if (!isUnavailable) {
       hasAvailable = true;
@@ -347,13 +393,32 @@ async function loadSlots() {
         btn.classList.add("selected");
         selectedSlot = slot;
         document.getElementById("btn-next-3").disabled = false;
+        hideSlotTakenBanner();
       });
     }
 
-    slotsGrid.appendChild(btn);
+    grid.appendChild(btn);
   });
 
-  if (!hasAvailable) noSlotsMsg.classList.remove("hidden");
+  document.getElementById("slots-loading").classList.add("hidden");
+  document.getElementById("no-slots-msg").classList.toggle("hidden", hasAvailable);
+  if (selectedGone) showSlotTakenBanner();
+}
+
+function showSlotTakenBanner() {
+  let el = document.getElementById("slot-taken-banner");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "slot-taken-banner";
+    el.className = "slot-taken-banner";
+    document.getElementById("slots-grid").before(el);
+  }
+  el.textContent = "⚡ Your selected time was just booked! Please choose another slot.";
+  el.classList.remove("hidden");
+}
+
+function hideSlotTakenBanner() {
+  document.getElementById("slot-taken-banner")?.classList.add("hidden");
 }
 
 /** Generate all time slots in [hour, minute] pairs */
@@ -405,6 +470,11 @@ function isSlotUnavailable(slot, duration, bookedSlots, allSlots) {
   return false;
 }
 
+function timeStrToMin(t) {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+}
+
 function formatDateKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
 }
@@ -422,6 +492,12 @@ function formatTime([h, m]) {
 window.goToStep = function (step) {
   if (step === 3 && (!selectedDate || !selectedService)) return;
   if (step === 4 && !selectedSlot) return;
+
+  // Stop real-time slot watch when leaving step 3
+  if (currentStep === 3 && step !== 3) {
+    stopLiveSlotWatch();
+    hideSlotTakenBanner();
+  }
 
   // Update step indicators
   document.querySelectorAll(".step").forEach(el => {
@@ -467,6 +543,13 @@ function populateConfirm() {
 window.confirmBooking = async function () {
   if (!currentUser || !selectedService || !selectedDate || !selectedSlot) return;
 
+  // Guard: re-check block status at submit time
+  const blockedSnap = await get(ref(db, `users/${currentUser.uid}/blocked`));
+  if (blockedSnap.exists() && blockedSnap.val() === true) {
+    showBlockedScreen();
+    return;
+  }
+
   const btn = document.getElementById("btn-confirm");
   btn.textContent = "Booking...";
   btn.disabled = true;
@@ -495,8 +578,32 @@ window.confirmBooking = async function () {
 
   try {
     const bookingsRef = ref(db, `bookings/${dateKey}`);
-    const newRef = await push(bookingsRef, booking);
-    const bookingId = newRef.key;
+    const bookingKey  = push(bookingsRef).key; // pre-generate unique key
+    const sMin = selectedSlot[0] * 60 + selectedSlot[1];
+    const eMin = sMin + selectedService.duration;
+
+    // Atomic transaction: check for overlaps and write in one operation
+    const txResult = await runTransaction(bookingsRef, (current) => {
+      const data = current || {};
+      for (const b of Object.values(data)) {
+        if (!b || b.status === "cancelled") continue;
+        const bS = timeStrToMin(b.startTime), bE = bS + (b.duration || 30);
+        if (sMin < bE && eMin > bS) return; // conflict — abort
+      }
+      data[bookingKey] = booking;
+      return data;
+    });
+
+    if (!txResult.committed) {
+      document.getElementById("booking-error").textContent =
+        "⚡ This slot was just booked by someone else! Please go back and choose a different time.";
+      document.getElementById("booking-error").classList.remove("hidden");
+      btn.textContent = "Confirm Appointment";
+      btn.disabled = false;
+      return;
+    }
+
+    const bookingId = bookingKey;
 
     // Also update user's booking history (bookingId links to live data)
     await push(ref(db, `users/${currentUser.uid}/bookings`), {
@@ -533,6 +640,7 @@ function showSuccessModal() {
 }
 
 window.resetBooking = function () {
+  stopLiveSlotWatch();
   selectedService = null;
   selectedDate    = null;
   selectedSlot    = null;
