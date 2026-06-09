@@ -42,6 +42,81 @@
 /* ── Reset ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 16px; }
+
+/* ── Admin Loading Splash ── */
+.admin-splash {
+  position: fixed;
+  inset: 0;
+  background: var(--black);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  transition: opacity 0.35s ease;
+}
+.admin-splash.fade-out { opacity: 0; pointer-events: none; }
+.admin-splash.hidden   { display: none; }
+
+.admin-splash-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+.admin-splash-mark {
+  width: 52px; height: 52px;
+  background: var(--off-white);
+  color: var(--black);
+  border-radius: 14px;
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 900;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 0.5rem;
+}
+.admin-splash-name {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--white);
+  letter-spacing: 0.02em;
+}
+.admin-splash-sub {
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--light);
+  margin-bottom: 1.5rem;
+}
+.admin-splash-cut {
+  position: relative;
+  width: 140px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+}
+.admin-splash-line {
+  position: absolute;
+  left: 0; right: 0;
+  height: 1px;
+  background: repeating-linear-gradient(
+    to right, var(--mid) 0, var(--mid) 6px, transparent 6px, transparent 12px
+  );
+}
+.admin-splash-scissors {
+  position: absolute;
+  font-size: 1.1rem;
+  color: var(--silver);
+  animation: admin-cut 1.4s ease-in-out infinite;
+  transform-origin: center;
+}
+@keyframes admin-cut {
+  0%   { left: 0;    opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { left: calc(100% - 1.1rem); opacity: 0; }
+}
+
 body {
   font-family: var(--font-body);
   background: var(--bg);

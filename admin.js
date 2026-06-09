@@ -99,6 +99,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 function showAccessDenied() {
+  hideSplash();
   document.body.innerHTML = `
     <div style="min-height:100dvh;display:flex;align-items:center;justify-content:center;
                 background:#0a0a0a;font-family:sans-serif;padding:2rem;text-align:center">
@@ -113,7 +114,15 @@ function showAccessDenied() {
     </div>`;
 }
 
+function hideSplash() {
+  const el = document.getElementById("screen-loading");
+  if (!el || el.classList.contains("hidden")) return;
+  el.classList.add("fade-out");
+  setTimeout(() => el.classList.add("hidden"), 360);
+}
+
 function showAuthScreen() {
+  hideSplash();
   document.getElementById("screen-auth").classList.remove("hidden");
   document.getElementById("screen-auth").classList.add("active");
   document.getElementById("screen-app").classList.add("hidden");
@@ -121,6 +130,7 @@ function showAuthScreen() {
 }
 
 function showApp() {
+  hideSplash();
   document.getElementById("screen-auth").classList.add("hidden");
   document.getElementById("screen-auth").classList.remove("active");
   document.getElementById("screen-app").classList.remove("hidden");
