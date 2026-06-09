@@ -59,7 +59,8 @@ const DEFAULT_SERVICES = [
   { id: "facial",        name: "Facial",           defaultDuration: 40 },
   { id: "hair_spa",      name: "Hair Spa",         defaultDuration: 20 },
 ];
-let serviceDurations = {}; // { svcId: minutes } — overrides loaded from Firebase
+let serviceDurations  = {}; // { svcId: minutes } — overrides loaded from Firebase
+let lunchBreakConfig  = { enabled: true, startTime: "13:00", endTime: "14:30" };
 
 // ── State ──
 let currentUser     = null;
@@ -148,6 +149,7 @@ function showApp() {
   if (bDate) bDate.value = today;
 
   initServiceDurations();
+  initLunchBreak();
   startNewBookingWatcher();
   switchTab("bookings", document.querySelector('.nav-link[data-tab="bookings"]'));
   loadNoshows();
@@ -408,7 +410,7 @@ window.switchTab = function (tabId, btn) {
   if (tabId === "bookings") loadBookings();
   if (tabId === "block")    loadActiveBlocks();
   if (tabId === "noshows")  loadNoshows();
-  if (tabId === "settings") { loadServiceSettings(); loadNotifStatus(); }
+  if (tabId === "settings") { loadLunchSettings(); loadServiceSettings(); loadNotifStatus(); }
 };
 
 // ═══════════════════════════════════
@@ -468,6 +470,21 @@ function loadBookings() {
         });
       }
 
+      // Inject lunch break as a virtual block (display only, not stored)
+      if (lunchBreakConfig.enabled && lunchBreakConfig.startTime) {
+        const [lh, lm] = lunchBreakConfig.startTime.split(":").map(Number);
+        const [eh, em] = lunchBreakConfig.endTime.split(":").map(Number);
+        items.push({
+          key: "__lunch__",
+          source: "block",
+          status: "blocked",
+          startTime: lunchBreakConfig.startTime,
+          duration: (eh * 60 + em) - (lh * 60 + lm),
+          reason: "Lunch Break",
+          _isLunch: true
+        });
+      }
+
       // Sort by startTime
       items.sort((a, b) => a.startTime.localeCompare(b.startTime));
 
@@ -499,7 +516,10 @@ function buildBookingCard(item) {
   const sourceBadge = item.source === "admin"  ? `<span class="status-badge badge-walk-in">Walk-in</span>` : "";
 
   const actionsHtml = isBlock
-    ? `<button class="btn btn-sm btn-danger" onclick="removeBlock('${item.key}')">Remove</button>`
+    ? (item._isLunch
+        ? `<button class="btn btn-sm btn-outline" onclick="switchTab('settings', document.querySelector('.nav-link[data-tab=\\'settings\\']'))">Edit in Settings</button>`
+        : `<button class="btn btn-sm btn-danger" onclick="removeBlock('${item.key}')">Remove</button>`)
+
     : item.status !== "noshow" && item.status !== "cancelled" && item.status !== "finished"
       ? `
         <button class="btn btn-sm btn-success" onclick="finishBooking('${item.key}', '${currentDateKey}')">Finish</button>
@@ -888,6 +908,44 @@ window.confirmNoShow = async function () {
   loadBookings();
   loadNoshows();
   noshowBooking = null;
+};
+
+// ═══════════════════════════════════
+//  LUNCH BREAK SETTINGS
+// ═══════════════════════════════════
+
+async function initLunchBreak() {
+  try {
+    const snap = await get(ref(db, "settings/lunchBreak"));
+    if (snap.exists()) {
+      lunchBreakConfig = { ...lunchBreakConfig, ...snap.val() };
+    } else {
+      // Write defaults on first run
+      await set(ref(db, "settings/lunchBreak"), lunchBreakConfig);
+    }
+  } catch (e) { /* keep defaults */ }
+}
+
+function loadLunchSettings() {
+  const en    = document.getElementById("lunch-enabled");
+  const start = document.getElementById("lunch-start");
+  const end   = document.getElementById("lunch-end");
+  if (!en) return;
+  en.checked  = lunchBreakConfig.enabled;
+  start.value = lunchBreakConfig.startTime || "13:00";
+  end.value   = lunchBreakConfig.endTime   || "14:30";
+  document.getElementById("lunch-times-row").style.opacity = lunchBreakConfig.enabled ? "1" : "0.4";
+}
+
+window.saveLunchBreak = async function () {
+  const enabled   = document.getElementById("lunch-enabled").checked;
+  const startTime = document.getElementById("lunch-start").value;
+  const endTime   = document.getElementById("lunch-end").value;
+  if (startTime >= endTime) { showToast("End time must be after start time."); return; }
+  lunchBreakConfig = { enabled, startTime, endTime };
+  document.getElementById("lunch-times-row").style.opacity = enabled ? "1" : "0.4";
+  await set(ref(db, "settings/lunchBreak"), lunchBreakConfig);
+  showToast(enabled ? `✓ Lunch break set: ${formatDisplayTime(startTime)} – ${formatDisplayTime(endTime)}` : "Lunch break disabled.");
 };
 
 // ═══════════════════════════════════
