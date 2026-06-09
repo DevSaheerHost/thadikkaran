@@ -220,6 +220,7 @@ body {
   font-size: 0.78rem;
   margin-bottom: 0;
   width: auto;
+  white-space: nowrap;
 }
 
 .btn-icon {
@@ -515,9 +516,7 @@ body {
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--black);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  word-break: break-word;
 }
 
 .booking-service {
@@ -729,7 +728,7 @@ body {
 @media (max-width: 480px) {
   .stats-row { grid-template-columns: repeat(2, 1fr); }
   .presets-grid { grid-template-columns: repeat(2, 1fr); }
-  .booking-actions { flex-direction: row; }
+  .booking-actions { flex-direction: column; }
 }
 
 @media (min-width: 900px) {
