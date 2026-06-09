@@ -215,6 +215,9 @@ body {
 .btn-danger { background: var(--danger); color: var(--white); }
 .btn-danger:hover { background: #a93226; }
 
+.btn-success { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+.btn-success:hover { background: #a7f3d0; }
+
 .btn-sm {
   padding: 0.4rem 0.75rem;
   font-size: 0.78rem;
@@ -364,6 +367,22 @@ body {
   margin-left: auto;
 }
 .nav-signout:hover { color: var(--white); border-color: rgba(255,255,255,0.3); }
+
+.nav-client-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  color: var(--light);
+  font-size: 0.82rem;
+  text-decoration: none;
+  border: 1px solid rgba(255,255,255,0.12);
+  transition: all var(--transition);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.nav-client-link:hover { color: var(--white); border-color: rgba(255,255,255,0.3); }
 
 /* ── Main ── */
 .admin-main {
@@ -554,6 +573,7 @@ body {
 .badge-cancelled { background: var(--off-white); color: var(--mid); }
 .badge-blocked   { background: var(--warn-bg); color: var(--warn); }
 .badge-walk-in   { background: #e8e8ff; color: #4c4cca; }
+.badge-finished  { background: #e0f2fe; color: #0369a1; }
 
 .booking-actions {
   display: flex;
@@ -754,7 +774,8 @@ body {
   .nav-brand { flex-direction: column; align-items: flex-start; margin-right: 0; margin-bottom: 1.5rem; }
   .nav-links { flex-direction: column; align-items: stretch; width: 100%; }
   .nav-link { width: 100%; }
-  .nav-signout { margin-left: 0; margin-top: auto; width: 100%; }
+  .nav-signout { margin-left: 0; margin-top: 0.5rem; width: 100%; }
+  .nav-client-link { margin-left: 0; margin-top: auto; width: 100%; justify-content: center; }
 
   .admin-main {
     margin-left: var(--nav-width);

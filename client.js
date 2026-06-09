@@ -87,6 +87,14 @@ onAuthStateChanged(auth, async (user) => {
   hideSplash();
   if (user) {
     currentUser = user;
+
+    // Check if user is blocked before showing anything
+    const blockedSnap = await get(ref(db, `users/${user.uid}/blocked`));
+    if (blockedSnap.exists() && blockedSnap.val() === true) {
+      showBlockedScreen();
+      return;
+    }
+
     // Resolve phone: Google profile → Firebase DB → ask user
     if (user.phoneNumber) {
       userPhone = user.phoneNumber;
@@ -119,6 +127,15 @@ function showAuthScreen() {
   document.getElementById("screen-auth").classList.remove("hidden");
   document.getElementById("screen-app").classList.add("hidden");
   document.getElementById("screen-app").classList.remove("active");
+}
+
+function showBlockedScreen() {
+  document.getElementById("screen-auth").classList.add("hidden");
+  document.getElementById("screen-auth").classList.remove("active");
+  document.getElementById("screen-app").classList.add("hidden");
+  document.getElementById("screen-app").classList.remove("active");
+  document.getElementById("screen-blocked").classList.remove("hidden");
+  document.getElementById("screen-blocked").classList.add("active");
 }
 
 function showApp(user) {
@@ -525,6 +542,13 @@ function populateConfirm() {
 
 window.confirmBooking = async function () {
   if (!currentUser || !selectedService || !selectedDate || !selectedSlot) return;
+
+  // Guard: re-check block status at submit time
+  const blockedSnap = await get(ref(db, `users/${currentUser.uid}/blocked`));
+  if (blockedSnap.exists() && blockedSnap.val() === true) {
+    showBlockedScreen();
+    return;
+  }
 
   const btn = document.getElementById("btn-confirm");
   btn.textContent = "Booking...";

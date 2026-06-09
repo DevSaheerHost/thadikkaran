@@ -378,7 +378,8 @@ function buildBookingCard(item) {
     confirmed: "badge-confirmed",
     noshow:    "badge-noshow",
     cancelled: "badge-cancelled",
-    blocked:   "badge-blocked"
+    blocked:   "badge-blocked",
+    finished:  "badge-finished"
   };
   const badgeClass = statusMap[item.status] || "badge-confirmed";
   const statusLabel = item.status === "blocked" ? "Blocked" : (item.status || "confirmed");
@@ -386,8 +387,9 @@ function buildBookingCard(item) {
 
   const actionsHtml = isBlock
     ? `<button class="btn btn-sm btn-danger" onclick="removeBlock('${item.key}')">Remove</button>`
-    : item.status !== "noshow" && item.status !== "cancelled"
+    : item.status !== "noshow" && item.status !== "cancelled" && item.status !== "finished"
       ? `
+        <button class="btn btn-sm btn-success" onclick="finishBooking('${item.key}', '${currentDateKey}')">Finish</button>
         <button class="btn btn-sm btn-outline" onclick="openEditModal('${item.key}', '${currentDateKey}')">Edit Time</button>
         <button class="btn btn-sm btn-danger"  onclick="openNoshowModal('${item.key}', '${currentDateKey}')">No-Show</button>
       `
@@ -772,6 +774,26 @@ window.confirmNoShow = async function () {
   loadBookings();
   loadNoshows();
   noshowBooking = null;
+};
+
+window.finishBooking = async function (key, dateKey) {
+  const now    = new Date();
+  const endStr = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+  const snap   = await get(ref(db, `bookings/${dateKey}/${key}`));
+  if (!snap.exists()) return;
+  const b            = snap.val();
+  const startMin     = timeToMinutes(b.startTime);
+  const endMin       = timeToMinutes(endStr);
+  const actualDur    = Math.max(endMin - startMin, 1);
+
+  await update(ref(db, `bookings/${dateKey}/${key}`), {
+    status:      "finished",
+    endTime:     endStr,
+    duration:    actualDur,
+    finishedAt:  Date.now()
+  });
+  showToast("✓ Booking marked as finished.");
+  loadBookings();
 };
 
 function loadNoshows() {
