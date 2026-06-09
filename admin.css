@@ -1128,3 +1128,88 @@ body {
   margin-top: 20px;
   flex-shrink: 0;
 }
+
+/* ── Slot View Modal ── */
+.modal-box--wide {
+  max-width: 520px;
+  width: calc(100% - 32px);
+}
+
+.modal-slot-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.slot-view-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.78rem;
+  color: var(--mid);
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.sv-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.sv-dot--free    { background: #22c55e; }
+.sv-dot--booked  { background: #f59e0b; }
+.sv-dot--blocked { background: #94a3b8; }
+
+.slot-view-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.sv-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid transparent;
+  min-width: 0;
+}
+
+.sv-slot--free {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+.sv-slot--booked {
+  background: #fffbeb;
+  border-color: #fcd34d;
+}
+.sv-slot--blocked {
+  background: var(--bg);
+  border-color: var(--border);
+}
+.sv-slot--past {
+  background: var(--bg);
+  border-color: var(--border);
+  opacity: 0.5;
+}
+
+.sv-slot-time {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--black);
+  font-family: var(--font-mono);
+}
+.sv-slot-label {
+  font-size: 0.73rem;
+  color: var(--mid);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

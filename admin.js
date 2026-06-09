@@ -1151,3 +1151,88 @@ function showToast(msg, duration = 3000) {
 window.closeModal = function (id) {
   document.getElementById(id).classList.add("hidden");
 };
+
+// ── Slot Availability View ──
+window.openSlotViewModal = async function () {
+  document.getElementById("modal-slot-view").classList.remove("hidden");
+  document.getElementById("slot-view-grid").innerHTML = "";
+  document.getElementById("slot-view-loading").classList.remove("hidden");
+
+  const d = new Date(currentDateKey + "T00:00:00");
+  document.getElementById("slot-view-date-label").textContent =
+    d.toLocaleDateString("en-IN", { weekday: "long", day: "2-digit", month: "short", year: "numeric" });
+
+  const [bookSnap, blkSnap] = await Promise.all([
+    get(ref(db, `bookings/${currentDateKey}`)),
+    get(ref(db, `blocked/${currentDateKey}`))
+  ]);
+
+  // Collect all occupied ranges
+  const occupied = []; // { start, end, label, type }
+  if (bookSnap.exists()) {
+    bookSnap.forEach(child => {
+      const b = child.val();
+      if (b.status === "cancelled" || b.status === "noshow") return;
+      occupied.push({
+        start: timeToMinutes(b.startTime),
+        end:   timeToMinutes(b.startTime) + (b.duration || 30),
+        label: b.name ? `${b.name} – ${b.serviceName || ""}` : (b.serviceName || "Booking"),
+        status: b.status || "confirmed",
+        type:  "booked"
+      });
+    });
+  }
+  if (blkSnap.exists()) {
+    blkSnap.forEach(child => {
+      const bl = child.val();
+      occupied.push({
+        start: timeToMinutes(bl.startTime),
+        end:   timeToMinutes(bl.startTime) + (bl.duration || 30),
+        label: bl.reason || "Blocked",
+        type:  "blocked"
+      });
+    });
+  }
+  if (lunchBreakConfig.enabled && lunchBreakConfig.startTime) {
+    const ls = timeToMinutes(lunchBreakConfig.startTime);
+    const le = timeToMinutes(lunchBreakConfig.endTime);
+    occupied.push({ start: ls, end: le, label: "Lunch Break", type: "blocked" });
+  }
+
+  // Generate slots (same dynamic logic as client)
+  const OPEN = 9 * 60, CLOSE = 20 * 60, STEP = 30;
+  const mins = new Set();
+  for (let m = OPEN; m <= CLOSE; m += STEP) mins.add(m);
+  occupied.forEach(o => { if (o.start >= OPEN && o.start <= CLOSE) mins.add(o.end); });
+  const slots = [...mins].sort((a, b) => a - b);
+
+  const grid = document.getElementById("slot-view-grid");
+  grid.innerHTML = "";
+  document.getElementById("slot-view-loading").classList.add("hidden");
+
+  const now = new Date();
+  const isToday = currentDateKey === formatDateKey(now);
+
+  slots.forEach(min => {
+    if (min >= CLOSE) return;
+    const timeStr = minutesToTime(min);
+    const hit = occupied.find(o => min >= o.start && min < o.end);
+    const isPast = isToday && (now.getHours() * 60 + now.getMinutes()) > min;
+
+    const el = document.createElement("div");
+    el.className = "sv-slot" +
+      (hit ? (hit.type === "blocked" ? " sv-slot--blocked" : " sv-slot--booked") : (isPast ? " sv-slot--past" : " sv-slot--free"));
+
+    const timeEl = document.createElement("span");
+    timeEl.className = "sv-slot-time";
+    timeEl.textContent = formatDisplayTime(timeStr);
+
+    const labelEl = document.createElement("span");
+    labelEl.className = "sv-slot-label";
+    labelEl.textContent = hit ? hit.label : (isPast ? "Past" : "Free");
+
+    el.appendChild(timeEl);
+    el.appendChild(labelEl);
+    grid.appendChild(el);
+  });
+};

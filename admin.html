@@ -139,6 +139,7 @@
             <p class="tab-sub" id="bookings-date-label">Today's schedule</p>
           </div>
           <div class="date-nav">
+            <button class="btn btn-sm btn-outline" onclick="openSlotViewModal()" style="margin-right:6px">View Slots</button>
             <button class="btn-icon" onclick="changeBookingsDate(-1)">←</button>
             <input type="date" id="bookings-date-picker" class="date-picker" onchange="onDatePickerChange()" />
             <button class="btn-icon" onclick="changeBookingsDate(1)">→</button>
@@ -410,6 +411,28 @@
         <button class="btn btn-ghost" onclick="closeModal('modal-cancel')">Go Back</button>
         <button class="btn btn-danger" onclick="confirmCancelBooking()">Confirm Cancellation</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       MODAL: SLOT AVAILABILITY VIEW
+  ══════════════════════════════════════ -->
+  <div id="modal-slot-view" class="modal-overlay hidden">
+    <div class="modal-box modal-box--wide">
+      <div class="modal-slot-header">
+        <div>
+          <h3 class="modal-title">Slot Availability</h3>
+          <p class="modal-sub" id="slot-view-date-label">Today</p>
+        </div>
+        <button class="btn-icon" onclick="closeModal('modal-slot-view')">✕</button>
+      </div>
+      <div class="slot-view-legend">
+        <span class="sv-dot sv-dot--free"></span><span>Available</span>
+        <span class="sv-dot sv-dot--booked"></span><span>Booked</span>
+        <span class="sv-dot sv-dot--blocked"></span><span>Blocked</span>
+      </div>
+      <div id="slot-view-loading" class="loading-spinner" style="padding:24px 0"><div class="spinner"></div></div>
+      <div id="slot-view-grid" class="slot-view-grid"></div>
     </div>
   </div>
 
