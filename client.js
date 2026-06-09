@@ -373,7 +373,7 @@ function rerenderSlots() {
     if (bl) bookedSlots.push({ start: bl.startTime, duration: bl.duration || 30 });
   });
 
-  const allSlots    = generateSlots();
+  const allSlots    = generateSlots(bookedSlots);
   const svcDuration = selectedService?.duration;
   const grid        = document.getElementById("slots-grid");
   const prevSlot    = selectedSlot; // capture before any mutation
@@ -434,18 +434,30 @@ function hideSlotTakenBanner() {
   document.getElementById("slot-taken-banner")?.classList.add("hidden");
 }
 
-/** Generate all time slots in [hour, minute] pairs */
-function generateSlots() {
-  const slots = [];
-  let h = SHOP.openHour, m = SHOP.openMin;
-  const endMinutes = SHOP.closeHour * 60 + SHOP.closeMin;
+/** Generate time slots as [hour, minute] pairs.
+ *  Base grid: every slotStep minutes from open to close.
+ *  Plus: the end time of every existing booking (so a 40-min booking at 2:00
+ *  adds 2:40 as a valid start time rather than forcing the next slot to 3:00).
+ */
+function generateSlots(bookedSlots = []) {
+  const openMin  = SHOP.openHour  * 60 + SHOP.openMin;
+  const closeMin = SHOP.closeHour * 60 + SHOP.closeMin;
 
-  while (h * 60 + m <= endMinutes) {
-    slots.push([h, m]);
-    m += SHOP.slotStep;
-    if (m >= 60) { h += 1; m -= 60; }
+  const mins = new Set();
+
+  // Fixed base grid
+  for (let m = openMin; m <= closeMin; m += SHOP.slotStep) {
+    mins.add(m);
   }
-  return slots;
+
+  // Inject each booking's end time so the barber's next availability is visible
+  for (const b of bookedSlots) {
+    const [bh, bm] = b.start.split(":").map(Number);
+    const bEnd = bh * 60 + bm + (b.duration || 30);
+    if (bEnd > openMin && bEnd <= closeMin) mins.add(bEnd);
+  }
+
+  return [...mins].sort((a, b) => a - b).map(m => [Math.floor(m / 60), m % 60]);
 }
 
 /** Check if a slot overlaps with any booked booking, or is in the past */
