@@ -53,11 +53,11 @@ const messaging = getMessaging(app);
 
 // ── Service catalogue (mirrors client SERVICES array) ──
 const DEFAULT_SERVICES = [
-  { id: "haircut",       name: "Hair Cut (Mens)",  defaultDuration: 30 },
-  { id: "beard",         name: "Beard Setting",    defaultDuration: 30 },
+  { id: "haircut",       name: "Hair Cut (Mens)",  defaultDuration: 40 },
+  { id: "beard",         name: "Beard Setting",    defaultDuration: 40 },
   { id: "haircut_beard", name: "Hair Cut & Beard", defaultDuration: 40 },
   { id: "facial",        name: "Facial",           defaultDuration: 40 },
-  { id: "hair_spa",      name: "Hair Spa",         defaultDuration: 20 },
+  { id: "hair_spa",      name: "Hair Spa",         defaultDuration: 40 },
 ];
 let serviceDurations  = {}; // { svcId: minutes } — overrides loaded from Firebase
 let lunchBreakConfig  = { enabled: true, startTime: "13:00", endTime: "14:30" };
@@ -775,7 +775,7 @@ window.openEditModal = async function (bookingKey, dateKey) {
   grid.innerHTML = "";
   const OPEN = 9 * 60, CLOSE = 20 * 60;
 
-  for (let min = OPEN; min <= CLOSE; min += 30) {
+  for (let min = OPEN; min <= CLOSE; min += 40) {
     const timeStr  = minutesToTime(min);
     const slotEnd  = min + b.duration;
     const hits     = occupied.filter(o => min < o.end && slotEnd > o.start);
@@ -1199,11 +1199,16 @@ window.openSlotViewModal = async function () {
     occupied.push({ start: ls, end: le, label: "Lunch Break", type: "blocked" });
   }
 
-  // Generate slots (same dynamic logic as client)
-  const OPEN = 9 * 60, CLOSE = 20 * 60, STEP = 30;
+  // Generate slots — fixed 40-min grid + lunch end injection
+  const OPEN = 9 * 60, CLOSE = 20 * 60, STEP = 40;
   const mins = new Set();
   for (let m = OPEN; m <= CLOSE; m += STEP) mins.add(m);
-  occupied.forEach(o => { if (o.start >= OPEN && o.start <= CLOSE) mins.add(o.end); });
+  // Inject lunch break end time (2:30 PM is off the 40-min grid)
+  if (lunchBreakConfig.enabled && lunchBreakConfig.endTime) {
+    const [eh, em] = lunchBreakConfig.endTime.split(":").map(Number);
+    const le = eh * 60 + em;
+    if (le > OPEN && le < CLOSE) mins.add(le);
+  }
   const slots = [...mins].sort((a, b) => a - b);
 
   const grid = document.getElementById("slot-view-grid");

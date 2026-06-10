@@ -54,11 +54,11 @@ const SHOP_LNG = 76.330631;
 
 // ── Services Data ──
 const SERVICES = [
-  { id: "haircut",       name: "Hair Cut (Mens)",    price: 150,  duration: 30,  priceDisplay: "₹150" },
-  { id: "beard",         name: "Beard Setting",      price: 100,  duration: 30,  priceDisplay: "₹100" },
+  { id: "haircut",       name: "Hair Cut (Mens)",    price: 150,  duration: 40,  priceDisplay: "₹150" },
+  { id: "beard",         name: "Beard Setting",      price: 100,  duration: 40,  priceDisplay: "₹100" },
   { id: "haircut_beard", name: "Hair Cut & Beard",   price: 250,  duration: 40,  priceDisplay: "₹250" },
   { id: "facial",        name: "Facial",             price: null, duration: 40,  priceDisplay: "At Store" },
-  { id: "hair_spa",      name: "Hair Spa",           price: null, duration: 20,  priceDisplay: "At Store" },
+  { id: "hair_spa",      name: "Hair Spa",           price: null, duration: 40,  priceDisplay: "At Store" },
 ];
 
 // ── Shop Config ──
@@ -67,7 +67,7 @@ const SHOP = {
   openMin:   0,
   closeHour: 20,   // 8:00 PM
   closeMin:  0,
-  slotStep:  30,   // minutes per base slot
+  slotStep:  40,   // minutes per slot (all services are 40 min)
   maxAdvanceDays: 6,
   holidayDays: [2] // Tuesday = 2 (0=Sun, 1=Mon, 2=Tue...)
 };
@@ -396,7 +396,7 @@ function rerenderSlots() {
     bookedSlots.push({ start: lunchBreakConfig.startTime, duration: (eh * 60 + em) - (lh * 60 + lm) });
   }
 
-  const allSlots    = generateSlots(bookedSlots);
+  const allSlots    = generateSlots();
   const svcDuration = selectedService?.duration;
   const grid        = document.getElementById("slots-grid");
   const prevSlot    = selectedSlot; // capture before any mutation
@@ -457,27 +457,22 @@ function hideSlotTakenBanner() {
   document.getElementById("slot-taken-banner")?.classList.add("hidden");
 }
 
-/** Generate time slots as [hour, minute] pairs.
- *  Base grid: every slotStep minutes from open to close.
- *  Plus: the end time of every existing booking (so a 40-min booking at 2:00
- *  adds 2:40 as a valid start time rather than forcing the next slot to 3:00).
+/** Generate fixed time slots as [hour, minute] pairs.
+ *  Base grid: every slotStep (40 min) from open to close.
+ *  Lunch break end is injected as an extra origin since 14:30 is off the 40-min grid.
  */
-function generateSlots(bookedSlots = []) {
+function generateSlots() {
   const openMin  = SHOP.openHour  * 60 + SHOP.openMin;
   const closeMin = SHOP.closeHour * 60 + SHOP.closeMin;
 
   const mins = new Set();
+  for (let m = openMin; m <= closeMin; m += SHOP.slotStep) mins.add(m);
 
-  // Fixed base grid
-  for (let m = openMin; m <= closeMin; m += SHOP.slotStep) {
-    mins.add(m);
-  }
-
-  // Inject each booking's end time so the barber's next availability is visible
-  for (const b of bookedSlots) {
-    const [bh, bm] = b.start.split(":").map(Number);
-    const bEnd = bh * 60 + bm + (b.duration || 30);
-    if (bEnd > openMin && bEnd <= closeMin) mins.add(bEnd);
+  // Inject lunch break end so the first afternoon slot aligns with break end
+  if (lunchBreakConfig.enabled && lunchBreakConfig.endTime) {
+    const [eh, em] = lunchBreakConfig.endTime.split(":").map(Number);
+    const lunchEnd = eh * 60 + em;
+    if (lunchEnd > openMin && lunchEnd < closeMin) mins.add(lunchEnd);
   }
 
   return [...mins].sort((a, b) => a - b).map(m => [Math.floor(m / 60), m % 60]);
