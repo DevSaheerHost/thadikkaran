@@ -273,11 +273,11 @@ function buildServicesUI() {
       document.querySelectorAll(".service-card").forEach(c => c.classList.remove("selected"));
       if (isAlreadySelected) {
         selectedService = null;
-        document.getElementById("btn-next-1").disabled = true;
+        document.getElementById("btn-next-3").disabled = true;
       } else {
         card.classList.add("selected");
         selectedService = svc;
-        document.getElementById("btn-next-1").disabled = false;
+        document.getElementById("btn-next-3").disabled = false;
       }
     });
 
@@ -317,7 +317,7 @@ function buildCalendarUI() {
         document.querySelectorAll(".cal-day").forEach(c => c.classList.remove("selected"));
         dayEl.classList.add("selected");
         selectedDate = new Date(d);
-        document.getElementById("btn-next-2").disabled = false;
+        document.getElementById("btn-next-1").disabled = false;
       });
     }
 
@@ -335,12 +335,12 @@ let slotsUnsubFns = [];
 let rerenderTimer = null;
 
 function loadSlots() {
-  if (!selectedDate || !selectedService) return;
+  if (!selectedDate) return;
 
   document.getElementById("slots-grid").innerHTML = "";
   document.getElementById("no-slots-msg").classList.add("hidden");
   document.getElementById("slots-loading").classList.remove("hidden");
-  document.getElementById("btn-next-3").disabled = true;
+  document.getElementById("btn-next-2").disabled = true;
   hideSlotTakenBanner();
 
   document.getElementById("slots-sub").textContent =
@@ -379,7 +379,7 @@ function scheduleRerender() {
 }
 
 function rerenderSlots() {
-  if (currentStep !== 3) return;
+  if (currentStep !== 2) return;
   // Wait until both sources have responded at least once
   if (liveSlotData.bookings === null || liveSlotData.blocks === null) return;
 
@@ -397,7 +397,7 @@ function rerenderSlots() {
   }
 
   const allSlots    = generateSlots();
-  const svcDuration = selectedService?.duration;
+  const svcDuration = selectedService?.duration || SHOP.slotStep;
   const grid        = document.getElementById("slots-grid");
   const prevSlot    = selectedSlot; // capture before any mutation
   let hasAvailable  = false;
@@ -411,7 +411,7 @@ function rerenderSlots() {
 
     if (wasSelected && isUnavailable) {
       selectedSlot = null;
-      document.getElementById("btn-next-3").disabled = true;
+      document.getElementById("btn-next-2").disabled = true;
       selectedGone = true;
     }
 
@@ -428,7 +428,7 @@ function rerenderSlots() {
         document.querySelectorAll(".slot-btn").forEach(b => b.classList.remove("selected"));
         btn.classList.add("selected");
         selectedSlot = slot;
-        document.getElementById("btn-next-3").disabled = false;
+        document.getElementById("btn-next-2").disabled = false;
         hideSlotTakenBanner();
       });
     }
@@ -533,11 +533,12 @@ function formatTime([h, m]) {
 // ═══════════════════════════════════
 
 window.goToStep = function (step) {
-  if (step === 3 && (!selectedDate || !selectedService)) return;
-  if (step === 4 && !selectedSlot) return;
+  if (step === 2 && !selectedDate) return;
+  if (step === 3 && !selectedSlot) return;
+  if (step === 4 && !selectedService) return;
 
-  // Stop real-time slot watch when leaving step 3
-  if (currentStep === 3 && step !== 3) {
+  // Stop real-time slot watch when leaving step 2
+  if (currentStep === 2 && step !== 2) {
     stopLiveSlotWatch();
     hideSlotTakenBanner();
   }
@@ -562,8 +563,8 @@ window.goToStep = function (step) {
 
   currentStep = step;
 
-  // Trigger slot loading when reaching step 3
-  if (step === 3) loadSlots();
+  // Trigger slot loading when reaching step 2
+  if (step === 2) loadSlots();
 
   // Populate confirm screen
   if (step === 4) populateConfirm();
@@ -693,9 +694,12 @@ window.resetBooking = function () {
   document.getElementById("btn-confirm").disabled    = false;
   goToStep(1);
 
-  // Deselect all service cards
+  // Deselect all service cards and reset all next buttons
   document.querySelectorAll(".service-card").forEach(c => c.classList.remove("selected"));
+  document.querySelectorAll(".cal-day").forEach(c => c.classList.remove("selected"));
   document.getElementById("btn-next-1").disabled = true;
+  document.getElementById("btn-next-2").disabled = true;
+  document.getElementById("btn-next-3").disabled = true;
 };
 
 // ═══════════════════════════════════
