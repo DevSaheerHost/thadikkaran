@@ -158,6 +158,8 @@ async function showApp(user) {
   buildCalendarUI();
   watchRescheduledBookings();
   initClientFCM();
+  // Seed history so the phone back button navigates between steps
+  history.replaceState({ step: 1 }, '');
 }
 
 async function loadServiceDurations() {
@@ -413,6 +415,8 @@ function rerenderSlots() {
       selectedSlot = null;
       document.getElementById("btn-next-2").disabled = true;
       selectedGone = true;
+    } else if (wasSelected && !isUnavailable) {
+      document.getElementById("btn-next-2").disabled = false;
     }
 
     const btn = document.createElement("button");
@@ -532,15 +536,23 @@ function formatTime([h, m]) {
 //  STEP NAVIGATION
 // ═══════════════════════════════════
 
-window.goToStep = function (step) {
-  if (step === 2 && !selectedDate) return;
-  if (step === 3 && !selectedSlot) return;
-  if (step === 4 && !selectedService) return;
+window.goToStep = function (step, fromHistory = false) {
+  // Only validate forward navigation (backward is always allowed)
+  if (step > currentStep) {
+    if (step === 2 && !selectedDate) return;
+    if (step === 3 && !selectedSlot) return;
+    if (step === 4 && !selectedService) return;
+  }
 
   // Stop real-time slot watch when leaving step 2
   if (currentStep === 2 && step !== 2) {
     stopLiveSlotWatch();
     hideSlotTakenBanner();
+  }
+
+  // Push a history entry for every step change (except when called from popstate)
+  if (!fromHistory) {
+    history.pushState({ step }, '');
   }
 
   // Update step indicators
@@ -571,6 +583,12 @@ window.goToStep = function (step) {
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 };
+
+// Handle browser/phone back button
+window.addEventListener("popstate", (e) => {
+  const step = e.state?.step ?? 1;
+  goToStep(step, true);
+});
 
 function populateConfirm() {
   document.getElementById("confirm-service").textContent  = selectedService.name;
@@ -692,7 +710,8 @@ window.resetBooking = function () {
   document.getElementById("booking-error").classList.add("hidden");
   document.getElementById("btn-confirm").textContent = "Confirm Appointment";
   document.getElementById("btn-confirm").disabled    = false;
-  goToStep(1);
+  history.replaceState({ step: 1 }, '');
+  goToStep(1, true);
 
   // Deselect all service cards and reset all next buttons
   document.querySelectorAll(".service-card").forEach(c => c.classList.remove("selected"));

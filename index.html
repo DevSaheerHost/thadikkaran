@@ -162,7 +162,7 @@
       <p id="no-slots-msg" class="no-slots-msg hidden">No available slots for this date. Please choose another day.</p>
 
       <div class="step-footer">
-        <button class="btn btn-ghost" onclick="goToStep(1)">← Back</button>
+        <button class="btn btn-ghost" onclick="history.back()">← Back</button>
         <button class="btn btn-primary" onclick="goToStep(3)" id="btn-next-2" disabled>Continue →</button>
       </div>
     </div>
@@ -179,7 +179,7 @@
       </div>
 
       <div class="step-footer">
-        <button class="btn btn-ghost" onclick="goToStep(2)">← Back</button>
+        <button class="btn btn-ghost" onclick="history.back()">← Back</button>
         <button class="btn btn-primary" onclick="goToStep(4)" id="btn-next-3" disabled>Continue →</button>
       </div>
     </div>
@@ -222,7 +222,7 @@
       <div id="booking-error" class="error-msg hidden"></div>
 
       <div class="step-footer">
-        <button class="btn btn-ghost" onclick="goToStep(3)">← Back</button>
+        <button class="btn btn-ghost" onclick="history.back()">← Back</button>
         <button class="btn btn-primary" onclick="confirmBooking()" id="btn-confirm">
           Confirm Appointment
         </button>
