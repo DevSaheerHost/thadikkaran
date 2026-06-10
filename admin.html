@@ -335,11 +335,24 @@
           </div>
         </div>
 
-        <!-- Service Durations -->
+        <!-- Services (Duration + Price) -->
         <div class="settings-section">
-          <h3 class="section-mini-title">Service Durations</h3>
-          <p class="settings-hint">Changes take effect for new bookings immediately. The client slot grid updates on next page load.</p>
+          <h3 class="section-mini-title">Services</h3>
+          <p class="settings-hint">Duration and price changes take effect immediately for new bookings.</p>
           <div id="service-settings-list" class="service-settings-list"></div>
+        </div>
+
+        <!-- Closed Days -->
+        <div class="settings-section">
+          <h3 class="section-mini-title">Closed Days</h3>
+          <p class="settings-hint">Mark dates as closed. Customers cannot book on these days.</p>
+          <div class="closed-day-add">
+            <input type="date" id="closed-date-input" class="date-picker" style="flex:1" />
+            <input type="text" id="closed-date-reason" class="input-field"
+                   placeholder="Reason (e.g. Emergency, Holiday)" style="flex:2" />
+            <button class="btn btn-sm btn-primary" onclick="addClosedDate()">Mark Closed</button>
+          </div>
+          <div id="closed-days-list" class="closed-days-list"></div>
         </div>
       </div>
 

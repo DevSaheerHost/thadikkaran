@@ -79,8 +79,10 @@ let selectedDate = null;
 let selectedSlot = null;
 let currentUser = null;
 let userPhone   = null;   // collected phone number
-let lunchBreakConfig = { enabled: true, startTime: "13:00", endTime: "14:30" };
-let unsubLunchBreak  = null;
+let lunchBreakConfig  = { enabled: true, startTime: "13:00", endTime: "14:30" };
+let unsubLunchBreak   = null;
+let closedDatesSet    = new Set();
+let unsubClosedDates  = null;
 
 // ═══════════════════════════════════
 //  AUTH LOGIC
@@ -154,6 +156,7 @@ async function showApp(user) {
 
   await loadServiceDurations();
   watchLunchBreak();
+  watchClosedDates();
   buildServicesUI();
   buildCalendarUI();
   watchRescheduledBookings();
@@ -168,7 +171,13 @@ async function loadServiceDurations() {
     if (!snap.exists()) return;
     snap.forEach(child => {
       const svc = SERVICES.find(s => s.id === child.key);
-      if (svc && child.val().duration) svc.duration = child.val().duration;
+      if (!svc) return;
+      const v = child.val();
+      if (v.duration) svc.duration = v.duration;
+      if (v.price !== undefined) {
+        svc.price = v.price > 0 ? v.price : null;
+        svc.priceDisplay = v.price > 0 ? `₹${v.price}` : "At Store";
+      }
     });
   } catch (e) { /* keep built-in defaults on error */ }
 }
@@ -178,6 +187,15 @@ function watchLunchBreak() {
   unsubLunchBreak = onValue(ref(db, "settings/lunchBreak"), snap => {
     if (snap.exists()) lunchBreakConfig = { ...lunchBreakConfig, ...snap.val() };
     scheduleRerender();
+  });
+}
+
+function watchClosedDates() {
+  if (unsubClosedDates) { unsubClosedDates(); unsubClosedDates = null; }
+  unsubClosedDates = onValue(ref(db, "settings/closedDates"), snap => {
+    closedDatesSet.clear();
+    if (snap.exists()) snap.forEach(child => closedDatesSet.add(child.key));
+    if (currentStep === 1) buildCalendarUI();
   });
 }
 
@@ -226,7 +244,8 @@ window.submitPhoneModal = async function () {
 window.signOut = async function () {
   dotListeners.forEach(u => u());
   dotListeners = [];
-  if (unsubLunchBreak) { unsubLunchBreak(); unsubLunchBreak = null; }
+  if (unsubLunchBreak)  { unsubLunchBreak();  unsubLunchBreak  = null; }
+  if (unsubClosedDates) { unsubClosedDates(); unsubClosedDates = null; }
   await fbSignOut(auth);
   resetBooking();
 };
@@ -304,7 +323,7 @@ function buildCalendarUI() {
     const d = new Date(today);
     d.setDate(today.getDate() + i);
 
-    const isHoliday = SHOP.holidayDays.includes(d.getDay());
+    const isHoliday = SHOP.holidayDays.includes(d.getDay()) || closedDatesSet.has(formatDateKey(d));
 
     const dayEl = document.createElement("div");
     dayEl.className = "cal-day" + (isHoliday ? " disabled" : "") + (i === 0 ? " today" : "");

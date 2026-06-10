@@ -53,14 +53,16 @@ const messaging = getMessaging(app);
 
 // ── Service catalogue (mirrors client SERVICES array) ──
 const DEFAULT_SERVICES = [
-  { id: "haircut",       name: "Hair Cut (Mens)",  defaultDuration: 40 },
-  { id: "beard",         name: "Beard Setting",    defaultDuration: 40 },
-  { id: "haircut_beard", name: "Hair Cut & Beard", defaultDuration: 40 },
-  { id: "facial",        name: "Facial",           defaultDuration: 40 },
-  { id: "hair_spa",      name: "Hair Spa",         defaultDuration: 40 },
+  { id: "haircut",       name: "Hair Cut (Mens)",  defaultDuration: 40, defaultPrice: 150 },
+  { id: "beard",         name: "Beard Setting",    defaultDuration: 40, defaultPrice: 100 },
+  { id: "haircut_beard", name: "Hair Cut & Beard", defaultDuration: 40, defaultPrice: 250 },
+  { id: "facial",        name: "Facial",           defaultDuration: 40, defaultPrice: 0   },
+  { id: "hair_spa",      name: "Hair Spa",         defaultDuration: 40, defaultPrice: 0   },
 ];
-let serviceDurations  = {}; // { svcId: minutes } — overrides loaded from Firebase
+let serviceDurations  = {}; // { svcId: minutes }
+let servicePrices     = {}; // { svcId: number | null }  null = "At Store"
 let lunchBreakConfig  = { enabled: true, startTime: "13:00", endTime: "14:30" };
+let closedDates       = {}; // { dateKey: { reason, closedAt } }
 
 // ── State ──
 let currentUser     = null;
@@ -148,8 +150,9 @@ function showApp() {
   if (mDate) mDate.value = today;
   if (bDate) bDate.value = today;
 
-  initServiceDurations();
   initLunchBreak();
+  initServiceDurations();
+  initClosedDates();
   startNewBookingWatcher();
   switchTab("bookings", document.querySelector('.nav-link[data-tab="bookings"]'));
   loadNoshows();
@@ -410,7 +413,7 @@ window.switchTab = function (tabId, btn) {
   if (tabId === "bookings") loadBookings();
   if (tabId === "block")    loadActiveBlocks();
   if (tabId === "noshows")  loadNoshows();
-  if (tabId === "settings") { loadLunchSettings(); loadServiceSettings(); loadNotifStatus(); }
+  if (tabId === "settings") { loadLunchSettings(); loadServiceSettings(); loadClosedDates(); loadNotifStatus(); }
 };
 
 // ═══════════════════════════════════
@@ -957,7 +960,9 @@ async function initServiceDurations() {
     const snap = await get(ref(db, "settings/services"));
     if (snap.exists()) {
       snap.forEach(child => {
-        if (child.val().duration) serviceDurations[child.key] = child.val().duration;
+        const v = child.val();
+        if (v.duration) serviceDurations[child.key] = v.duration;
+        if (v.price !== undefined) servicePrices[child.key] = v.price;
       });
     }
   } catch (e) { /* keep defaults on error */ }
@@ -969,23 +974,38 @@ function loadServiceSettings() {
   list.innerHTML = "";
 
   DEFAULT_SERVICES.forEach(svc => {
-    const current = serviceDurations[svc.id] || svc.defaultDuration;
+    const currentDur   = serviceDurations[svc.id] || svc.defaultDuration;
+    const rawPrice     = servicePrices[svc.id] !== undefined ? servicePrices[svc.id] : svc.defaultPrice;
+    const currentPrice = rawPrice ?? 0;
     const card = document.createElement("div");
     card.className = "svc-setting-card";
     card.innerHTML = `
       <div class="svc-setting-info">
         <div class="svc-setting-name">${svc.name}</div>
-        <div class="svc-setting-default">Default: ${svc.defaultDuration} min</div>
       </div>
-      <div class="svc-setting-controls">
-        <button class="btn-icon svc-dur-adj" onclick="adjustDur('${svc.id}', -5)">−</button>
-        <div class="svc-dur-display">
-          <input type="number" class="svc-duration-input" id="dur-${svc.id}"
-                 value="${current}" min="5" max="120" step="5" />
-          <span class="svc-dur-unit">min</span>
+      <div class="svc-setting-fields">
+        <div class="svc-field-row">
+          <span class="svc-field-label">Duration</span>
+          <div class="svc-setting-controls">
+            <button class="btn-icon svc-dur-adj" onclick="adjustDur('${svc.id}', -5)">−</button>
+            <div class="svc-dur-display">
+              <input type="number" class="svc-duration-input" id="dur-${svc.id}"
+                     value="${currentDur}" min="5" max="120" step="5" />
+              <span class="svc-dur-unit">min</span>
+            </div>
+            <button class="btn-icon svc-dur-adj" onclick="adjustDur('${svc.id}', 5)">+</button>
+          </div>
         </div>
-        <button class="btn-icon svc-dur-adj" onclick="adjustDur('${svc.id}', 5)">+</button>
-        <button class="btn btn-sm btn-primary" onclick="saveServiceDuration('${svc.id}')">Save</button>
+        <div class="svc-field-row">
+          <span class="svc-field-label">Price</span>
+          <div class="svc-setting-controls">
+            <span class="svc-price-sym">₹</span>
+            <input type="number" class="svc-price-input" id="price-${svc.id}"
+                   value="${currentPrice}" min="0" max="9999" step="10" />
+            <span class="svc-dur-unit">${currentPrice === 0 ? "At Store" : ""}</span>
+          </div>
+        </div>
+        <button class="btn btn-sm btn-primary svc-save-btn" onclick="saveService('${svc.id}')">Save</button>
       </div>
     `;
     list.appendChild(card);
@@ -998,13 +1018,18 @@ window.adjustDur = function (svcId, delta) {
   input.value = Math.max(5, Math.min(120, (parseInt(input.value) || 30) + delta));
 };
 
-window.saveServiceDuration = async function (svcId) {
-  const input = document.getElementById(`dur-${svcId}`);
-  const val = parseInt(input?.value);
-  if (!val || val < 5 || val > 120) { showToast("Duration must be 5–120 minutes."); return; }
-  await set(ref(db, `settings/services/${svcId}/duration`), val);
-  serviceDurations[svcId] = val;
-  showToast(`✓ Duration updated to ${val} min.`);
+window.saveService = async function (svcId) {
+  const dur   = parseInt(document.getElementById(`dur-${svcId}`)?.value);
+  const price = parseInt(document.getElementById(`price-${svcId}`)?.value) || 0;
+  if (!dur || dur < 5 || dur > 120) { showToast("Duration must be 5–120 minutes."); return; }
+  if (price < 0 || price > 9999)    { showToast("Invalid price."); return; }
+  await update(ref(db, `settings/services/${svcId}`), {
+    duration: dur,
+    price:    price > 0 ? price : 0
+  });
+  serviceDurations[svcId] = dur;
+  servicePrices[svcId]    = price;
+  showToast(`✓ Saved.`);
 };
 
 // ── Admin Cancellation ──
@@ -1147,6 +1172,66 @@ function showToast(msg, duration = 3000) {
   clearTimeout(window._toastTimer);
   window._toastTimer = setTimeout(() => toast.classList.add("hidden"), duration);
 }
+
+// ── Closed Days ──
+async function initClosedDates() {
+  try {
+    const snap = await get(ref(db, "settings/closedDates"));
+    if (snap.exists()) closedDates = snap.val();
+  } catch (e) { /* ignore */ }
+}
+
+function loadClosedDates() {
+  const list = document.getElementById("closed-days-list");
+  if (!list) return;
+  list.innerHTML = "";
+
+  const entries = Object.entries(closedDates)
+    .filter(([k]) => k >= formatDateKey(new Date()))
+    .sort(([a], [b]) => a.localeCompare(b));
+
+  if (entries.length === 0) {
+    list.innerHTML = `<p class="no-data-msg" style="font-size:0.82rem;padding:0.5rem 0">No upcoming closed days.</p>`;
+    return;
+  }
+
+  entries.forEach(([dateKey, info]) => {
+    const d = new Date(dateKey + "T00:00:00");
+    const label = d.toLocaleDateString("en-IN", { weekday:"short", day:"numeric", month:"short", year:"2-digit" });
+    const item = document.createElement("div");
+    item.className = "closed-day-item";
+    item.innerHTML = `
+      <div class="closed-day-info">
+        <span class="closed-day-date">${label}</span>
+        <span class="closed-day-reason">${info.reason || "Closed"}</span>
+      </div>
+      <button class="btn btn-sm btn-ghost" onclick="removeClosedDate('${dateKey}')">Remove</button>
+    `;
+    list.appendChild(item);
+  });
+}
+
+window.addClosedDate = async function () {
+  const dateInput   = document.getElementById("closed-date-input");
+  const reasonInput = document.getElementById("closed-date-reason");
+  const dateKey = dateInput.value;
+  if (!dateKey) { showToast("Please select a date."); return; }
+  const reason = reasonInput.value.trim() || "Shop closed";
+  const entry  = { reason, closedAt: Date.now() };
+  await set(ref(db, `settings/closedDates/${dateKey}`), entry);
+  closedDates[dateKey] = entry;
+  dateInput.value  = "";
+  reasonInput.value = "";
+  loadClosedDates();
+  showToast(`✓ ${dateKey} marked as closed.`);
+};
+
+window.removeClosedDate = async function (dateKey) {
+  await remove(ref(db, `settings/closedDates/${dateKey}`));
+  delete closedDates[dateKey];
+  loadClosedDates();
+  showToast(`✓ Reopened.`);
+};
 
 window.closeModal = function (id) {
   document.getElementById(id).classList.add("hidden");
