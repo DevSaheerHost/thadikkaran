@@ -123,35 +123,17 @@
 
     <!-- Step Indicator -->
     <div class="steps-bar">
-      <div class="step active" data-step="1"><span class="step-num">1</span><span class="step-label">Service</span></div>
+      <div class="step active" data-step="1"><span class="step-num">1</span><span class="step-label">Date</span></div>
       <div class="step-line"></div>
-      <div class="step" data-step="2"><span class="step-num">2</span><span class="step-label">Date</span></div>
+      <div class="step" data-step="2"><span class="step-num">2</span><span class="step-label">Time</span></div>
       <div class="step-line"></div>
-      <div class="step" data-step="3"><span class="step-num">3</span><span class="step-label">Time</span></div>
+      <div class="step" data-step="3"><span class="step-num">3</span><span class="step-label">Service</span></div>
       <div class="step-line"></div>
       <div class="step" data-step="4"><span class="step-num">4</span><span class="step-label">Confirm</span></div>
     </div>
 
-    <!-- ── STEP 1: SERVICES ── -->
+    <!-- ── STEP 1: DATE ── -->
     <div id="step-1" class="step-content active">
-      <div class="section-header">
-        <h2 class="section-title">Choose a Service</h2>
-        <p class="section-sub">Select what you'd like today</p>
-      </div>
-
-      <div class="services-list" id="services-list">
-        <!-- Populated by JS -->
-      </div>
-
-      <div class="step-footer">
-        <button class="btn btn-primary btn-full" onclick="goToStep(2)" id="btn-next-1" disabled>
-          Continue <span class="btn-arrow">→</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- ── STEP 2: DATE ── -->
-    <div id="step-2" class="step-content hidden">
       <div class="section-header">
         <h2 class="section-title">Pick a Date</h2>
         <p class="section-sub">Available for the next 6 days · Closed Tuesdays</p>
@@ -162,21 +144,39 @@
       </div>
 
       <div class="step-footer">
-        <button class="btn btn-ghost" onclick="goToStep(1)">← Back</button>
-        <button class="btn btn-primary" onclick="goToStep(3)" id="btn-next-2" disabled>Continue →</button>
+        <button class="btn btn-primary btn-full" onclick="goToStep(2)" id="btn-next-1" disabled>
+          Continue <span class="btn-arrow">→</span>
+        </button>
       </div>
     </div>
 
-    <!-- ── STEP 3: TIME SLOTS ── -->
-    <div id="step-3" class="step-content hidden">
+    <!-- ── STEP 2: TIME SLOTS ── -->
+    <div id="step-2" class="step-content hidden">
       <div class="section-header">
         <h2 class="section-title">Pick a Time</h2>
-        <p class="section-sub" id="slots-sub">Available slots for your service</p>
+        <p class="section-sub" id="slots-sub">Available slots</p>
       </div>
 
       <div id="slots-loading" class="loading-spinner"><div class="spinner"></div></div>
       <div class="slots-grid" id="slots-grid"></div>
       <p id="no-slots-msg" class="no-slots-msg hidden">No available slots for this date. Please choose another day.</p>
+
+      <div class="step-footer">
+        <button class="btn btn-ghost" onclick="goToStep(1)">← Back</button>
+        <button class="btn btn-primary" onclick="goToStep(3)" id="btn-next-2" disabled>Continue →</button>
+      </div>
+    </div>
+
+    <!-- ── STEP 3: SERVICE ── -->
+    <div id="step-3" class="step-content hidden">
+      <div class="section-header">
+        <h2 class="section-title">Choose a Service</h2>
+        <p class="section-sub">Select what you'd like today</p>
+      </div>
+
+      <div class="services-list" id="services-list">
+        <!-- Populated by JS -->
+      </div>
 
       <div class="step-footer">
         <button class="btn btn-ghost" onclick="goToStep(2)">← Back</button>
