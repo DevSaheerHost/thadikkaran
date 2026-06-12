@@ -518,6 +518,7 @@ function loadBookings() {
 
       items.forEach(item => list.appendChild(buildBookingCard(item)));
       updateStats(items);
+      startTimelineInterval();
 
       if (items.length === 0) noMsg.classList.remove("hidden");
     });
@@ -564,7 +565,13 @@ function buildBookingCard(item) {
       <div class="booking-time-start">${formatDisplayTime(item.startTime)}</div>
       <div class="booking-tl">
         <div class="booking-tl-dot booking-tl-dot--top"></div>
-        <div class="booking-tl-line"></div>
+        <div class="booking-tl-line"
+             data-start="${timeToMinutes(item.startTime)}"
+             data-end="${endMin}"
+             data-key="${item.key || ''}"
+             data-date="${currentDateKey}">
+          <div class="booking-tl-fill"></div>
+        </div>
         <div class="booking-tl-dot booking-tl-dot--bottom"></div>
       </div>
       <div class="booking-time-end">${formatDisplayTime(endStr)}</div>
@@ -595,6 +602,55 @@ function updateStats(items) {
   document.getElementById("stat-confirmed").textContent = confirmed.length;
   document.getElementById("stat-noshow").textContent    = noshows.length;
   document.getElementById("stat-revenue").textContent   = `₹${revenue}`;
+}
+
+// ═══════════════════════════════════
+//  LIVE TIMELINE PROGRESS
+// ═══════════════════════════════════
+
+const TERMINAL_STATUSES = new Set(["finished", "noshow", "cancelled", "blocked"]);
+let timelineInterval = null;
+
+function updateTimelineProgress() {
+  const now     = new Date();
+  const nowMin  = now.getHours() * 60 + now.getMinutes();
+  const todayKey = formatDateKey(now);
+
+  document.querySelectorAll('.booking-tl-line[data-end]').forEach(line => {
+    const startMin = parseInt(line.dataset.start, 10);
+    const endMin   = parseInt(line.dataset.end,   10);
+    const dateKey  = line.dataset.date;
+    const fill     = line.querySelector('.booking-tl-fill');
+    if (!fill) return;
+
+    // Only animate today's bookings
+    if (dateKey !== todayKey) { fill.style.height = '0%'; return; }
+
+    let pct;
+    if (nowMin <= startMin) {
+      pct = 0;
+    } else if (nowMin >= endMin) {
+      pct = 100;
+    } else {
+      pct = (nowMin - startMin) / (endMin - startMin) * 100;
+    }
+    fill.style.height = pct + '%';
+
+    // Auto-finish when time is up
+    if (pct >= 100) {
+      const card = line.closest('.booking-card');
+      const key  = line.dataset.key;
+      if (!card || !key) return;
+      const isTerminal = [...card.classList].some(c => TERMINAL_STATUSES.has(c.replace('status-', '')));
+      if (!isTerminal) finishBooking(key, dateKey);
+    }
+  });
+}
+
+function startTimelineInterval() {
+  updateTimelineProgress();
+  if (timelineInterval) clearInterval(timelineInterval);
+  timelineInterval = setInterval(updateTimelineProgress, 30_000);
 }
 
 // ═══════════════════════════════════
