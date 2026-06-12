@@ -584,8 +584,12 @@ body {
 
 .booking-time {
   flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
   min-width: 54px;
+  gap: 0;
 }
 
 .booking-time-start {
@@ -593,6 +597,31 @@ body {
   font-size: 0.95rem;
   font-weight: 500;
   color: var(--black);
+}
+
+.booking-tl {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 3px 0;
+}
+
+.booking-tl-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--border, #e0e0e0);
+  flex-shrink: 0;
+}
+
+.booking-tl-dot--top  { background: var(--accent, #d4a34e); }
+.booking-tl-dot--bottom { background: var(--border, #e0e0e0); }
+
+.booking-tl-line {
+  width: 1.5px;
+  flex: 1;
+  min-height: 14px;
+  background: var(--border, #e0e0e0);
 }
 
 .booking-time-end {

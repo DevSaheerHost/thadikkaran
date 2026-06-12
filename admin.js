@@ -562,6 +562,11 @@ function buildBookingCard(item) {
   card.innerHTML = `
     <div class="booking-time">
       <div class="booking-time-start">${formatDisplayTime(item.startTime)}</div>
+      <div class="booking-tl">
+        <div class="booking-tl-dot booking-tl-dot--top"></div>
+        <div class="booking-tl-line"></div>
+        <div class="booking-tl-dot booking-tl-dot--bottom"></div>
+      </div>
       <div class="booking-time-end">${formatDisplayTime(endStr)}</div>
       ${svcIcon}
     </div>
