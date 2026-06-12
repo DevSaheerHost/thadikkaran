@@ -637,6 +637,9 @@ function updateTimelineProgress() {
     }
     fill.style.height = pct + '%';
 
+    const tl = line.closest('.booking-tl');
+    if (tl) tl.classList.toggle('tl-not-started', nowMin < startMin);
+
     // Auto-finish when time is up
     if (pct >= 100) {
       const card = line.closest('.booking-card');

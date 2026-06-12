@@ -616,6 +616,7 @@ body {
 
 .booking-tl-dot--top  { background: var(--accent, #d4a34e); }
 .booking-tl-dot--bottom { background: var(--border, #e0e0e0); }
+.booking-tl.tl-not-started .booking-tl-dot--top { background: var(--border, #e0e0e0); }
 .booking-card.status-finished .booking-tl-dot--bottom { background: var(--accent, #d4a34e); }
 
 .booking-tl-line {
