@@ -586,6 +586,7 @@ function buildBookingCard(item) {
         <span class="status-badge ${badgeClass}">${statusLabel}</span>
         ${sourceBadge}
       </div>
+      ${!isBlock && item.createdAt ? `<div class="booking-booked-at">Booked ${formatBookedAt(item.createdAt)}</div>` : ""}
     </div>
     <div class="booking-actions">${actionsHtml}</div>
   `;
@@ -1252,6 +1253,23 @@ function formatDisplayTime(timeStr) {
   const ampm = h >= 12 ? "PM" : "AM";
   const hh   = h > 12 ? h - 12 : h === 0 ? 12 : h;
   return `${hh}:${String(m).padStart(2,"0")} ${ampm}`;
+}
+
+function formatBookedAt(ts) {
+  if (!ts) return null;
+  const d    = new Date(ts);
+  const now  = new Date();
+  const diff = Math.floor((now - d) / 60000); // minutes ago
+  if (diff < 1)  return "just now";
+  if (diff < 60) return `${diff}m ago`;
+  const hh   = d.getHours(), mm = String(d.getMinutes()).padStart(2, "0");
+  const ampm = hh >= 12 ? "PM" : "AM";
+  const h12  = hh > 12 ? hh - 12 : hh === 0 ? 12 : hh;
+  const timeStr = `${h12}:${mm} ${ampm}`;
+  // If same day, show time only; otherwise show short date + time
+  const sameDay = d.toDateString() === now.toDateString();
+  if (sameDay) return timeStr;
+  return `${d.getDate()} ${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()]} ${timeStr}`;
 }
 
 function showToast(msg, duration = 3000) {

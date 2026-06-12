@@ -694,6 +694,12 @@ body {
   flex-wrap: wrap;
 }
 
+.booking-booked-at {
+  font-size: 0.68rem;
+  color: var(--light);
+  margin-top: 0.2rem;
+}
+
 .status-badge {
   font-size: 0.65rem;
   font-weight: 600;
