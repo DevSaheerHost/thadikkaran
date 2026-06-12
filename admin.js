@@ -541,7 +541,7 @@ function buildBookingCard(item) {
     <div class="booking-info">
       <div class="booking-name">${item.name || "Blocked"}</div>
       <div class="booking-service">${isBlock ? (item.reason || "Break") : item.serviceName}</div>
-      ${!isBlock && item.phone ? `<div class="booking-phone">📞 +91 ${item.phone}</div>` : ""}
+      ${!isBlock && item.phone ? `<a class="booking-phone" href="tel:${item.phone.startsWith('+') ? item.phone : '+91' + item.phone}">📞 ${item.phone.startsWith('+') ? item.phone.replace('+91', '+91 ') : '+91 ' + item.phone}</a>` : ""}
       <div class="booking-meta">
         <span class="status-badge ${badgeClass}">${statusLabel}</span>
         ${sourceBadge}
@@ -1104,7 +1104,7 @@ function loadNoshows() {
       card.innerHTML = `
         <div class="noshow-info">
           <div class="noshow-name">${ns.name}</div>
-          <div class="noshow-phone">${ns.phone || "No phone"}</div>
+          ${ns.phone ? `<a class="noshow-phone" href="tel:${ns.phone}">📞 ${ns.phone}</a>` : `<div class="noshow-phone">No phone</div>`}
           <div class="noshow-count">
             ${ns.noShowCount} no-show${ns.noShowCount !== 1 ? "s" : ""}
             ${ns.blocked ? " · <strong>BLOCKED</strong>" : ""}

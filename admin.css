@@ -624,11 +624,17 @@ body {
 }
 
 .booking-phone {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   font-size: 0.78rem;
-  color: var(--dark);
-  margin-top: 0.2rem;
+  color: var(--accent, #d4a34e);
+  margin-top: 0.25rem;
   font-family: var(--font-mono, monospace);
+  text-decoration: none;
+  font-weight: 500;
 }
+.booking-phone:active { opacity: 0.7; }
 
 .booking-meta {
   display: flex;
@@ -832,7 +838,17 @@ body {
 
 .noshow-info { flex:1; }
 .noshow-name { font-size: 0.9rem; font-weight: 600; }
-.noshow-phone { font-size: 0.78rem; color: var(--mid); font-family: var(--font-mono); }
+.noshow-phone {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  color: var(--accent, #d4a34e);
+  font-family: var(--font-mono);
+  text-decoration: none;
+  font-weight: 500;
+}
+.noshow-phone:active { opacity: 0.7; }
 .noshow-count {
   font-size: 0.78rem;
   color: var(--danger);
