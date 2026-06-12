@@ -702,6 +702,43 @@ body {
   margin-top: 0.2rem;
 }
 
+.booking-cancel-reason {
+  font-size: 0.72rem;
+  color: var(--mid);
+  font-style: italic;
+  margin-top: 0.25rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Future bookings badge on → arrow */
+#btn-date-next {
+  position: relative;
+}
+
+.future-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--accent, #d4a34e);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  line-height: 1;
+}
+
+.future-badge--cancelled {
+  background: #e53e3e;
+}
+
 .status-badge {
   font-size: 0.65rem;
   font-weight: 600;

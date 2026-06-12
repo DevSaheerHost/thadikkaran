@@ -519,6 +519,7 @@ function loadBookings() {
       items.forEach(item => list.appendChild(buildBookingCard(item)));
       updateStats(items);
       startTimelineInterval();
+      updateFutureBadge();
 
       if (items.length === 0) noMsg.classList.remove("hidden");
     });
@@ -587,11 +588,47 @@ function buildBookingCard(item) {
         ${sourceBadge}
       </div>
       ${!isBlock && item.createdAt ? `<div class="booking-booked-at">Booked ${formatBookedAt(item.createdAt)}</div>` : ""}
+      ${item.status === "cancelled" && item.cancelReason ? `<div class="booking-cancel-reason">"${item.cancelReason}"</div>` : ""}
     </div>
     <div class="booking-actions">${actionsHtml}</div>
   `;
 
   return card;
+}
+
+async function updateFutureBadge() {
+  const btn = document.getElementById("btn-date-next");
+  if (!btn) return;
+
+  const today = new Date();
+  let confirmed = 0, cancelled = 0;
+
+  for (let i = 1; i <= 6; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    const snap = await get(ref(db, `bookings/${formatDateKey(d)}`));
+    if (!snap.exists()) continue;
+    snap.forEach(child => {
+      const b = child.val();
+      if (b.source === "block") return;
+      if (b.status === "cancelled") cancelled++;
+      else confirmed++;
+    });
+  }
+
+  let badge = btn.querySelector(".future-badge");
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.className = "future-badge";
+    btn.appendChild(badge);
+  }
+
+  if (confirmed > 0 || cancelled > 0) {
+    badge.textContent = confirmed > 0 ? confirmed : cancelled;
+    badge.className   = `future-badge${confirmed === 0 ? " future-badge--cancelled" : ""}`;
+  } else {
+    badge.remove();
+  }
 }
 
 function updateStats(items) {
