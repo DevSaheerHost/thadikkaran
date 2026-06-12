@@ -319,21 +319,26 @@ function buildCalendarUI() {
   const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
+  const now = new Date();
+  const todayCutoffPassed = now.getHours() > 21 || (now.getHours() === 21 && now.getMinutes() >= 30);
+
   for (let i = 0; i <= SHOP.maxAdvanceDays; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() + i);
 
+    const isToday   = i === 0;
     const isHoliday = SHOP.holidayDays.includes(d.getDay()) || closedDatesSet.has(formatDateKey(d));
+    const disabled  = isHoliday || (isToday && todayCutoffPassed);
 
     const dayEl = document.createElement("div");
-    dayEl.className = "cal-day" + (isHoliday ? " disabled" : "") + (i === 0 ? " today" : "");
+    dayEl.className = "cal-day" + (disabled ? " disabled" : "") + (isToday ? " today" : "");
     dayEl.innerHTML = `
-      <span class="cal-day-name">${DAY_NAMES[d.getDay()]}</span>
+      <span class="cal-day-name">${isToday ? "Today" : DAY_NAMES[d.getDay()]}</span>
       <span class="cal-day-num">${d.getDate()}</span>
       <span class="cal-day-month">${MONTH_NAMES[d.getMonth()]}</span>
     `;
 
-    if (!isHoliday) {
+    if (!disabled) {
       dayEl.addEventListener("click", () => {
         document.querySelectorAll(".cal-day").forEach(c => c.classList.remove("selected"));
         dayEl.classList.add("selected");
