@@ -943,7 +943,21 @@ async function loadMyBookings() {
     })
   );
 
-  const valid = liveData.filter(Boolean).filter(b => b.dateKey);
+  const now2 = Date.now();
+  // Hide finished bookings more than 10 minutes after the service ended
+  const valid = liveData.filter(Boolean).filter(b => {
+    if (!b.dateKey) return false;
+    if (b.status !== "finished") return true;
+    const exp = bookingExpireMs(b, b.dateKey);
+    return now2 < exp;
+  });
+
+  // Schedule a re-load when the soonest finished booking expires
+  const soonestExp = valid
+    .filter(b => b.status === "finished")
+    .map(b => bookingExpireMs(b, b.dateKey))
+    .sort((a, z) => a - z)[0];
+  if (soonestExp) setTimeout(loadMyBookings, soonestExp - Date.now() + 500);
 
   // Sort: upcoming first (ascending), then past (descending)
   const now = Date.now();
@@ -1088,7 +1102,24 @@ async function watchRescheduledBookings() {
   });
 }
 
+const TEN_MIN_MS = 10 * 60 * 1000;
+
+function bookingExpireMs(b, dateKey) {
+  // Returns timestamp when the "finished" booking should disappear from the UI
+  if (b.finishedAt) return b.finishedAt + TEN_MIN_MS;
+  // Fallback: reconstruct end time from startTime + duration
+  const [sh, sm] = (b.startTime || "00:00").split(":").map(Number);
+  const endMin = sh * 60 + sm + (b.duration || 40);
+  const endH = Math.floor(endMin / 60), endM = endMin % 60;
+  const endMs = new Date(`${dateKey}T${String(endH).padStart(2,"0")}:${String(endM).padStart(2,"0")}:00`).getTime();
+  return endMs + TEN_MIN_MS;
+}
+
 async function evaluateDot(entries) {
+  const now = Date.now();
+  let showDot = false;
+  let earliestExpiry = null; // for scheduling a re-check
+
   for (const e of entries) {
     let booking = null;
     if (e.bookingId && e.dateKey) {
@@ -1106,15 +1137,39 @@ async function evaluateDot(entries) {
         });
       }
     }
-    if (booking?.originalStartTime &&
-        booking.originalStartTime !== booking.startTime &&
-        booking.status !== "cancelled" && booking.status !== "noshow") {
-      document.getElementById("bookings-notif-dot")?.classList.remove("hidden");
-      return;
+    if (!booking) continue;
+    const status = booking.status || "confirmed";
+    if (status === "cancelled" || status === "noshow") continue;
+
+    if (status === "finished") {
+      const exp = bookingExpireMs(booking, e.dateKey);
+      if (now < exp) {
+        showDot = true;
+        if (!earliestExpiry || exp < earliestExpiry) earliestExpiry = exp;
+      }
+      continue;
+    }
+
+    // Confirmed / active: show dot if booking date is upcoming or today
+    const bookingMs = new Date(`${e.dateKey}T${booking.startTime || "00:00"}:00`).getTime();
+    if (bookingMs >= now - 2 * 60 * 60 * 1000) { // within 2h in the past or future
+      showDot = true;
+    }
+
+    // Rescheduled: always show dot (urgent)
+    if (booking.originalStartTime && booking.originalStartTime !== booking.startTime) {
+      showDot = true;
     }
   }
-  // All clear — dot only hidden here if it was previously shown for a reverted edit
-  document.getElementById("bookings-notif-dot")?.classList.add("hidden");
+
+  const dotEl = document.getElementById("bookings-notif-dot");
+  dotEl?.classList.toggle("hidden", !showDot);
+
+  // Re-evaluate exactly when the next "finished" booking expires
+  if (earliestExpiry) {
+    const delay = earliestExpiry - Date.now() + 500;
+    setTimeout(() => evaluateDot(entries), delay);
+  }
 }
 
 function fmtTimeStr(timeStr) {
