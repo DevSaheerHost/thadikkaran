@@ -600,12 +600,13 @@ async function updateFutureBadge() {
   const btn = document.getElementById("btn-date-next");
   if (!btn) return;
 
-  const today = new Date();
+  // Count from the day after the currently viewed date, not always from today
+  const base = new Date(currentDateKey + "T00:00:00");
   let confirmed = 0, cancelled = 0;
 
   for (let i = 1; i <= 6; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
+    const d = new Date(base);
+    d.setDate(base.getDate() + i);
     const snap = await get(ref(db, `bookings/${formatDateKey(d)}`));
     if (!snap.exists()) continue;
     snap.forEach(child => {
