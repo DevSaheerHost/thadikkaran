@@ -64,6 +64,31 @@ let servicePrices     = {}; // { svcId: number | null }  null = "At Store"
 let lunchBreakConfig  = { enabled: true, startTime: "13:00", endTime: "14:30" };
 let closedDates       = {}; // { dateKey: { reason, closedAt } }
 
+// ── Service icons (SVG, stroke-style, 16×16) ─────────────────────────────────
+const SVC_ICONS = {
+  haircut: `<svg class="svc-cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/>
+    <path d="M20 4L8.12 15.88"/><path d="M14.47 14.48L20 20"/><path d="M8.12 8.12L12 12"/>
+  </svg>`,
+  beard: `<svg class="svc-cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+    <rect x="2" y="9" width="20" height="6" rx="2"/>
+    <line x1="7" y1="9" x2="7" y2="15"/><line x1="12" y1="9" x2="12" y2="15"/><line x1="17" y1="9" x2="17" y2="15"/>
+  </svg>`,
+  haircut_beard: `<svg class="svc-cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/>
+    <path d="M20 4L8.12 15.88"/><path d="M14.47 14.48L20 20"/><path d="M8.12 8.12L12 12"/>
+  </svg>`,
+  facial: `<svg class="svc-cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+    <circle cx="12" cy="12" r="7"/>
+    <path d="M9 15s1.5 1.5 3 1.5 3-1.5 3-1.5"/>
+    <circle cx="9.5" cy="10.5" r="1" fill="currentColor" stroke="none"/>
+    <circle cx="14.5" cy="10.5" r="1" fill="currentColor" stroke="none"/>
+  </svg>`,
+  hair_spa: `<svg class="svc-cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0L12 2.69z"/>
+  </svg>`,
+};
+
 // ── State ──
 let currentUser     = null;
 let currentDateKey  = formatDateKey(new Date());
@@ -532,10 +557,13 @@ function buildBookingCard(item) {
       `
       : `<span class="source-tag">${statusLabel}</span>`;
 
+  const svcIcon = !isBlock ? (SVC_ICONS[item.serviceId] || "") : "";
+
   card.innerHTML = `
     <div class="booking-time">
       <div class="booking-time-start">${formatDisplayTime(item.startTime)}</div>
       <div class="booking-time-end">${formatDisplayTime(endStr)}</div>
+      ${svcIcon}
     </div>
     <div class="booking-separator"></div>
     <div class="booking-info">

@@ -601,6 +601,15 @@ body {
   color: var(--light);
 }
 
+.svc-cat-icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin: 6px auto 0;
+  color: var(--mid, #999);
+  opacity: 0.6;
+}
+
 .booking-separator {
   width: 1px;
   background: var(--border);
