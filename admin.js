@@ -1485,15 +1485,13 @@ window.openSlotViewModal = async function () {
 //  REVIEWS
 // ═══════════════════════════════════
 
-let unsubReviews = null;
-
 function updateReviewsBadge() {
   const seenAt = parseInt(localStorage.getItem('reviewsSeenAt') || '0', 10);
-  get(ref(db, "reviews")).then(snap => {
+  get(ref(db, “reviews”)).then(snap => {
     if (!snap.exists()) return;
     let unseen = 0;
     snap.forEach(c => { if ((c.val().createdAt || 0) > seenAt) unseen++; });
-    const btn = document.querySelector('.nav-link[data-tab="reviews"]');
+    const btn = document.querySelector('.nav-link[data-tab=”reviews”]');
     if (!btn) return;
     let badge = btn.querySelector('.rv-notif-badge');
     if (unseen > 0) {
@@ -1510,50 +1508,49 @@ function updateReviewsBadge() {
   }).catch(() => {});
 }
 
-function loadReviews() {
-  const list    = document.getElementById("reviews-list");
-  const spinner = document.getElementById("reviews-loading");
-  list.innerHTML = "";
-  spinner.classList.remove("hidden");
+async function loadReviews() {
+  const list    = document.getElementById(“reviews-list”);
+  const spinner = document.getElementById(“reviews-loading”);
+  list.innerHTML = “”;
+  spinner.classList.remove(“hidden”);
 
-  if (unsubReviews) { unsubReviews(); unsubReviews = null; }
+  let snap;
+  try {
+    snap = await get(ref(db, “reviews”));
+  } catch (e) {
+    spinner.classList.add(“hidden”);
+    list.innerHTML = `<p class=”no-data-msg”>Couldn't load reviews.</p>`;
+    return;
+  }
 
-  unsubReviews = onValue(ref(db, "reviews"), snap => {
-    spinner.classList.add("hidden");
-    list.innerHTML = "";
+  spinner.classList.add(“hidden”);
 
-    if (!snap.exists()) {
-      list.innerHTML = `<p class="no-data-msg">No reviews yet.</p>`;
-      return;
-    }
+  if (!snap.exists()) {
+    list.innerHTML = `<p class=”no-data-msg”>No reviews yet.</p>`;
+    return;
+  }
 
-    const reviews = [];
-    snap.forEach(c => reviews.push({ _key: c.key, ...c.val() }));
-    reviews.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const reviews = [];
+  snap.forEach(c => reviews.push({ _key: c.key, ...c.val() }));
+  reviews.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
-    reviews.forEach(r => {
-      const card = document.createElement("div");
-      card.className = "review-card";
-      const stars = [1,2,3,4,5].map(i =>
-        `<span class="rv-star-sm${i <= r.rating ? " filled" : ""}">${i <= r.rating ? "★" : "☆"}</span>`
-      ).join("");
-      const date = new Date(r.createdAt).toLocaleDateString("en-IN",
-        { day: "numeric", month: "short", year: "2-digit" });
-      const textHtml = r.text
-        ? `<p class="rv-text">“${r.text}”</p>`
-        : "";
-      card.innerHTML = `
-        <div class="rv-card-top">
-          <span class="rv-service">${r.serviceName || "—"}</span>
-          <span class="rv-stars-row">${stars}</span>
-        </div>
-        ${textHtml}
-        <div class="rv-meta">${r.customerName || "Customer"} · ${date}</div>
-      `;
-      list.appendChild(card);
-    });
-  }, err => {
-    spinner.classList.add("hidden");
-    list.innerHTML = `<p class="no-data-msg">Couldn't load reviews.</p>`;
+  reviews.forEach(r => {
+    const card = document.createElement(“div”);
+    card.className = “review-card”;
+    const stars = [1,2,3,4,5].map(i =>
+      `<span class=”rv-star-sm${i <= r.rating ? “ filled” : “”}”>${i <= r.rating ? “★” : “☆”}</span>`
+    ).join(“”);
+    const date = new Date(r.createdAt).toLocaleDateString(“en-IN”,
+      { day: “numeric”, month: “short”, year: “2-digit” });
+    const textHtml = r.text ? `<p class=”rv-text”>”${r.text}”</p>` : “”;
+    card.innerHTML = `
+      <div class=”rv-card-top”>
+        <span class=”rv-service”>${r.serviceName || “—“}</span>
+        <span class=”rv-stars-row”>${stars}</span>
+      </div>
+      ${textHtml}
+      <div class=”rv-meta”>${r.customerName || “Customer”} · ${date}</div>
+    `;
+    list.appendChild(card);
   });
 }
