@@ -968,15 +968,14 @@ async function loadMyBookings() {
     .sort((a, z) => a - z)[0];
   if (soonestExp) setTimeout(loadMyBookings, soonestExp - Date.now() + 500);
 
-  // Sort: upcoming first (ascending), then past (descending)
-  const now = Date.now();
+  // Sort: non-finished → latest appointment date first; finished → at bottom (most recent first)
   valid.sort((a, b) => {
+    const aFinished = a.status === "finished";
+    const bFinished = b.status === "finished";
+    if (aFinished !== bFinished) return aFinished ? 1 : -1; // finished always last
     const aMs = new Date(`${a.dateKey}T${a.startTime || "00:00"}:00`).getTime();
     const bMs = new Date(`${b.dateKey}T${b.startTime || "00:00"}:00`).getTime();
-    const aUp = aMs >= now, bUp = bMs >= now;
-    if (aUp && !bUp) return -1;
-    if (!aUp && bUp) return 1;
-    return aUp ? aMs - bMs : bMs - aMs;
+    return bMs - aMs; // latest appointment date first
   });
 
   if (!valid.length) {
