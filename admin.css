@@ -618,6 +618,8 @@ body {
 .booking-tl-dot--bottom { background: var(--border, #e0e0e0); }
 .booking-tl.tl-not-started .booking-tl-dot--top { background: var(--border, #e0e0e0); }
 .booking-card.status-finished .booking-tl-dot--bottom { background: var(--accent, #d4a34e); }
+/* Time elapsed but not yet manually finished — bottom dot turns gold as a hint */
+.booking-card.tl-time-up .booking-tl-dot--bottom { background: var(--accent, #d4a34e); }
 
 .booking-tl-line {
   position: relative;

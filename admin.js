@@ -703,16 +703,15 @@ function updateTimelineProgress() {
     }
     fill.style.height = pct + '%';
 
-    const tl = line.closest('.booking-tl');
-    if (tl) tl.classList.toggle('tl-not-started', nowMin < startMin);
+    const tl = line.closest('.booking-card');
+    const bookingTl = line.closest('.booking-tl');
+    if (bookingTl) bookingTl.classList.toggle('tl-not-started', nowMin < startMin);
 
-    // Auto-finish when time is up
+    // When time is up: fill the line fully and mark card visually, but don't auto-finish
     if (pct >= 100) {
-      const card = line.closest('.booking-card');
-      const key  = line.dataset.key;
-      if (!card || !key) return;
-      const isTerminal = [...card.classList].some(c => TERMINAL_STATUSES.has(c.replace('status-', '')));
-      if (!isTerminal) finishBooking(key, dateKey);
+      if (tl) tl.classList.add('tl-time-up');
+    } else {
+      if (tl) tl.classList.remove('tl-time-up');
     }
   });
 }
