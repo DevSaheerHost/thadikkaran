@@ -124,6 +124,10 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           Reviews
         </button>
+        <button class="nav-link" data-tab="trash" onclick="switchTab('trash', this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+          Trash
+        </button>
       </div>
       <a class="nav-client-link" href="https://thadikkaran.vercel.app/" target="_blank" rel="noopener">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -372,6 +376,20 @@
         </div>
         <div id="reviews-loading" class="loading-spinner"><div class="spinner"></div></div>
         <div id="reviews-list" class="reviews-list"></div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           TAB: TRASH (RECYCLE BIN)
+      ══════════════════════════════════ -->
+      <div id="tab-trash" class="tab-content hidden">
+        <div class="tab-header">
+          <div class="tab-header-text">
+            <h2 class="tab-title">Recycle Bin</h2>
+            <p class="tab-sub">Deleted bookings — restore to put them back.</p>
+          </div>
+        </div>
+        <div id="trash-loading" class="loading-spinner"><div class="spinner"></div></div>
+        <div id="trash-list" class="trash-list"></div>
       </div>
 
     </main><!-- /admin-main -->
