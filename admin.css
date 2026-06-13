@@ -1471,3 +1471,37 @@ body {
   color: var(--light);
   margin-top: 0.35rem;
 }
+
+/* ── Recycle Bin ── */
+.trash-list { display: flex; flex-direction: column; gap: 10px; padding: 0 0 24px; }
+
+.trash-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.trash-name {
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--black, #1a1a1a);
+}
+
+.trash-meta {
+  font-size: 0.78rem;
+  color: var(--mid, #6b7280);
+  margin-top: 2px;
+}
+
+.trash-deleted-at {
+  font-size: 0.72rem;
+  color: var(--light, #9ca3af);
+  margin-top: 4px;
+}
+
+.trash-card-actions { flex-shrink: 0; }

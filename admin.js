@@ -445,6 +445,7 @@ window.switchTab = function (tabId, btn) {
     updateReviewsBadge();
     loadReviews();
   }
+  if (tabId === 'trash') loadTrash();
 };
 
 // ═══════════════════════════════════
@@ -565,7 +566,9 @@ function buildBookingCard(item) {
         <button class="btn btn-sm btn-warning" onclick="openCancelModal('${item.key}', '${currentDateKey}')">Cancel</button>
         <button class="btn btn-sm btn-danger"  onclick="openNoshowModal('${item.key}', '${currentDateKey}')">No-Show</button>
       `
-      : `<span class="source-tag">${statusLabel}</span>`;
+      : item.status === "finished"
+        ? `<button class="btn btn-sm btn-danger" onclick="deleteBooking('${item.key}','${currentDateKey}')">🗑 Delete</button>`
+        : `<span class="source-tag">${statusLabel}</span>`;
 
   const svcIcon = !isBlock ? (SVC_ICONS[item.serviceId] || "") : "";
 
@@ -1527,6 +1530,96 @@ function updateReviewsBadge() {
       badge.remove();
     }
   }).catch(() => {});
+}
+
+// ═══════════════════════════════════
+//  DELETE & RECYCLE BIN
+// ═══════════════════════════════════
+
+window.deleteBooking = async function (key, dateKey) {
+  if (!confirm("Move this booking to the Recycle Bin?")) return;
+  try {
+    const snap = await get(ref(db, `bookings/${dateKey}/${key}`));
+    if (!snap.exists()) { showToast("Booking not found."); return; }
+    const data = { ...snap.val(), deletedAt: Date.now(), deletedFrom: dateKey };
+    await set(ref(db, `deleted/${dateKey}/${key}`), data);
+    await remove(ref(db, `bookings/${dateKey}/${key}`));
+    showToast("Moved to Recycle Bin.");
+    loadBookings();
+  } catch (e) {
+    showToast("Error: couldn't delete booking.");
+  }
+};
+
+window.restoreBooking = async function (key, dateKey) {
+  try {
+    const snap = await get(ref(db, `deleted/${dateKey}/${key}`));
+    if (!snap.exists()) { showToast("Not found."); return; }
+    const data = { ...snap.val() };
+    delete data.deletedAt;
+    delete data.deletedFrom;
+    await set(ref(db, `bookings/${dateKey}/${key}`), data);
+    await remove(ref(db, `deleted/${dateKey}/${key}`));
+    showToast("Booking restored.");
+    loadTrash();
+  } catch (e) {
+    showToast("Error: couldn't restore booking.");
+  }
+};
+
+async function loadTrash() {
+  const list    = document.getElementById("trash-list");
+  const spinner = document.getElementById("trash-loading");
+  list.innerHTML = "";
+  spinner.classList.remove("hidden");
+
+  let snap;
+  try {
+    snap = await get(ref(db, "deleted"));
+  } catch (e) {
+    spinner.classList.add("hidden");
+    list.innerHTML = `<p class="no-data-msg">Couldn't load trash.</p>`;
+    return;
+  }
+
+  spinner.classList.add("hidden");
+
+  if (!snap.exists()) {
+    list.innerHTML = `<p class="no-data-msg">Recycle Bin is empty.</p>`;
+    return;
+  }
+
+  const items = [];
+  snap.forEach(dateSnap => {
+    dateSnap.forEach(c => {
+      items.push({ _key: c.key, _dateKey: dateSnap.key, ...c.val() });
+    });
+  });
+  items.sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
+
+  items.forEach(item => {
+    const card = document.createElement("div");
+    card.className = "trash-card";
+    const deletedDate = item.deletedAt
+      ? new Date(item.deletedAt).toLocaleDateString("en-IN",
+          { day: "numeric", month: "short", year: "2-digit", hour: "2-digit", minute: "2-digit" })
+      : "Unknown";
+    const apptDate = item._dateKey
+      ? new Date(item._dateKey + "T00:00:00").toLocaleDateString("en-IN",
+          { day: "numeric", month: "short", year: "2-digit" })
+      : "—";
+    card.innerHTML = `
+      <div class="trash-card-info">
+        <div class="trash-name">${item.customerName || item.name || "Customer"}</div>
+        <div class="trash-meta">${item.serviceName || item.service || "—"} &middot; ${apptDate}${item.startTime ? " " + item.startTime : ""}</div>
+        <div class="trash-deleted-at">Deleted ${deletedDate}</div>
+      </div>
+      <div class="trash-card-actions">
+        <button class="btn btn-sm btn-outline" onclick="restoreBooking('${item._key}','${item._dateKey}')">&#8629; Restore</button>
+      </div>
+    `;
+    list.appendChild(card);
+  });
 }
 
 async function loadReviews() {
