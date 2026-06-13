@@ -76,7 +76,7 @@ self.addEventListener("message", (event) => {
 });
 
 // ── PWA caching (network-first, cache fallback) ──
-const CACHE = "thadikkaran-sw-v2";
+const CACHE = "thadikkaran-sw-v3";
 const PRECACHE = ["/", "/client.css", "/favicon.png", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {
@@ -84,10 +84,19 @@ self.addEventListener("install", (e) => {
   self.skipWaiting();
 });
 
-self.addEventListener("activate", (e) => e.waitUntil(clients.claim()));
+self.addEventListener("activate", (e) => {
+  // Delete ALL old caches (including thadikkaran-v1 from the old client-sw.js)
+  e.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(() => clients.claim())
+  );
+});
 
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
+  // Only cache same-origin requests — skip Firebase CDN, Google Fonts, API calls
+  if (!e.request.url.startsWith(self.location.origin)) return;
   e.respondWith(
     fetch(e.request)
       .then((resp) => {
