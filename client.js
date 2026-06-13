@@ -971,12 +971,14 @@ async function loadMyBookings() {
     return Date.now() < reviewExp;
   });
 
-  // Schedule a re-load when the soonest finished booking expires
-  const soonestExp = valid
-    .filter(b => b.status === "finished")
-    .map(b => bookingExpireMs(b, b.dateKey))
+  // Schedule a re-load when the earliest review window expires (finishedAt + 24h)
+  const soonestReviewExp = valid
+    .filter(b => b.status === "finished" && b.finishedAt)
+    .map(b => b.finishedAt + 24 * 60 * 60 * 1000)
     .sort((a, z) => a - z)[0];
-  if (soonestExp) setTimeout(loadMyBookings, soonestExp - Date.now() + 500);
+  if (soonestReviewExp && soonestReviewExp > Date.now()) {
+    setTimeout(loadMyBookings, soonestReviewExp - Date.now() + 500);
+  }
 
   // Sort: non-finished → latest appointment date first; finished → at bottom (most recent first)
   valid.sort((a, b) => {
