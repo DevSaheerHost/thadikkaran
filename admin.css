@@ -1412,6 +1412,21 @@ body {
   color: var(--mid);
 }
 
+/* ── Booking card inline review stars ── */
+.booking-review-stars {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  margin-top: 0.25rem;
+}
+.bk-rv-star { font-size: 0.85rem; color: #d4d4d4; }
+.bk-rv-star.filled { color: #d4a34e; }
+.bk-rv-label {
+  font-size: 0.68rem;
+  color: var(--mid);
+  margin-left: 4px;
+}
+
 /* ── Reviews tab ── */
 .reviews-list { display: flex; flex-direction: column; gap: 0.75rem; padding: 0.5rem 0; }
 

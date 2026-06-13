@@ -526,6 +526,7 @@ function loadBookings() {
       updateStats(items);
       startTimelineInterval();
       updateFutureBadge();
+      attachReviewStars(list);
 
       if (items.length === 0) noMsg.classList.remove("hidden");
     });
@@ -536,6 +537,7 @@ function buildBookingCard(item) {
   const isBlock = item.source === "block";
   const card = document.createElement("div");
   card.className = `booking-card status-${item.status || "confirmed"}`;
+  card.dataset.bookingKey = item.key || "";
 
   const endMin = timeToMinutes(item.startTime) + (item.duration || 30);
   const endStr = minutesToTime(endMin);
@@ -594,12 +596,32 @@ function buildBookingCard(item) {
         ${sourceBadge}
       </div>
       ${!isBlock && item.createdAt ? `<div class="booking-booked-at">Booked ${formatBookedAt(item.createdAt)}</div>` : ""}
+      ${item.status === "finished" && !isBlock ? `<div class="booking-review-stars"></div>` : ""}
       ${item.status === "cancelled" && item.cancelReason ? `<div class="booking-cancel-reason">"${item.cancelReason}"</div>` : ""}
     </div>
     <div class="booking-actions">${actionsHtml}</div>
   `;
 
   return card;
+}
+
+async function attachReviewStars(listEl) {
+  try {
+    const snap = await get(ref(db, "reviews"));
+    if (!snap.exists()) return;
+    snap.forEach(c => {
+      const r = c.val();
+      if (!r.rating) return;
+      const cardEl = listEl.querySelector(`[data-booking-key="${c.key}"]`);
+      if (!cardEl) return;
+      const starsEl = cardEl.querySelector(".booking-review-stars");
+      if (!starsEl) return;
+      const filled = Math.round(r.rating);
+      starsEl.innerHTML = [1,2,3,4,5]
+        .map(i => `<span class="bk-rv-star${i <= filled ? " filled" : ""}">${i <= filled ? "★" : "☆"}</span>`)
+        .join("") + `<span class="bk-rv-label">${filled}/5</span>`;
+    });
+  } catch (e) {}
 }
 
 async function updateFutureBadge() {
