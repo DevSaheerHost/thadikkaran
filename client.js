@@ -83,6 +83,7 @@ let lunchBreakConfig  = { enabled: true, startTime: "13:00", endTime: "14:30" };
 let unsubLunchBreak   = null;
 let closedDatesSet    = new Set();
 let unsubClosedDates  = null;
+let reviewedSet = new Set(); // bookingIds already reviewed this session
 
 // ═══════════════════════════════════
 //  AUTH LOGIC
@@ -944,12 +945,14 @@ async function loadMyBookings() {
   );
 
   const now2 = Date.now();
-  // Hide finished bookings more than 10 minutes after the service ended
+  // Show finished bookings for 24h so user can leave a review
   const valid = liveData.filter(Boolean).filter(b => {
     if (!b.dateKey) return false;
     if (b.status !== "finished") return true;
     const exp = bookingExpireMs(b, b.dateKey);
-    return now2 < exp;
+    // Extend to 24h for review window (bookingExpireMs is 10min; use finishedAt directly)
+    const reviewExp = (b.finishedAt || 0) + 24 * 60 * 60 * 1000;
+    return Date.now() < reviewExp;
   });
 
   // Schedule a re-load when the soonest finished booking expires
@@ -1013,6 +1016,16 @@ function buildMyBookingCard(b) {
     timeHtml = `<div class="mb-time-row"><span class="mb-time">${fmtTimeStr(b.startTime)}</span></div>`;
   }
 
+  // Check if this booking has been reviewed (session cache or will be loaded)
+  const isFinished = b.status === "finished";
+  const reviewHtml = isFinished && b.bookingId
+    ? `<div class="mb-review-row" id="review-row-${b.bookingId}">
+         <button class="btn btn-sm mb-review-btn" onclick="openReviewModal('${b.bookingId}','${b.dateKey}','${(b.serviceName||'').replace(/'/g,"\\'")}')">
+           ⭐ Rate your visit
+         </button>
+       </div>`
+    : "";
+
   const card = document.createElement("div");
   card.className = `mb-card${isRescheduled ? " mb-rescheduled" : ""}${isPast ? " mb-past" : ""}`;
   card.innerHTML = `
@@ -1024,8 +1037,26 @@ function buildMyBookingCard(b) {
     ${timeHtml}
     <div class="mb-price">${b.price ? `₹${b.price} · Pay at Store` : "Pay at Store"}</div>
     ${canCancel ? `<button class="btn btn-sm mb-cancel-btn" onclick="openClientCancelModal('${b.bookingId}','${b.dateKey}')">Cancel Booking</button>` : ""}
+    ${reviewHtml}
   `;
+
+  if (isFinished && b.bookingId) {
+    get(ref(db, `reviews/${b.bookingId}`)).then(snap => {
+      if (snap.exists()) {
+        const r = snap.val();
+        const row = card.querySelector(`#review-row-${b.bookingId}`);
+        if (row) row.innerHTML = renderStars(r.rating) + (r.text ? `<p class="mb-review-text">"${r.text}"</p>` : "");
+        reviewedSet.add(b.bookingId);
+      }
+    });
+  }
   return card;
+}
+
+function renderStars(rating) {
+  return `<div class="mb-stars-display">${[1,2,3,4,5].map(i =>
+    `<span class="mb-star${i <= rating ? ' filled' : ''}">${i <= rating ? '★' : '☆'}</span>`
+  ).join('')}</div>`;
 }
 
 // ═══════════════════════════════════
@@ -1177,6 +1208,73 @@ function fmtTimeStr(timeStr) {
   const [h, m] = timeStr.split(":").map(Number);
   return formatTime([h, m]);
 }
+
+// ═══════════════════════════════════
+//  REVIEWS
+// ═══════════════════════════════════
+
+let reviewTarget = null; // { bookingId, dateKey, serviceName }
+let reviewRating = 0;
+
+window.openReviewModal = function (bookingId, dateKey, serviceName) {
+  if (reviewedSet.has(bookingId)) return;
+  reviewTarget = { bookingId, dateKey, serviceName };
+  reviewRating = 0;
+  document.getElementById("review-service-name").textContent = serviceName;
+  document.getElementById("review-text").value = "";
+  document.getElementById("review-error").classList.add("hidden");
+  setReviewStar(0); // reset stars
+  document.getElementById("modal-review").classList.remove("hidden");
+};
+
+window.closeReviewModal = function () {
+  document.getElementById("modal-review").classList.add("hidden");
+  reviewTarget = null;
+};
+
+window.setReviewStar = function (val) {
+  reviewRating = val;
+  document.querySelectorAll("#review-stars .rv-star").forEach(s => {
+    const v = parseInt(s.dataset.v);
+    s.textContent = v <= val ? "★" : "☆";
+    s.classList.toggle("active", v <= val);
+  });
+};
+
+window.submitReview = async function () {
+  if (!reviewTarget || !currentUser) return;
+  if (reviewRating === 0) {
+    document.getElementById("review-error").textContent = "Please select a star rating.";
+    document.getElementById("review-error").classList.remove("hidden");
+    return;
+  }
+  const btn = document.querySelector("#modal-review .btn-primary");
+  btn.textContent = "Submitting…";
+  btn.disabled = true;
+  const text = document.getElementById("review-text").value.trim();
+  try {
+    await set(ref(db, `reviews/${reviewTarget.bookingId}`), {
+      uid:         currentUser.uid,
+      bookingId:   reviewTarget.bookingId,
+      dateKey:     reviewTarget.dateKey,
+      serviceName: reviewTarget.serviceName,
+      rating:      reviewRating,
+      text:        text,
+      customerName: currentUser.displayName || "",
+      createdAt:   Date.now(),
+    });
+    reviewedSet.add(reviewTarget.bookingId);
+    // Update the card in the drawer
+    const row = document.getElementById(`review-row-${reviewTarget.bookingId}`);
+    if (row) row.innerHTML = renderStars(reviewRating) + (text ? `<p class="mb-review-text">"${text}"</p>` : "");
+    closeReviewModal();
+  } catch (e) {
+    document.getElementById("review-error").textContent = "Failed to submit. Try again.";
+    document.getElementById("review-error").classList.remove("hidden");
+    btn.textContent = "Submit";
+    btn.disabled = false;
+  }
+};
 
 // ═══════════════════════════════════
 //  PWA SERVICE WORKER
