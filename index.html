@@ -342,6 +342,31 @@
   </div>
 
   <!-- ══════════════════════════════════════
+       MODAL: REVIEW
+  ══════════════════════════════════════ -->
+  <div id="modal-review" class="modal-overlay hidden" onclick="if(event.target===this)closeReviewModal()">
+    <div class="modal-box">
+      <h3 class="modal-title">How was your visit?</h3>
+      <p class="modal-body" id="review-service-name" style="margin-bottom:1rem"></p>
+      <div class="rv-stars" id="review-stars">
+        <span class="rv-star" data-v="1" onclick="setReviewStar(1)">☆</span>
+        <span class="rv-star" data-v="2" onclick="setReviewStar(2)">☆</span>
+        <span class="rv-star" data-v="3" onclick="setReviewStar(3)">☆</span>
+        <span class="rv-star" data-v="4" onclick="setReviewStar(4)">☆</span>
+        <span class="rv-star" data-v="5" onclick="setReviewStar(5)">☆</span>
+      </div>
+      <textarea id="review-text" class="input-field" rows="3"
+        placeholder="Tell us about your experience (optional)…"
+        style="margin-top:1rem;resize:none;line-height:1.5"></textarea>
+      <div id="review-error" class="error-msg hidden" style="margin-top:.5rem"></div>
+      <div class="modal-actions" style="margin-top:1rem">
+        <button class="btn btn-ghost" onclick="closeReviewModal()">Skip</button>
+        <button class="btn btn-primary" onclick="submitReview()">Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
        SCREEN: BLOCKED
   ══════════════════════════════════════ -->
   <div id="screen-blocked" class="screen hidden">
