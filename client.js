@@ -912,7 +912,13 @@ async function loadMyBookings() {
 
   if (!currentUser) return;
 
-  const snap = await get(ref(db, `users/${currentUser.uid}/bookings`));
+  let snap;
+  try {
+    snap = await get(ref(db, `users/${currentUser.uid}/bookings`));
+  } catch (e) {
+    container.innerHTML = `<p class="mb-empty">Couldn't load bookings. Please try again.</p>`;
+    return;
+  }
   if (!snap.exists()) {
     container.innerHTML = `<p class="mb-empty">No bookings yet.</p>`;
     return;
@@ -922,8 +928,9 @@ async function loadMyBookings() {
   snap.forEach(c => entries.push(c.val()));
 
   // Fetch live canonical data for each entry
-  const liveData = await Promise.all(
-    entries.map(async e => {
+  let liveData;
+  try {
+    liveData = await Promise.all(entries.map(async e => {
       // Fast path: bookingId stored (new bookings)
       if (e.bookingId && e.dateKey) {
         const s = await get(ref(db, `bookings/${e.dateKey}/${e.bookingId}`));
@@ -947,8 +954,11 @@ async function loadMyBookings() {
         }
       }
       return e; // absolute fallback (snapshot data only)
-    })
-  );
+    }));
+  } catch (e) {
+    container.innerHTML = `<p class="mb-empty">Couldn't load bookings. Please try again.</p>`;
+    return;
+  }
 
   const now2 = Date.now();
   // Show finished bookings for 24h so user can leave a review
