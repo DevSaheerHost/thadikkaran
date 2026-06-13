@@ -83,7 +83,8 @@ let lunchBreakConfig  = { enabled: true, startTime: "13:00", endTime: "14:30" };
 let unsubLunchBreak   = null;
 let closedDatesSet    = new Set();
 let unsubClosedDates  = null;
-let reviewedSet = new Set(); // bookingIds already reviewed this session
+let reviewedSet    = new Set(); // bookingIds already reviewed this session
+let serviceRatings = {};       // serviceName → { avg, count }
 
 // ═══════════════════════════════════
 //  AUTH LOGIC
@@ -156,6 +157,7 @@ async function showApp(user) {
   document.getElementById("header-greeting").textContent = `${greeting}${name}`;
 
   await loadServiceDurations();
+  await loadServiceRatings();
   watchLunchBreak();
   watchClosedDates();
   buildServicesUI();
@@ -277,11 +279,15 @@ function buildServicesUI() {
     const card = document.createElement("div");
     card.className = "service-card";
     card.dataset.id = svc.id;
+    const rd = serviceRatings[svc.name];
+    const ratingHtml = rd
+      ? `<span class="service-meta-dot"></span><span class="svc-rating">★ ${rd.avg}<span class="svc-rating-count"> (${rd.count})</span></span>`
+      : "";
     card.innerHTML = `
       <div class="service-info">
         <div class="service-name">${svc.name}</div>
         <div class="service-meta">
-          <span>${svc.duration} mins</span>
+          <span>${svc.duration} mins</span>${ratingHtml}
         </div>
       </div>
       <div class="service-right">
@@ -1212,6 +1218,24 @@ function fmtTimeStr(timeStr) {
 // ═══════════════════════════════════
 //  REVIEWS
 // ═══════════════════════════════════
+
+async function loadServiceRatings() {
+  try {
+    const snap = await get(ref(db, "reviews"));
+    if (!snap.exists()) return;
+    const buckets = {};
+    snap.forEach(c => {
+      const r = c.val();
+      if (!r.serviceName || !r.rating) return;
+      if (!buckets[r.serviceName]) buckets[r.serviceName] = { sum: 0, count: 0 };
+      buckets[r.serviceName].sum   += r.rating;
+      buckets[r.serviceName].count += 1;
+    });
+    Object.entries(buckets).forEach(([name, d]) => {
+      serviceRatings[name] = { avg: Math.round(d.sum / d.count * 10) / 10, count: d.count };
+    });
+  } catch (e) {}
+}
 
 let reviewTarget = null; // { bookingId, dateKey, serviceName }
 let reviewRating = 0;

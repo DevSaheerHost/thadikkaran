@@ -640,6 +640,16 @@ body {
 
 .service-card.selected .service-meta { color: var(--light-gray); }
 
+.svc-rating {
+  color: #c8922a;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.svc-rating-count { font-weight: 400; color: var(--mid-gray); }
+.service-card.selected .svc-rating { color: #f0cc7a; }
+.service-card.selected .svc-rating-count { color: var(--light-gray); }
+
 .service-meta-dot {
   width: 3px; height: 3px;
   border-radius: 50%;
