@@ -798,7 +798,7 @@ body {
 
 .slot-btn.booked {
   background: var(--off-white);
-  color: #666666;
+  color: #9B9B9B;
   cursor: not-allowed;
   border-color: #c8c8c8;
 }
@@ -809,7 +809,7 @@ body {
 
 .slot-btn.past {
   background: transparent;
-  color: #666666;
+  color: #9B9B9B;
   cursor: default;
   border-color: transparent;
   display: flex;
