@@ -485,6 +485,23 @@
     </div>
   </div>
 
+  <!-- ══════════════════════════════════════
+       MODAL: BOOKING DETAIL (notification click)
+  ══════════════════════════════════════ -->
+  <div id="modal-booking-detail" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-slot-header">
+        <h3 class="modal-title">New Booking</h3>
+        <button class="btn-icon" onclick="closeModal('modal-booking-detail')">&#x2715;</button>
+      </div>
+      <div id="booking-detail-content"></div>
+      <div class="modal-actions" style="margin-top:1.25rem">
+        <button class="btn btn-ghost" onclick="closeModal('modal-booking-detail')">Close</button>
+        <button class="btn btn-primary" onclick="closeModal('modal-booking-detail'); switchTab('bookings', document.querySelector('.nav-link[data-tab=\'bookings\']'))">View Bookings</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification -->
   <div id="toast" class="toast hidden"></div>
 

@@ -182,6 +182,15 @@ function showApp() {
   switchTab("bookings", document.querySelector('.nav-link[data-tab="bookings"]'));
   loadNoshows();
   updateReviewsBadge();
+
+  // If opened from a notification click, show the booking detail
+  const urlParams = new URLSearchParams(window.location.search);
+  const bdate = urlParams.get("bdate");
+  const bid   = urlParams.get("bid");
+  if (bdate && bid) {
+    history.replaceState({}, "", window.location.pathname);
+    setTimeout(() => showBookingDetailModal(bdate, bid), 400);
+  }
 }
 
 function setupRecaptcha() {
@@ -256,8 +265,8 @@ async function initFCM() {
 
     navigator.serviceWorker.addEventListener("message", (event) => {
       if (event.data?.type === "BOOKING_NOTIFICATION_CLICK") {
-        loadBookings();
-        switchTab("bookings", document.querySelector('.nav-link[data-tab="bookings"]'));
+        const { dateKey, bookingId } = event.data.data || {};
+        if (dateKey && bookingId) showBookingDetailModal(dateKey, bookingId);
       }
     });
 
@@ -1530,6 +1539,57 @@ function updateReviewsBadge() {
       badge.remove();
     }
   }).catch(() => {});
+}
+
+// ═══════════════════════════════════
+//  BOOKING DETAIL MODAL (notification click)
+// ═══════════════════════════════════
+
+async function showBookingDetailModal(dateKey, bookingId) {
+  const modal   = document.getElementById("modal-booking-detail");
+  const content = document.getElementById("booking-detail-content");
+  modal.classList.remove("hidden");
+  content.innerHTML = `<div class="spinner" style="margin:2rem auto"></div>`;
+
+  try {
+    const snap = await get(ref(db, `bookings/${dateKey}/${bookingId}`));
+    if (!snap.exists()) {
+      content.innerHTML = `<p class="no-data-msg">Booking not found.</p>`;
+      return;
+    }
+    const b      = snap.val();
+    const name   = b.customerName || b.name || "Customer";
+    const svc    = b.serviceName  || b.service || "—";
+    const phone  = b.phone || "—";
+    const status = b.status || "confirmed";
+    const source = b.source === "admin" ? "Walk-in" : "Online";
+    const date   = new Date(dateKey + "T00:00:00").toLocaleDateString("en-IN",
+      { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    const noteHtml = b.note
+      ? `<div class="bd-row"><span class="bd-label">Note</span><span class="bd-value">${b.note}</span></div>` : "";
+
+    content.innerHTML = `
+      <div class="bd-customer">
+        <div class="bd-avatar">${name[0].toUpperCase()}</div>
+        <div class="bd-customer-info">
+          <div class="bd-name">${name}</div>
+          <div class="bd-phone">${phone}</div>
+        </div>
+      </div>
+      <div class="bd-divider"></div>
+      <div class="bd-rows">
+        <div class="bd-row"><span class="bd-label">Service</span><span class="bd-value">${svc}</span></div>
+        <div class="bd-row"><span class="bd-label">Date</span><span class="bd-value">${date}</span></div>
+        <div class="bd-row"><span class="bd-label">Time</span><span class="bd-value">${b.startTime || "—"}</span></div>
+        <div class="bd-row"><span class="bd-label">Duration</span><span class="bd-value">${b.duration ? b.duration + " min" : "—"}</span></div>
+        <div class="bd-row"><span class="bd-label">Source</span><span class="bd-value">${source}</span></div>
+        <div class="bd-row"><span class="bd-label">Status</span><span class="bd-value"><span class="booking-badge badge-${status}">${status}</span></span></div>
+        ${noteHtml}
+      </div>
+    `;
+  } catch (e) {
+    content.innerHTML = `<p class="no-data-msg">Couldn't load booking details.</p>`;
+  }
 }
 
 // ═══════════════════════════════════
