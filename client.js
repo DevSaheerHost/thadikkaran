@@ -453,8 +453,9 @@ function rerenderSlots() {
     }
 
     const btn = document.createElement("button");
+    const isBufferZone = isUnavailable && !isPast && !isTaken;
     btn.className = "slot-btn" +
-      (isTaken ? " booked" : "") +
+      (isTaken || isBufferZone ? " booked" : "") +
       (isPast  ? " past"   : "") +
       (wasSelected && !isUnavailable ? " selected" : "");
     btn.disabled = isUnavailable;
@@ -534,15 +535,15 @@ function isSlotTakenByBooking(slot, duration, bookedSlots) {
   return false;
 }
 
-/** Returns true if the slot is in the past (today only, before now + 30 min buffer) */
+/** Returns true only when the slot's start time has actually passed (no buffer) */
 function isSlotPast(slot) {
   const now        = new Date();
   const todayKey   = formatDateKey(now);
   const selDateKey = formatDateKey(selectedDate);
   if (selDateKey !== todayKey) return false;
-  const slotStart    = slot[0] * 60 + slot[1];
-  const nowMinutes   = now.getHours() * 60 + now.getMinutes();
-  return slotStart < nowMinutes + 30;
+  const slotStart  = slot[0] * 60 + slot[1];
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  return slotStart <= nowMinutes;
 }
 
 /** Check if a slot overlaps with any booked booking, or is in the past */
