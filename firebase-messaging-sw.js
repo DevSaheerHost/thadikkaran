@@ -18,8 +18,8 @@ messaging.onBackgroundMessage((payload) => {
   const type  = payload.data?.type || "booking";
   const isClient = ["reminder", "ontime", "thankyou"].includes(type);
 
-  const title = payload.notification?.title || (isClient ? "✂ Thadikkaran" : "New Booking – Thadikkaran");
-  const body  = payload.notification?.body  || (isClient ? "Appointment reminder" : "A new appointment has been made.");
+  const title = payload.data?.title || (isClient ? "✂ Thadikkaran" : "New Booking – Thadikkaran");
+  const body  = payload.data?.body  || (isClient ? "Appointment reminder" : "A new appointment has been made.");
   const url   = payload.data?.url || (isClient ? "https://thadikkaran.vercel.app/" : "https://thadikkaran.vercel.app/admin");
 
   self.registration.showNotification(title, {

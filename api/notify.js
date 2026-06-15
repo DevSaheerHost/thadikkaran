@@ -51,21 +51,10 @@ module.exports = async function handler(req, res) {
     const time = formatTime(booking.startTime);
 
     const message = {
-      notification: {
-        title: "New Booking – Thadikkaran",
-        body: `${name} → ${svc} at ${time}`,
-      },
-      webpush: {
-        notification: {
-          title: "📅 New Booking – Thadikkaran",
-          body: `${name} → ${svc} at ${time}`,
-          icon: "https://thadikkaran.vercel.app/icon-192.png",
-          badge: "https://thadikkaran.vercel.app/badge-72.png",
-          requireInteraction: true,
-        },
-        fcmOptions: { link: "https://thadikkaran.vercel.app/admin" },
-      },
       data: {
+        type: "booking",
+        title: "📅 New Booking – Thadikkaran",
+        body: `${name} → ${svc} at ${time}`,
         bookingId,
         dateKey,
         clientName: name,
