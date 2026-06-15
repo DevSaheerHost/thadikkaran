@@ -804,6 +804,10 @@ body {
   opacity: 0.5;
 }
 
+.slot-btn.past.booked {
+  text-decoration: line-through;
+}
+
 .slot-btn.past {
   background: transparent;
   color: var(--silver);
