@@ -788,7 +788,7 @@ body {
   transition: all var(--transition);
 }
 
-.slot-btn:hover:not(.booked) { border-color: var(--black); }
+.slot-btn:hover:not(.booked):not(.past) { border-color: var(--black); }
 
 .slot-btn.selected {
   background: var(--black);
@@ -802,6 +802,32 @@ body {
   cursor: not-allowed;
   border-color: var(--border);
   text-decoration: line-through;
+}
+
+.slot-btn.past {
+  background: transparent;
+  color: var(--silver);
+  cursor: default;
+  border-color: transparent;
+  opacity: 0.45;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 0.45rem 0.4rem;
+}
+
+.slot-past-label {
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--silver);
+  line-height: 1;
+}
+
+.slot-time {
+  line-height: 1.2;
 }
 
 .slot-taken-banner {

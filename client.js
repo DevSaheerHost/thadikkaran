@@ -440,6 +440,8 @@ function rerenderSlots() {
 
   allSlots.forEach(slot => {
     const isUnavailable = isSlotUnavailable(slot, svcDuration, bookedSlots, allSlots);
+    const isPast        = isSlotPast(slot);
+    const isTaken       = isUnavailable && !isPast;
     const wasSelected   = prevSlot && slot[0] === prevSlot[0] && slot[1] === prevSlot[1];
 
     if (wasSelected && isUnavailable) {
@@ -452,10 +454,16 @@ function rerenderSlots() {
 
     const btn = document.createElement("button");
     btn.className = "slot-btn" +
-      (isUnavailable ? " booked" : "") +
+      (isTaken ? " booked" : "") +
+      (isPast  ? " past"   : "") +
       (wasSelected && !isUnavailable ? " selected" : "");
-    btn.textContent = formatTime(slot);
-    btn.disabled    = isUnavailable;
+    btn.disabled = isUnavailable;
+
+    if (isPast) {
+      btn.innerHTML = `<span class="slot-time">${formatTime(slot)}</span><span class="slot-past-label">Past</span>`;
+    } else {
+      btn.textContent = formatTime(slot);
+    }
 
     if (!isUnavailable) {
       hasAvailable = true;
@@ -511,6 +519,17 @@ function generateSlots() {
   }
 
   return [...mins].sort((a, b) => a - b).map(m => [Math.floor(m / 60), m % 60]);
+}
+
+/** Returns true if the slot is in the past (today only, before now + 30 min buffer) */
+function isSlotPast(slot) {
+  const now        = new Date();
+  const todayKey   = formatDateKey(now);
+  const selDateKey = formatDateKey(selectedDate);
+  if (selDateKey !== todayKey) return false;
+  const slotStart    = slot[0] * 60 + slot[1];
+  const nowMinutes   = now.getHours() * 60 + now.getMinutes();
+  return slotStart < nowMinutes + 30;
 }
 
 /** Check if a slot overlaps with any booked booking, or is in the past */
