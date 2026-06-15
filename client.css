@@ -801,7 +801,7 @@ body {
   color: var(--silver);
   cursor: not-allowed;
   border-color: var(--border);
-  text-decoration: line-through;
+  opacity: 0.5;
 }
 
 .slot-btn.past {
