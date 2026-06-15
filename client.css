@@ -801,6 +801,10 @@ body {
   color: var(--silver);
   cursor: not-allowed;
   border-color: var(--border);
+  opacity: 0.5;
+}
+
+.slot-btn.past.booked {
   text-decoration: line-through;
 }
 

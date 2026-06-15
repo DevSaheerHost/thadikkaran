@@ -441,7 +441,7 @@ function rerenderSlots() {
   allSlots.forEach(slot => {
     const isUnavailable = isSlotUnavailable(slot, svcDuration, bookedSlots, allSlots);
     const isPast        = isSlotPast(slot);
-    const isTaken       = isUnavailable && !isPast;
+    const isTaken       = isSlotTakenByBooking(slot, svcDuration, bookedSlots);
     const wasSelected   = prevSlot && slot[0] === prevSlot[0] && slot[1] === prevSlot[1];
 
     if (wasSelected && isUnavailable) {
@@ -519,6 +519,19 @@ function generateSlots() {
   }
 
   return [...mins].sort((a, b) => a - b).map(m => [Math.floor(m / 60), m % 60]);
+}
+
+/** Returns true if the slot overlaps a real booking/block (ignoring past check) */
+function isSlotTakenByBooking(slot, duration, bookedSlots) {
+  const slotStart = slot[0] * 60 + slot[1];
+  const slotEnd   = slotStart + duration;
+  for (const b of bookedSlots) {
+    const [bh, bm] = b.start.split(":").map(Number);
+    const bStart = bh * 60 + bm;
+    const bEnd   = bStart + b.duration;
+    if (slotStart < bEnd && slotEnd > bStart) return true;
+  }
+  return false;
 }
 
 /** Returns true if the slot is in the past (today only, before now + 30 min buffer) */
