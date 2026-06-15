@@ -42,13 +42,19 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   if (event.action === "dismiss") return;
 
-  const targetUrl = event.notification.data?.url || "/";
+  const d = event.notification.data || {};
+  let targetUrl = d.url || "/";
+
+  // For booking notifications, append params so a newly opened page can show the detail
+  if (d.bookingId && d.dateKey && targetUrl.includes("admin")) {
+    targetUrl += `?bdate=${encodeURIComponent(d.dateKey)}&bid=${encodeURIComponent(d.bookingId)}`;
+  }
 
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
         if (client.url.includes("admin") && "focus" in client) {
-          client.postMessage({ type: "BOOKING_NOTIFICATION_CLICK", data: event.notification.data });
+          client.postMessage({ type: "BOOKING_NOTIFICATION_CLICK", data: d });
           return client.focus();
         }
         if (!client.url.includes("admin") && "focus" in client) {
