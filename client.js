@@ -563,9 +563,8 @@ function isSlotUnavailable(slot, duration, bookedSlots, allSlots) {
   const selDateKey = formatDateKey(selectedDate);
 
   if (selDateKey === todayKey) {
-    const nowMinutes   = now.getHours() * 60 + now.getMinutes();
-    const bufferMinutes = 30; // minimum lead time in minutes
-    if (slotStart < nowMinutes + bufferMinutes) return true;
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    if (slotStart <= nowMinutes) return true;
   }
 
   // Check overlap with any booked slot
