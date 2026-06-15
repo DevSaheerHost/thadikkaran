@@ -66,14 +66,12 @@ module.exports = async function handler(req, res) {
           try {
             await fcm.send({
               token: tokenSnap.val(),
-              notification: { title: def.title, body: def.body },
-              data: { type: def.key, bookingId, url: "https://thadikkaran.vercel.app/" },
-              webpush: {
-                notification: {
-                  icon: "/icon-192.png",
-                  badge: "/badge-72.png",
-                  vibrate: [150, 80, 150],
-                },
+              data: {
+                type: def.key,
+                title: def.title,
+                body: def.body,
+                bookingId,
+                url: "https://thadikkaran.vercel.app/",
               },
             });
             await db.ref(`reminders/${uid}/${bookingId}/${def.key}/sent`).set(true);
