@@ -1055,11 +1055,8 @@ function renderMyBookingsList(liveData, container) {
   const DAY_MS = 24 * 60 * 60 * 1000;
   const valid = liveData.filter(Boolean).filter(b => {
     if (!b.dateKey) return false;
-    const apptMs = new Date(`${b.dateKey}T${b.startTime || "00:00"}:00`).getTime();
-    // Hide old cancelled / no-show entries (keep only if within last 3 days)
-    if (b.status === "cancelled" || b.status === "noshow") {
-      return Date.now() - apptMs < 3 * DAY_MS;
-    }
+    // Never show cancelled or no-show bookings
+    if (b.status === "cancelled" || b.status === "noshow") return false;
     // Hide finished bookings after 24h review window
     if (b.status === "finished") {
       return Date.now() < (b.finishedAt || 0) + DAY_MS;
