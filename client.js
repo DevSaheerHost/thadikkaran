@@ -953,63 +953,9 @@ async function loadMyBookings() {
 
   if (!currentUser) return;
 
-  let snap;
-  try {
-    snap = await get(ref(db, `users/${currentUser.uid}/bookings`));
-  } catch (e) {
-    container.innerHTML = `<p class="mb-empty">Couldn't load bookings. Please try again.</p>`;
-    return;
-  }
-  const entries = [];
-  if (snap.exists()) {
-    snap.forEach(c => entries.push(c.val()));
-  } else {
-    // users/{uid}/bookings is missing — scan upcoming/recent dates for this user's bookings
-    const recovered = await recoverUserBookings(currentUser.uid);
-    if (recovered.length === 0) {
-      container.innerHTML = `<p class="mb-empty">No bookings yet.</p>`;
-      return;
-    }
-    // Repair: write back refs so next load is fast
-    recovered.forEach(b => {
-      push(ref(db, `users/${currentUser.uid}/bookings`), {
-        bookingId: b.bookingId, dateKey: b.dateKey,
-        startTime: b.startTime, serviceName: b.serviceName, status: b.status
-      }).catch(() => {});
-    });
-    // Render directly from recovered data
-    renderMyBookingsList(recovered, container);
-    return;
-  }
-
-  // Fetch live canonical data for each entry
   let liveData;
   try {
-    liveData = await Promise.all(entries.map(async e => {
-      // Fast path: bookingId stored (new bookings)
-      if (e.bookingId && e.dateKey) {
-        const s = await get(ref(db, `bookings/${e.dateKey}/${e.bookingId}`));
-        if (s.exists()) return { ...s.val(), dateKey: e.dateKey, bookingId: e.bookingId };
-      }
-      // Fallback: scan the day's bookings by uid + startTime match
-      // Handles old bookings that didn't store bookingId, AND admin-rescheduled times
-      // (originalStartTime === e.startTime covers the rescheduled case)
-      if (e.dateKey && currentUser) {
-        const daySnap = await get(ref(db, `bookings/${e.dateKey}`));
-        if (daySnap.exists()) {
-          let found = null;
-          daySnap.forEach(child => {
-            const b = child.val();
-            if (b.uid === currentUser.uid &&
-                (b.startTime === e.startTime || b.originalStartTime === e.startTime)) {
-              found = { ...b, dateKey: e.dateKey, bookingId: child.key };
-            }
-          });
-          if (found) return found;
-        }
-      }
-      return null; // booking not found in canonical store — skip it
-    }));
+    liveData = await recoverUserBookings(currentUser.uid);
   } catch (e) {
     container.innerHTML = `<p class="mb-empty">Couldn't load bookings. Please try again.</p>`;
     return;
@@ -1017,7 +963,7 @@ async function loadMyBookings() {
 
   // Schedule a re-load when the earliest review window expires (finishedAt + 24h)
   const soonestReviewExp = liveData
-    .filter(b => b && b.status === "finished" && b.finishedAt)
+    .filter(b => b.status === "finished" && b.finishedAt)
     .map(b => b.finishedAt + 24 * 60 * 60 * 1000)
     .sort((a, z) => a - z)[0];
   if (soonestReviewExp && soonestReviewExp > Date.now()) {
