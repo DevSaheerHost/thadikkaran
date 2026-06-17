@@ -1008,7 +1008,7 @@ async function loadMyBookings() {
           if (found) return found;
         }
       }
-      return e; // absolute fallback (snapshot data only)
+      return null; // booking not found in canonical store — skip it
     }));
   } catch (e) {
     container.innerHTML = `<p class="mb-empty">Couldn't load bookings. Please try again.</p>`;
@@ -1052,11 +1052,19 @@ async function recoverUserBookings(uid) {
 
 /** Shared render logic used by both the normal and recovery paths */
 function renderMyBookingsList(liveData, container) {
+  const DAY_MS = 24 * 60 * 60 * 1000;
   const valid = liveData.filter(Boolean).filter(b => {
     if (!b.dateKey) return false;
-    if (b.status !== "finished") return true;
-    const reviewExp = (b.finishedAt || 0) + 24 * 60 * 60 * 1000;
-    return Date.now() < reviewExp;
+    const apptMs = new Date(`${b.dateKey}T${b.startTime || "00:00"}:00`).getTime();
+    // Hide old cancelled / no-show entries (keep only if within last 3 days)
+    if (b.status === "cancelled" || b.status === "noshow") {
+      return Date.now() - apptMs < 3 * DAY_MS;
+    }
+    // Hide finished bookings after 24h review window
+    if (b.status === "finished") {
+      return Date.now() < (b.finishedAt || 0) + DAY_MS;
+    }
+    return true;
   });
 
   valid.sort((a, b) => {
