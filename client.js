@@ -417,8 +417,12 @@ function rerenderSlots() {
   if (liveSlotData.bookings === null || liveSlotData.blocks === null) return;
 
   const bookedSlots = [];
-  Object.values(liveSlotData.bookings).forEach(b => {
-    if (b && b.status !== "cancelled" && b.status !== "finished") bookedSlots.push({ start: b.startTime, duration: b.duration });
+  const mySlotTimes = new Set(); // current user's active bookings on this date
+  Object.entries(liveSlotData.bookings).forEach(([, b]) => {
+    if (b && b.status !== "cancelled" && b.status !== "finished") {
+      bookedSlots.push({ start: b.startTime, duration: b.duration });
+      if (b.uid && currentUser && b.uid === currentUser.uid) mySlotTimes.add(b.startTime);
+    }
   });
   Object.values(liveSlotData.blocks).forEach(bl => {
     if (bl) bookedSlots.push({ start: bl.startTime, duration: bl.duration || 30 });
@@ -453,15 +457,20 @@ function rerenderSlots() {
     }
 
     const btn = document.createElement("button");
+    const slotTimeStr  = `${String(slot[0]).padStart(2,"0")}:${String(slot[1]).padStart(2,"0")}`;
+    const isMyBooking  = mySlotTimes.has(slotTimeStr);
     const isBufferZone = isUnavailable && !isPast && !isTaken;
     btn.className = "slot-btn" +
       (isTaken || isBufferZone ? " booked" : "") +
-      (isPast  ? " past"   : "") +
+      (isPast      ? " past"        : "") +
+      (isMyBooking ? " my-booking"  : "") +
       (wasSelected && !isUnavailable ? " selected" : "");
     btn.disabled = isUnavailable;
 
     if (isPast) {
       btn.innerHTML = `<span class="slot-time">${formatTime(slot)}</span><span class="slot-past-label">Past</span>`;
+    } else if (isMyBooking) {
+      btn.innerHTML = `<span class="slot-time">${formatTime(slot)}</span><span class="slot-my-label">Your booking</span>`;
     } else {
       btn.textContent = formatTime(slot);
     }
@@ -951,13 +960,27 @@ async function loadMyBookings() {
     container.innerHTML = `<p class="mb-empty">Couldn't load bookings. Please try again.</p>`;
     return;
   }
-  if (!snap.exists()) {
-    container.innerHTML = `<p class="mb-empty">No bookings yet.</p>`;
+  const entries = [];
+  if (snap.exists()) {
+    snap.forEach(c => entries.push(c.val()));
+  } else {
+    // users/{uid}/bookings is missing — scan upcoming/recent dates for this user's bookings
+    const recovered = await recoverUserBookings(currentUser.uid);
+    if (recovered.length === 0) {
+      container.innerHTML = `<p class="mb-empty">No bookings yet.</p>`;
+      return;
+    }
+    // Repair: write back refs so next load is fast
+    recovered.forEach(b => {
+      push(ref(db, `users/${currentUser.uid}/bookings`), {
+        bookingId: b.bookingId, dateKey: b.dateKey,
+        startTime: b.startTime, serviceName: b.serviceName, status: b.status
+      }).catch(() => {});
+    });
+    // Render directly from recovered data
+    renderMyBookingsList(recovered, container);
     return;
   }
-
-  const entries = [];
-  snap.forEach(c => entries.push(c.val()));
 
   // Fetch live canonical data for each entry
   let liveData;
@@ -992,41 +1015,62 @@ async function loadMyBookings() {
     return;
   }
 
-  const now2 = Date.now();
-  // Show finished bookings for 24h so user can leave a review
-  const valid = liveData.filter(Boolean).filter(b => {
-    if (!b.dateKey) return false;
-    if (b.status !== "finished") return true;
-    const exp = bookingExpireMs(b, b.dateKey);
-    // Extend to 24h for review window (bookingExpireMs is 10min; use finishedAt directly)
-    const reviewExp = (b.finishedAt || 0) + 24 * 60 * 60 * 1000;
-    return Date.now() < reviewExp;
-  });
-
   // Schedule a re-load when the earliest review window expires (finishedAt + 24h)
-  const soonestReviewExp = valid
-    .filter(b => b.status === "finished" && b.finishedAt)
+  const soonestReviewExp = liveData
+    .filter(b => b && b.status === "finished" && b.finishedAt)
     .map(b => b.finishedAt + 24 * 60 * 60 * 1000)
     .sort((a, z) => a - z)[0];
   if (soonestReviewExp && soonestReviewExp > Date.now()) {
     setTimeout(loadMyBookings, soonestReviewExp - Date.now() + 500);
   }
 
-  // Sort: non-finished → latest appointment date first; finished → at bottom (most recent first)
+  renderMyBookingsList(liveData, container);
+}
+
+/** Scan recent + upcoming dates in bookings/ to find entries for this UID */
+async function recoverUserBookings(uid) {
+  const results = [];
+  const today = new Date();
+  const dates = [];
+  for (let i = -14; i <= (SHOP.maxAdvanceDays || 30); i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    dates.push(formatDateKey(d));
+  }
+  await Promise.all(dates.map(async dateKey => {
+    try {
+      const snap = await get(ref(db, `bookings/${dateKey}`));
+      if (!snap.exists()) return;
+      snap.forEach(child => {
+        const b = child.val();
+        if (b && b.uid === uid) results.push({ ...b, dateKey, bookingId: child.key });
+      });
+    } catch (_) {}
+  }));
+  return results;
+}
+
+/** Shared render logic used by both the normal and recovery paths */
+function renderMyBookingsList(liveData, container) {
+  const valid = liveData.filter(Boolean).filter(b => {
+    if (!b.dateKey) return false;
+    if (b.status !== "finished") return true;
+    const reviewExp = (b.finishedAt || 0) + 24 * 60 * 60 * 1000;
+    return Date.now() < reviewExp;
+  });
+
   valid.sort((a, b) => {
-    const aFinished = a.status === "finished";
-    const bFinished = b.status === "finished";
-    if (aFinished !== bFinished) return aFinished ? 1 : -1; // finished always last
+    const aF = a.status === "finished", bF = b.status === "finished";
+    if (aF !== bF) return aF ? 1 : -1;
     const aMs = new Date(`${a.dateKey}T${a.startTime || "00:00"}:00`).getTime();
     const bMs = new Date(`${b.dateKey}T${b.startTime || "00:00"}:00`).getTime();
-    return bMs - aMs; // latest appointment date first
+    return bMs - aMs;
   });
 
   if (!valid.length) {
     container.innerHTML = `<p class="mb-empty">No bookings yet.</p>`;
     return;
   }
-
   container.innerHTML = "";
   valid.forEach(b => container.appendChild(buildMyBookingCard(b)));
 }

@@ -807,6 +807,27 @@ body {
   text-decoration: line-through;
 }
 
+.slot-btn.my-booking {
+  border-color: #2e7d32;
+  background: #f1faf1;
+  color: #1b5e20;
+  cursor: not-allowed;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 0.45rem 0.4rem;
+}
+
+.slot-my-label {
+  font-size: 0.58rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #388e3c;
+  line-height: 1;
+}
+
 .slot-btn.past {
   background: transparent;
   color: #9B9B9B;
