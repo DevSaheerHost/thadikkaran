@@ -673,11 +673,13 @@ async function updateFutureBadge() {
 }
 
 function updateStats(items) {
-  const confirmed = items.filter(b => b.status === "confirmed" || b.status === "walk-in");
-  const noshows   = items.filter(b => b.status === "noshow");
-  const revenue   = confirmed.reduce((sum, b) => sum + (b.price || 0), 0);
+  const bookings  = items.filter(b => b.source !== "block");
+  const confirmed = bookings.filter(b => b.status === "confirmed" || b.status === "walk-in");
+  const finished  = bookings.filter(b => b.status === "finished");
+  const noshows   = bookings.filter(b => b.status === "noshow");
+  const revenue   = [...confirmed, ...finished].reduce((sum, b) => sum + (b.price || 0), 0);
 
-  document.getElementById("stat-total").textContent     = items.filter(b => b.source !== "block").length;
+  document.getElementById("stat-total").textContent     = bookings.length;
   document.getElementById("stat-confirmed").textContent = confirmed.length;
   document.getElementById("stat-noshow").textContent    = noshows.length;
   document.getElementById("stat-revenue").textContent   = `₹${revenue}`;
