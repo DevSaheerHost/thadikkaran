@@ -501,13 +501,17 @@ function loadBookings() {
 
     if (!snap.exists()) { noMsg.classList.remove("hidden"); updateStats([]); return; }
 
-    let items = [];
+    let bookingItems = [];
     snap.forEach(child => {
-      items.push({ key: child.key, ...child.val() });
+      bookingItems.push({ key: child.key, ...child.val() });
     });
 
-    // Also load blocks
+    // Update stats immediately from bookings snapshot — don't wait for blocks
+    updateStats(bookingItems);
+
+    // Also load blocks for full card rendering
     get(ref(db, `blocked/${currentDateKey}`)).then(blockSnap => {
+      const items = [...bookingItems];
       if (blockSnap.exists()) {
         blockSnap.forEach(c => {
           items.push({ key: c.key, ...c.val(), source: "block", status: "blocked" });
@@ -532,8 +536,8 @@ function loadBookings() {
       // Sort by startTime
       items.sort((a, b) => a.startTime.localeCompare(b.startTime));
 
+      list.innerHTML = "";
       items.forEach(item => list.appendChild(buildBookingCard(item)));
-      updateStats(items);
       startTimelineInterval();
       updateFutureBadge();
       attachReviewStars(list);
