@@ -1587,7 +1587,7 @@ async function showBookingDetailModal(dateKey, bookingId) {
       <div class="bd-rows">
         <div class="bd-row"><span class="bd-label">Service</span><span class="bd-value">${svc}</span></div>
         <div class="bd-row"><span class="bd-label">Date</span><span class="bd-value">${date}</span></div>
-        <div class="bd-row"><span class="bd-label">Time</span><span class="bd-value">${b.startTime || "—"}</span></div>
+        <div class="bd-row"><span class="bd-label">Time</span><span class="bd-value">${b.startTime ? formatDisplayTime(b.startTime) : "—"}</span></div>
         <div class="bd-row"><span class="bd-label">Duration</span><span class="bd-value">${b.duration ? b.duration + " min" : "—"}</span></div>
         <div class="bd-row"><span class="bd-label">Source</span><span class="bd-value">${source}</span></div>
         <div class="bd-row"><span class="bd-label">Status</span><span class="bd-value"><span class="booking-badge badge-${status}">${status}</span></span></div>
@@ -1678,7 +1678,7 @@ async function loadTrash() {
     card.innerHTML = `
       <div class="trash-card-info">
         <div class="trash-name">${item.customerName || item.name || "Customer"}</div>
-        <div class="trash-meta">${item.serviceName || item.service || "—"} &middot; ${apptDate}${item.startTime ? " " + item.startTime : ""}</div>
+        <div class="trash-meta">${item.serviceName || item.service || "—"} &middot; ${apptDate}${item.startTime ? " " + formatDisplayTime(item.startTime) : ""}</div>
         <div class="trash-deleted-at">Deleted ${deletedDate}</div>
       </div>
       <div class="trash-card-actions">
