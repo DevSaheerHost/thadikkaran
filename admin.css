@@ -1415,6 +1415,13 @@ body {
 }
 
 /* ── Booking card inline review stars ── */
+.booking-price-tag {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--mid);
+  margin-top: 3px;
+}
+
 .booking-review-stars {
   display: flex;
   align-items: center;

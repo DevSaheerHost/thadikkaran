@@ -608,6 +608,7 @@ function buildBookingCard(item) {
         ${sourceBadge}
       </div>
       ${!isBlock && item.createdAt ? `<div class="booking-booked-at">Booked ${formatBookedAt(item.createdAt)}</div>` : ""}
+      ${!isBlock && item.price ? `<div class="booking-price-tag">₹${item.price}</div>` : ""}
       ${item.status === "finished" && !isBlock ? `<div class="booking-review-stars"></div>` : ""}
       ${item.status === "cancelled" && item.cancelReason ? `<div class="booking-cancel-reason">"${item.cancelReason}"</div>` : ""}
     </div>
