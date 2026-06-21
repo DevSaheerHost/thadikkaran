@@ -50,10 +50,21 @@ module.exports = async function handler(req, res) {
     const svc  = booking.serviceName || "a service";
     const time = formatTime(booking.startTime);
 
+    const bookingTitle = (() => {
+      const today    = new Date();
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+      const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+      const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth()+1).padStart(2,"0")}-${String(tomorrow.getDate()).padStart(2,"0")}`;
+      if (dateKey === todayStr)     return "📅 New Booking – Today";
+      if (dateKey === tomorrowStr)  return "📅 New Booking – Tomorrow";
+      const d = new Date(dateKey + "T00:00:00");
+      return `📅 New Booking – ${d.toLocaleDateString("en-US", { weekday: "long" })}`;
+    })();
+
     const message = {
       data: {
         type: "booking",
-        title: "📅 New Booking – Thadikkaran",
+        title: bookingTitle,
         body: `${name} → ${svc} at ${time}`,
         bookingId,
         dateKey,
