@@ -8,6 +8,7 @@ import {
   initializeAuth,
   browserLocalPersistence,
   inMemoryPersistence,
+  browserPopupRedirectResolver,
   RecaptchaVerifier,
   signInWithPhoneNumber,
   GoogleAuthProvider,
@@ -49,7 +50,10 @@ const firebaseConfig = {
 const VAPID_KEY = "BJljfSryCZol-Pg9YfT2x9OKMP4kom5Q6OBeuzgN4773-PLqhvhTPFOVA2PRvwTKDCc3ZeN1h1Uc0ilieNj6NQQ";
 
 const app       = initializeApp(firebaseConfig);
-const auth      = initializeAuth(app, { persistence: [browserLocalPersistence, inMemoryPersistence] });
+const auth      = initializeAuth(app, {
+  persistence: [browserLocalPersistence, inMemoryPersistence],
+  popupRedirectResolver: browserPopupRedirectResolver,
+});
 const db        = getDatabase(app);
 const messaging = getMessaging(app);
 

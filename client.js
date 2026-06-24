@@ -8,9 +8,9 @@ import {
   initializeAuth,
   browserLocalPersistence,
   inMemoryPersistence,
+  browserPopupRedirectResolver,
   GoogleAuthProvider,
   signInWithPopup,
-  signInWithRedirect,
   onAuthStateChanged,
   signOut as fbSignOut
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -45,7 +45,10 @@ const firebaseConfig = {
 };
 
 const app       = initializeApp(firebaseConfig);
-const auth      = initializeAuth(app, { persistence: [browserLocalPersistence, inMemoryPersistence] });
+const auth      = initializeAuth(app, {
+  persistence: [browserLocalPersistence, inMemoryPersistence],
+  popupRedirectResolver: browserPopupRedirectResolver,
+});
 const db        = getDatabase(app);
 const messaging = getMessaging(app);
 
@@ -205,29 +208,19 @@ function watchClosedDates() {
   });
 }
 
-// Google Sign-In
-// Mobile: signInWithRedirect — Chrome on Android loses the user-gesture
-//   context before signInWithPopup actually opens the window (async work
-//   inside Firebase breaks the gesture chain), so popup gets blocked.
-//   After the redirect Firebase fires onAuthStateChanged automatically —
-//   we do NOT call getRedirectResult (that cross-origin iframe fails in
-//   incognito), just let onAuthStateChanged handle the signed-in state.
-// Desktop: popup for smooth in-place experience.
-const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
+// Google Sign-In — popup on all platforms. Requires popupRedirectResolver
+// to be set on initializeAuth (above), otherwise it throws auth/argument-error.
 window.signInWithGoogle = async function () {
   setAuthLoading(true);
   try {
-    if (isMobile) {
-      await signInWithRedirect(auth, new GoogleAuthProvider());
-      // page navigates away; onAuthStateChanged picks up the user on return
-    } else {
-      await signInWithPopup(auth, new GoogleAuthProvider());
-      clearAuthError();
-      setAuthLoading(false);
-    }
+    await signInWithPopup(auth, new GoogleAuthProvider());
+    clearAuthError();
   } catch (err) {
-    showAuthError("Google sign-in failed. Please try again.");
+    const benign = ["auth/popup-closed-by-user", "auth/cancelled-popup-request"];
+    if (!benign.includes(err?.code)) {
+      showAuthError(`Sign-in failed (${err?.code || "unknown"}). Please try again.`);
+    }
+  } finally {
     setAuthLoading(false);
   }
 };
