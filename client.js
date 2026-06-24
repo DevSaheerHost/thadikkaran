@@ -10,8 +10,6 @@ import {
   inMemoryPersistence,
   GoogleAuthProvider,
   signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
   onAuthStateChanged,
   signOut as fbSignOut
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -206,28 +204,20 @@ function watchClosedDates() {
   });
 }
 
-// Google Sign-In — popup on desktop, redirect on mobile (avoids popup blocking)
-const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
+// Google Sign-In — popup works on all platforms when triggered by user gesture.
+// signInWithRedirect is NOT used because getRedirectResult relies on a
+// cross-origin iframe (firebaseapp.com) that is blocked in incognito mode.
 window.signInWithGoogle = async function () {
   setAuthLoading(true);
   try {
-    if (isMobile) {
-      await signInWithRedirect(auth, new GoogleAuthProvider());
-      // page navigates away — onAuthStateChanged handles the result on return
-    } else {
-      await signInWithPopup(auth, new GoogleAuthProvider());
-      clearAuthError();
-      setAuthLoading(false);
-    }
+    await signInWithPopup(auth, new GoogleAuthProvider());
+    clearAuthError();
   } catch (err) {
     showAuthError("Google sign-in failed. Please try again.");
+  } finally {
     setAuthLoading(false);
   }
 };
-
-// Handle redirect result after returning from Google sign-in
-getRedirectResult(auth).catch(() => {});
 
 function showPhoneModal() {
   document.getElementById("modal-phone").classList.remove("hidden");
