@@ -242,6 +242,18 @@ body {
   margin-bottom: 1.5rem;
 }
 
+.auth-legal {
+  margin-top: 1.25rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.auth-legal a {
+  color: var(--gold, #d4a34e);
+  text-decoration: underline;
+}
+
 /* Inputs */
 .input-group { margin-bottom: 1rem; }
 

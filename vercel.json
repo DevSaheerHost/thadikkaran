@@ -1,9 +1,16 @@
 {
   "rewrites": [
-    { "source": "/admin", "destination": "/admin.html" },
-    { "source": "/book",  "destination": "/index.html"  }
+    { "source": "/admin",   "destination": "/admin.html"   },
+    { "source": "/book",    "destination": "/index.html"   },
+    { "source": "/privacy", "destination": "/privacy.html" }
   ],
   "headers": [
+    {
+      "source": "/.well-known/assetlinks.json",
+      "headers": [
+        { "key": "Content-Type", "value": "application/json" }
+      ]
+    },
     {
       "source": "/firebase-messaging-sw.js",
       "headers": [

@@ -1,15 +1,22 @@
 {
-  "name": "Thadikkaran",
+  "id": "/",
+  "name": "Thadikkaran – Salon Booking",
   "short_name": "Thadikkaran",
-  "description": "Book your salon appointment online",
+  "description": "Book your salon appointment online — pick a service, choose a time, pay at the store.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["lifestyle", "business"],
   "background_color": "#0f0a06",
   "theme_color": "#d4a34e",
-  "orientation": "portrait",
   "icons": [
-    { "src": "/favicon.png",  "sizes": "32x32",   "type": "image/png" },
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "/favicon.png",  "sizes": "32x32",   "type": "image/png", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
