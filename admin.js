@@ -5,7 +5,9 @@
 
 import { initializeApp }       from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
-  getAuth,
+  initializeAuth,
+  browserLocalPersistence,
+  inMemoryPersistence,
   RecaptchaVerifier,
   signInWithPhoneNumber,
   GoogleAuthProvider,
@@ -47,7 +49,7 @@ const firebaseConfig = {
 const VAPID_KEY = "BJljfSryCZol-Pg9YfT2x9OKMP4kom5Q6OBeuzgN4773-PLqhvhTPFOVA2PRvwTKDCc3ZeN1h1Uc0ilieNj6NQQ";
 
 const app       = initializeApp(firebaseConfig);
-const auth      = getAuth(app);
+const auth      = initializeAuth(app, { persistence: [browserLocalPersistence, inMemoryPersistence] });
 const db        = getDatabase(app);
 const messaging = getMessaging(app);
 

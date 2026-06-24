@@ -5,7 +5,9 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
-  getAuth,
+  initializeAuth,
+  browserLocalPersistence,
+  inMemoryPersistence,
   GoogleAuthProvider,
   signInWithPopup,
   onAuthStateChanged,
@@ -42,7 +44,7 @@ const firebaseConfig = {
 };
 
 const app       = initializeApp(firebaseConfig);
-const auth      = getAuth(app);
+const auth      = initializeAuth(app, { persistence: [browserLocalPersistence, inMemoryPersistence] });
 const db        = getDatabase(app);
 const messaging = getMessaging(app);
 
