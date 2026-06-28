@@ -1721,6 +1721,29 @@ body {
   vertical-align: middle;
 }
 
+/* BLOCKED customer badge */
+.ins-blocked-badge {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--danger);
+  background: #ffe5e5;
+  padding: 1px 5px;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+.cust-blocked-note {
+  background: #ffe5e5;
+  color: var(--danger);
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 0.5rem 0.7rem;
+  border-radius: var(--radius-sm);
+  margin: 0.5rem 0;
+}
+
 /* Search */
 .ins-search {
   width: 100%;

@@ -760,9 +760,11 @@ async function loadInsights() {
                   : b.phone ? `p:${b.phone}`
                   : `n:${(b.name || "Walk-in").toLowerCase()}`;
         const c = (custMap[key] ||= {
-          key, name: b.name || "Walk-in", phone: b.phone || "",
+          key, uid: b.uid || "", name: b.name || "Walk-in", phone: b.phone || "",
           jobs: [], totalJobs: 0, totalSpend: 0, lastVisit: 0, firstVisit: Infinity,
+          noShows: 0, blocked: false,
         });
+        if (b.uid && !c.uid) c.uid = b.uid;
         if (b.name && !c.name) c.name = b.name;
         if (b.phone && !c.phone) c.phone = b.phone;
         c.jobs.push({
@@ -774,12 +776,29 @@ async function loadInsights() {
           createdAt: b.createdAt || 0,
         });
         if (isRevenue) { c.totalJobs += 1; c.totalSpend += price; }
+        if (status === "noshow") c.noShows += 1;
         const visitTs = b.createdAt || 0;
         if (visitTs > c.lastVisit)  c.lastVisit  = visitTs;
         if (visitTs && visitTs < c.firstVisit) c.firstVisit = visitTs;
       });
     });
   }
+
+  // Merge authoritative no-show / blocked status (keyed by uid)
+  try {
+    const nsSnap = await get(ref(db, "noshows"));
+    if (nsSnap.exists()) {
+      const nsMap = {};
+      nsSnap.forEach(ch => { nsMap[ch.key] = ch.val() || {}; });
+      Object.values(custMap).forEach(c => {
+        const entry = c.uid && nsMap[c.uid];
+        if (entry) {
+          if (entry.blocked) c.blocked = true;
+          c.noShows = Math.max(c.noShows, entry.noShowCount || 0);
+        }
+      });
+    }
+  } catch (_) { /* admin-only branch; ignore if unreadable */ }
 
   insightsCustomers = Object.values(custMap)
     .map(c => ({ ...c, firstVisit: c.firstVisit === Infinity ? 0 : c.firstVisit }))
@@ -900,6 +919,14 @@ window.applyCustomerFilters = function () {
     case "spend-low":
       list.sort((a, b) => a.totalSpend - b.totalSpend);
       break;
+    case "noshows":
+      list = list.filter(c => c.noShows > 0)
+                 .sort((a, b) => b.noShows - a.noShows);
+      break;
+    case "blocked":
+      list = list.filter(c => c.blocked)
+                 .sort((a, b) => b.noShows - a.noShows);
+      break;
     case "recent":
     default:
       list.sort((a, b) => b.lastVisit - a.lastVisit);
@@ -916,18 +943,22 @@ function renderCustomerList(list, mode = "recent") {
     return;
   }
   const spendMode = mode === "spend-high" || mode === "spend-low";
+  const nsMode    = mode === "noshows" || mode === "blocked";
   el.innerHTML = list.map((c, i) => {
     const initial = (c.name || "?").trim().charAt(0).toUpperCase() || "?";
     const sub = `${escapeHtml(c.phone || "No phone")} · ₹${c.totalSpend} spent`;
-    const newBadge = isNewCustomer(c) ? `<span class="ins-new-badge">NEW</span>` : "";
-    const stat = spendMode
-      ? `<div class="ins-cust-jobs">₹${c.totalSpend}</div><div class="ins-cust-jobs-label">spent</div>`
-      : `<div class="ins-cust-jobs">${c.totalJobs}</div><div class="ins-cust-jobs-label">jobs</div>`;
+    const badges =
+      (isNewCustomer(c) ? `<span class="ins-new-badge">NEW</span>` : "") +
+      (c.blocked        ? `<span class="ins-blocked-badge">BLOCKED</span>` : "");
+    let stat;
+    if (nsMode)         stat = `<div class="ins-cust-jobs">${c.noShows}</div><div class="ins-cust-jobs-label">no-shows</div>`;
+    else if (spendMode) stat = `<div class="ins-cust-jobs">₹${c.totalSpend}</div><div class="ins-cust-jobs-label">spent</div>`;
+    else                stat = `<div class="ins-cust-jobs">${c.totalJobs}</div><div class="ins-cust-jobs-label">jobs</div>`;
     return `
       <div class="ins-customer-row" onclick="showCustomerDetail(${i})">
         <div class="ins-cust-avatar">${initial}</div>
         <div class="ins-cust-info">
-          <div class="ins-cust-name">${escapeHtml(c.name || "Customer")}${newBadge}</div>
+          <div class="ins-cust-name">${escapeHtml(c.name || "Customer")}${badges}</div>
           <div class="ins-cust-sub">${sub}</div>
         </div>
         <div class="ins-cust-stat">${stat}</div>
@@ -969,11 +1000,16 @@ window.showCustomerDetail = function (idx) {
       </div>`;
   }).join("");
 
+  const blockedNote = c.blocked
+    ? `<div class="cust-blocked-note">⛔ Blocked after repeated no-shows</div>` : "";
+
   document.getElementById("customer-detail-content").innerHTML = `
     <p class="modal-sub">${escapeHtml(c.phone || "No phone on file")}</p>
+    ${blockedNote}
     <div class="cust-spend">
       <div class="cust-spend-item"><span class="cust-spend-num">${c.totalJobs}</span><span class="cust-spend-label">Completed</span></div>
       <div class="cust-spend-item"><span class="cust-spend-num">₹${c.totalSpend}</span><span class="cust-spend-label">Total Spent</span></div>
+      <div class="cust-spend-item"><span class="cust-spend-num">${c.noShows}</span><span class="cust-spend-label">No-shows</span></div>
       <div class="cust-spend-item"><span class="cust-spend-num">${c.jobs.length}</span><span class="cust-spend-label">All Bookings</span></div>
     </div>
     <div class="cust-jobs-list">${jobsHtml}</div>`;
