@@ -196,6 +196,10 @@ function showApp() {
   if (bdate && bid) {
     history.replaceState({}, "", window.location.pathname);
     setTimeout(() => showBookingDetailModal(bdate, bid), 400);
+  } else if (urlParams.get("tab") === "insights") {
+    history.replaceState({}, "", window.location.pathname);
+    if (urlParams.get("filter")) pendingInsightsFilter = urlParams.get("filter");
+    setTimeout(() => switchTab("insights", document.querySelector('.nav-link[data-tab="insights"]')), 300);
   }
 }
 
@@ -271,8 +275,13 @@ async function initFCM() {
 
     navigator.serviceWorker.addEventListener("message", (event) => {
       if (event.data?.type === "BOOKING_NOTIFICATION_CLICK") {
-        const { dateKey, bookingId } = event.data.data || {};
-        if (dateKey && bookingId) showBookingDetailModal(dateKey, bookingId);
+        const d = event.data.data || {};
+        if (d.type === "inactive") {
+          pendingInsightsFilter = "inactive";
+          switchTab("insights", document.querySelector('.nav-link[data-tab="insights"]'));
+          return;
+        }
+        if (d.dateKey && d.bookingId) showBookingDetailModal(d.dateKey, d.bookingId);
       }
     });
 
@@ -706,6 +715,7 @@ let insightsDaily     = {};          // dateKey  → { revenue, bookings }
 let insightsMonthly   = {};          // "YYYY-MM" → { revenue, bookings }
 let chartRange        = "daily";     // "daily" | "monthly"
 let chartMetric       = "revenue";   // "revenue" | "bookings"
+let pendingInsightsFilter = null;    // filter to apply after next loadInsights
 
 const REVENUE_STATUSES = new Set(["confirmed", "finished"]);
 
@@ -724,6 +734,7 @@ async function loadInsights() {
   }
 
   const custMap = {};                // key → customer object
+  const serviceSet = new Set();      // distinct service names (for the service filter)
   insightsDaily   = {};
   insightsMonthly = {};
   let totalJobs = 0, totalRevenue = 0, monthRevenue = 0;
@@ -735,6 +746,7 @@ async function loadInsights() {
       dateNode.forEach(child => {
         const b = child.val();
         if (!b || !b.serviceName) return;
+        if (b.status !== "blocked") serviceSet.add(b.serviceName);
         const status = b.status || "confirmed";
         if (status === "blocked") return;
 
@@ -810,6 +822,24 @@ async function loadInsights() {
   document.getElementById("ins-revenue").textContent   = `₹${totalRevenue}`;
   document.getElementById("ins-month-rev").textContent = `₹${monthRevenue}`;
 
+  // Populate the service-type filter (preserve current selection)
+  const svcSel = document.getElementById("ins-service");
+  const prevSvc = svcSel.value;
+  svcSel.innerHTML = `<option value="">All services</option>` +
+    [...serviceSet].sort().map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("");
+  if ([...svcSel.options].some(o => o.value === prevSvc)) svcSel.value = prevSvc;
+
+  // Inactive customers (60+ days since last visit) → banner + once-a-day notification
+  const inactive = insightsCustomers.filter(isInactiveCustomer);
+  updateInactiveBanner(inactive.length);
+  maybeNotifyInactive(inactive.length);
+
+  // Honor a filter requested from a notification click
+  if (pendingInsightsFilter) {
+    document.getElementById("ins-filter").value = pendingInsightsFilter;
+    pendingInsightsFilter = null;
+  }
+
   renderChart();
   applyCustomerFilters();
 
@@ -882,23 +912,76 @@ function renderChart() {
   }).join("");
 }
 
-const NEW_CUSTOMER_MS = 30 * 24 * 60 * 60 * 1000;   // first visit within 30 days
+const NEW_CUSTOMER_MS  = 30 * 24 * 60 * 60 * 1000;   // first visit within 30 days
+const INACTIVE_MS      = 60 * 24 * 60 * 60 * 1000;   // 60+ days since last visit
 const REGULAR_MIN_JOBS = 3;                          // 3+ completed jobs = regular
 
 function isNewCustomer(c) {
   return c.firstVisit && (Date.now() - c.firstVisit) <= NEW_CUSTOMER_MS;
 }
+function isInactiveCustomer(c) {
+  return c.lastVisit && (Date.now() - c.lastVisit) > INACTIVE_MS;
+}
+function daysSince(ts) {
+  return ts ? Math.floor((Date.now() - ts) / (24 * 60 * 60 * 1000)) : 0;
+}
+
+// In-app banner showing the inactive-customer count
+function updateInactiveBanner(count) {
+  const banner = document.getElementById("ins-inactive-banner");
+  if (!banner) return;
+  if (count > 0) {
+    banner.innerHTML =
+      `<span>📊 <strong>${count}</strong> customer${count === 1 ? "" : "s"} ${count === 1 ? "hasn't" : "haven't"} visited in 60+ days.</span>` +
+      `<button class="btn btn-sm btn-primary" onclick="viewInactive()">View</button>`;
+    banner.classList.remove("hidden");
+  } else {
+    banner.classList.add("hidden");
+  }
+}
+
+window.viewInactive = function () {
+  document.getElementById("ins-service").value = "";
+  document.getElementById("ins-search").value  = "";
+  document.getElementById("ins-filter").value  = "inactive";
+  applyCustomerFilters();
+  document.getElementById("ins-customer-list").scrollIntoView({ behavior: "smooth", block: "start" });
+};
+
+// Local system notification (zero server cost) — fired at most once per day
+function maybeNotifyInactive(count) {
+  if (!count) return;
+  const todayKey = formatDateKey(new Date());
+  if (localStorage.getItem("inactiveNotifiedDate") === todayKey) return;   // already notified today
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+  if (!("serviceWorker" in navigator)) return;
+
+  navigator.serviceWorker.ready.then(reg => {
+    reg.showNotification("📊 Re-engage customers", {
+      body:  `${count} customer${count === 1 ? "" : "s"} haven't visited in 60+ days.`,
+      icon:  "/icon-192.png",
+      badge: "/badge-72.png",
+      tag:   "thadikkaran-inactive",
+      data:  { url: "https://thadikkaran.vercel.app/admin?tab=insights&filter=inactive", type: "inactive" },
+    });
+    localStorage.setItem("inactiveNotifiedDate", todayKey);
+  }).catch(() => {});
+}
 
 // Combined search + filter/sort for the customer list
 window.applyCustomerFilters = function () {
-  const q    = (document.getElementById("ins-search").value || "").trim().toLowerCase();
-  const mode = document.getElementById("ins-filter").value;
+  const q       = (document.getElementById("ins-search").value || "").trim().toLowerCase();
+  const mode    = document.getElementById("ins-filter").value;
+  const service = document.getElementById("ins-service").value;
 
   let list = insightsCustomers.slice();
 
   // Text search (name or phone)
   if (q) list = list.filter(c =>
     (c.name || "").toLowerCase().includes(q) || (c.phone || "").includes(q));
+
+  // Service-type filter (customer has at least one job of this service)
+  if (service) list = list.filter(c => c.jobs.some(j => j.serviceName === service));
 
   // Filter + sort by selected mode
   switch (mode) {
@@ -927,6 +1010,10 @@ window.applyCustomerFilters = function () {
       list = list.filter(c => c.blocked)
                  .sort((a, b) => b.noShows - a.noShows);
       break;
+    case "inactive":
+      list = list.filter(isInactiveCustomer)
+                 .sort((a, b) => a.lastVisit - b.lastVisit);   // longest-gone first
+      break;
     case "recent":
     default:
       list.sort((a, b) => b.lastVisit - a.lastVisit);
@@ -951,9 +1038,10 @@ function renderCustomerList(list, mode = "recent") {
       (isNewCustomer(c) ? `<span class="ins-new-badge">NEW</span>` : "") +
       (c.blocked        ? `<span class="ins-blocked-badge">BLOCKED</span>` : "");
     let stat;
-    if (nsMode)         stat = `<div class="ins-cust-jobs">${c.noShows}</div><div class="ins-cust-jobs-label">no-shows</div>`;
-    else if (spendMode) stat = `<div class="ins-cust-jobs">₹${c.totalSpend}</div><div class="ins-cust-jobs-label">spent</div>`;
-    else                stat = `<div class="ins-cust-jobs">${c.totalJobs}</div><div class="ins-cust-jobs-label">jobs</div>`;
+    if (mode === "inactive") stat = `<div class="ins-cust-jobs">${daysSince(c.lastVisit)}</div><div class="ins-cust-jobs-label">days ago</div>`;
+    else if (nsMode)         stat = `<div class="ins-cust-jobs">${c.noShows}</div><div class="ins-cust-jobs-label">no-shows</div>`;
+    else if (spendMode)      stat = `<div class="ins-cust-jobs">₹${c.totalSpend}</div><div class="ins-cust-jobs-label">spent</div>`;
+    else                     stat = `<div class="ins-cust-jobs">${c.totalJobs}</div><div class="ins-cust-jobs-label">jobs</div>`;
     return `
       <div class="ins-customer-row" onclick="showCustomerDetail(${i})">
         <div class="ins-cust-avatar">${initial}</div>

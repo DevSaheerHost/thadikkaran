@@ -1707,6 +1707,31 @@ body {
 }
 .ins-filter:focus { outline: none; border-color: var(--mid); }
 
+/* Service select + search on one row */
+.ins-filter-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+}
+.ins-service { flex-shrink: 0; max-width: 45%; }
+.ins-filter-row .ins-search { margin-bottom: 0; flex: 1; min-width: 0; }
+
+/* Inactive-customers banner */
+.ins-inactive-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: var(--warn-bg);
+  border: 1.5px solid #f0d48a;
+  color: #8a6d1f;
+  border-radius: var(--radius-md);
+  padding: 0.7rem 0.9rem;
+  font-size: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+.ins-inactive-banner button { flex-shrink: 0; }
+
 /* NEW customer badge */
 .ins-new-badge {
   display: inline-block;

@@ -408,6 +408,9 @@
         <div id="insights-loading" class="loading-spinner"><div class="spinner"></div></div>
 
         <div id="insights-body" class="hidden">
+          <!-- Inactive-customers banner -->
+          <div id="ins-inactive-banner" class="ins-inactive-banner hidden"></div>
+
           <!-- Summary cards -->
           <div class="ins-summary">
             <div class="ins-card"><span class="ins-num" id="ins-customers">0</span><span class="ins-label">Customers</span></div>
@@ -441,13 +444,19 @@
                 <option value="visits">Most visits</option>
                 <option value="regulars">Regulars (3+)</option>
                 <option value="new">New customers</option>
+                <option value="inactive">Inactive (60+ days)</option>
                 <option value="spend-high">Highest spend</option>
                 <option value="spend-low">Lowest spend</option>
                 <option value="noshows">No-shows</option>
                 <option value="blocked">Blocked</option>
               </select>
             </div>
-            <input type="text" id="ins-search" class="ins-search" placeholder="Search by name or phone…" oninput="applyCustomerFilters()" />
+            <div class="ins-filter-row">
+              <select id="ins-service" class="ins-filter ins-service" onchange="applyCustomerFilters()">
+                <option value="">All services</option>
+              </select>
+              <input type="text" id="ins-search" class="ins-search" placeholder="Search by name or phone…" oninput="applyCustomerFilters()" />
+            </div>
             <div id="ins-customer-list" class="ins-customer-list"></div>
           </div>
         </div>
