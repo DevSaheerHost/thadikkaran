@@ -1551,3 +1551,217 @@ body {
 
 .bd-label { color: var(--mid); flex-shrink: 0; }
 .bd-value { font-weight: 500; text-align: right; }
+
+/* ═══════════════════════════════════════════════
+   INSIGHTS TAB — customers, jobs & charts
+═══════════════════════════════════════════════ */
+
+.ins-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+.ins-card {
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.9rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+.ins-num {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--black);
+}
+.ins-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--mid);
+}
+
+.ins-section {
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1.1rem 1rem;
+  margin-bottom: 1.25rem;
+}
+.ins-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.9rem;
+}
+.ins-section-title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--black);
+}
+
+/* Toggles */
+.ins-toggle, .ins-metric-toggle {
+  display: inline-flex;
+  gap: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+}
+.ins-metric-toggle { margin-bottom: 1rem; }
+.ins-toggle-btn, .ins-metric-btn {
+  border: none;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--mid);
+  padding: 0.35rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.ins-toggle-btn.active, .ins-metric-btn.active {
+  background: var(--black);
+  color: var(--white);
+}
+
+/* Chart — pure CSS bars (heights computed in px by JS for reliability) */
+.ins-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  padding-top: 1.4rem;
+  overflow-x: hidden;
+}
+.ins-bar-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.ins-bar-wrap {
+  width: 100%;
+  height: 150px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  position: relative;
+}
+.ins-bar {
+  width: 70%;
+  max-width: 28px;
+  background: linear-gradient(180deg, #3a8a45, #2e7d32);
+  border-radius: 4px 4px 0 0;
+  min-height: 2px;
+  transition: var(--transition);
+  position: relative;
+}
+.ins-bar.metric-bookings {
+  background: linear-gradient(180deg, #4a4a4a, #2c2c2c);
+}
+.ins-bar-val {
+  position: absolute;
+  top: -1.3rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--mid);
+  white-space: nowrap;
+}
+.ins-bar-label {
+  font-size: 0.62rem;
+  color: var(--light);
+  white-space: nowrap;
+  text-align: center;
+}
+.ins-chart-empty {
+  width: 100%;
+  text-align: center;
+  color: var(--light);
+  font-size: 0.85rem;
+  align-self: center;
+}
+
+/* Search */
+.ins-search {
+  width: 100%;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.8rem;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  margin-bottom: 0.9rem;
+  background: var(--bg);
+}
+.ins-search:focus { outline: none; border-color: var(--mid); background: var(--white); }
+
+/* Customer list */
+.ins-customer-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.ins-customer-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+  background: var(--white);
+}
+.ins-customer-row:hover { border-color: var(--mid); box-shadow: var(--shadow-sm); }
+.ins-cust-avatar {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: var(--black);
+  color: var(--white);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 0.95rem;
+  flex-shrink: 0;
+}
+.ins-cust-info { flex: 1; min-width: 0; }
+.ins-cust-name {
+  font-weight: 600; font-size: 0.92rem; color: var(--black);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ins-cust-sub { font-size: 0.78rem; color: var(--mid); }
+.ins-cust-stat { text-align: right; flex-shrink: 0; }
+.ins-cust-jobs { font-weight: 700; font-size: 0.95rem; color: var(--black); }
+.ins-cust-jobs-label { font-size: 0.68rem; color: var(--light); text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* Customer detail modal */
+.cust-spend {
+  display: flex; gap: 1.25rem;
+  padding: 0.75rem 0; margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.cust-spend-item { display: flex; flex-direction: column; }
+.cust-spend-num { font-family: var(--font-display); font-weight: 700; font-size: 1.2rem; color: var(--black); }
+.cust-spend-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--mid); }
+.cust-jobs-list { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.75rem; max-height: 50vh; overflow-y: auto; }
+.cust-job {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.cust-job-main { min-width: 0; }
+.cust-job-service { font-weight: 600; font-size: 0.88rem; color: var(--black); }
+.cust-job-when { font-size: 0.76rem; color: var(--mid); margin-top: 2px; }
+.cust-job-right { text-align: right; flex-shrink: 0; }
+.cust-job-price { font-weight: 600; font-size: 0.85rem; color: var(--black); }
+.cust-job-badge { font-size: 0.64rem; text-transform: capitalize; padding: 1px 6px; border-radius: 4px; display: inline-block; margin-top: 3px; }
+
+@media (max-width: 640px) {
+  .ins-summary { grid-template-columns: repeat(2, 1fr); }
+}

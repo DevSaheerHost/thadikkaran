@@ -3,6 +3,18 @@ let _resolveWith = null; // set by window.__stubAuthUser before page load
 
 export function getAuth(app) { return { app, currentUser: null, _stub: true }; }
 
+// Modular-auth init (matches client.js / admin.js using initializeAuth + persistence)
+export function initializeAuth(app, opts) { return { app, currentUser: null, _stub: true, opts }; }
+export const browserLocalPersistence    = { type: 'LOCAL' };
+export const browserSessionPersistence  = { type: 'SESSION' };
+export const inMemoryPersistence         = { type: 'NONE' };
+export const browserPopupRedirectResolver = { _resolver: true };
+
+export async function signInWithRedirect(auth, provider) {
+  throw new Error('[stub] redirect sign-in not available locally');
+}
+export async function getRedirectResult(auth) { return null; }
+
 export class GoogleAuthProvider { static credential() {} }
 
 export async function signInWithPopup(auth, provider) {

@@ -461,6 +461,7 @@ window.switchTab = function (tabId, btn) {
     loadReviews();
   }
   if (tabId === 'trash') loadTrash();
+  if (tabId === 'insights') loadInsights();
 };
 
 // ═══════════════════════════════════
@@ -694,6 +695,254 @@ function updateStats(items) {
   document.getElementById("stat-confirmed").textContent = confirmed.length;
   document.getElementById("stat-noshow").textContent    = noshows.length;
   document.getElementById("stat-revenue").textContent   = `₹${revenue}`;
+}
+
+// ═══════════════════════════════════
+//  INSIGHTS — customers, jobs & charts
+// ═══════════════════════════════════
+
+let insightsCustomers = [];          // aggregated customer list
+let insightsDaily     = {};          // dateKey  → { revenue, bookings }
+let insightsMonthly   = {};          // "YYYY-MM" → { revenue, bookings }
+let chartRange        = "daily";     // "daily" | "monthly"
+let chartMetric       = "revenue";   // "revenue" | "bookings"
+
+const REVENUE_STATUSES = new Set(["confirmed", "finished"]);
+
+async function loadInsights() {
+  const loading = document.getElementById("insights-loading");
+  const body    = document.getElementById("insights-body");
+  loading.classList.remove("hidden");
+  body.classList.add("hidden");
+
+  let snap;
+  try {
+    snap = await get(ref(db, "bookings"));
+  } catch (e) {
+    loading.innerHTML = `<p class="no-data-msg">Couldn't load insights. Please try again.</p>`;
+    return;
+  }
+
+  const custMap = {};                // key → customer object
+  insightsDaily   = {};
+  insightsMonthly = {};
+  let totalJobs = 0, totalRevenue = 0, monthRevenue = 0;
+  const nowMonthKey = formatDateKey(new Date()).slice(0, 7);
+
+  if (snap.exists()) {
+    snap.forEach(dateNode => {
+      const dateKey = dateNode.key;
+      dateNode.forEach(child => {
+        const b = child.val();
+        if (!b || !b.serviceName) return;
+        const status = b.status || "confirmed";
+        if (status === "blocked") return;
+
+        const isRevenue = REVENUE_STATUSES.has(status);
+        const price = isRevenue ? (b.price || 0) : 0;
+        const monthKey = (b.dateKey || dateKey).slice(0, 7);
+
+        // Charts: count confirmed+finished only
+        if (isRevenue) {
+          (insightsDaily[dateKey]   ||= { revenue: 0, bookings: 0 });
+          (insightsMonthly[monthKey] ||= { revenue: 0, bookings: 0 });
+          insightsDaily[dateKey].revenue    += price;
+          insightsDaily[dateKey].bookings   += 1;
+          insightsMonthly[monthKey].revenue += price;
+          insightsMonthly[monthKey].bookings += 1;
+          totalJobs    += 1;
+          totalRevenue += price;
+          if (monthKey === nowMonthKey) monthRevenue += price;
+        }
+
+        // Customer aggregation — key by uid, then phone, then name
+        const key = b.uid ? `u:${b.uid}`
+                  : b.phone ? `p:${b.phone}`
+                  : `n:${(b.name || "Walk-in").toLowerCase()}`;
+        const c = (custMap[key] ||= {
+          key, name: b.name || "Walk-in", phone: b.phone || "",
+          jobs: [], totalJobs: 0, totalSpend: 0, lastVisit: 0,
+        });
+        if (b.name && !c.name) c.name = b.name;
+        if (b.phone && !c.phone) c.phone = b.phone;
+        c.jobs.push({
+          serviceName: b.serviceName,
+          dateKey: b.dateKey || dateKey,
+          startTime: b.startTime || "",
+          price: b.price || 0,
+          status,
+          createdAt: b.createdAt || 0,
+        });
+        if (isRevenue) { c.totalJobs += 1; c.totalSpend += price; }
+        const visitTs = b.createdAt || 0;
+        if (visitTs > c.lastVisit) c.lastVisit = visitTs;
+      });
+    });
+  }
+
+  insightsCustomers = Object.values(custMap)
+    .sort((a, z) => z.lastVisit - a.lastVisit);
+
+  // Summary cards
+  document.getElementById("ins-customers").textContent = insightsCustomers.length;
+  document.getElementById("ins-jobs").textContent      = totalJobs;
+  document.getElementById("ins-revenue").textContent   = `₹${totalRevenue}`;
+  document.getElementById("ins-month-rev").textContent = `₹${monthRevenue}`;
+
+  renderChart();
+  renderCustomerList(insightsCustomers);
+
+  loading.classList.add("hidden");
+  body.classList.remove("hidden");
+}
+
+window.switchChart = function (range, btn) {
+  chartRange = range;
+  document.querySelectorAll(".ins-toggle-btn").forEach(b => b.classList.remove("active"));
+  if (btn) btn.classList.add("active");
+  renderChart();
+};
+
+window.switchMetric = function (metric, btn) {
+  chartMetric = metric;
+  document.querySelectorAll(".ins-metric-btn").forEach(b => b.classList.remove("active"));
+  if (btn) btn.classList.add("active");
+  renderChart();
+};
+
+function renderChart() {
+  const el = document.getElementById("ins-chart");
+  const today = new Date();
+  const buckets = [];
+
+  if (chartRange === "daily") {
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const k = formatDateKey(d);
+      const data = insightsDaily[k] || { revenue: 0, bookings: 0 };
+      buckets.push({ label: String(d.getDate()), ...data });
+    }
+  } else {
+    const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+      const data = insightsMonthly[k] || { revenue: 0, bookings: 0 };
+      buckets.push({ label: MON[d.getMonth()], ...data });
+    }
+  }
+
+  const max = Math.max(1, ...buckets.map(b => b[chartMetric]));
+  const total = buckets.reduce((s, b) => s + b[chartMetric], 0);
+  if (total === 0) {
+    el.innerHTML = `<div class="ins-chart-empty">No data for this period yet.</div>`;
+    return;
+  }
+
+  const prefix     = chartMetric === "revenue" ? "₹" : "";
+  const CHART_H    = 150;                       // px, matches .ins-bar-wrap height
+  const many       = buckets.length > 12;       // daily (30) = many
+  const showValues = !many;                     // avoid clutter on the 30-day view
+  const lastIdx    = buckets.length - 1;
+  el.innerHTML = buckets.map((b, i) => {
+    const val = b[chartMetric];
+    const h   = val > 0 ? Math.max(3, Math.round((val / max) * CHART_H)) : 0;
+    const valLabel = (showValues && val > 0) ? `<span class="ins-bar-val">${prefix}${val}</span>` : "";
+    // On the dense daily view, show a label every 5th bar (plus the last)
+    const showLabel = !many || i % 5 === 0 || i === lastIdx;
+    return `
+      <div class="ins-bar-col">
+        <div class="ins-bar-wrap">
+          <div class="ins-bar metric-${chartMetric}" style="height:${h}px">${valLabel}</div>
+        </div>
+        <span class="ins-bar-label">${showLabel ? b.label : ""}</span>
+      </div>`;
+  }).join("");
+}
+
+window.filterCustomers = function () {
+  const q = document.getElementById("ins-search").value.trim().toLowerCase();
+  if (!q) { renderCustomerList(insightsCustomers); return; }
+  const filtered = insightsCustomers.filter(c =>
+    (c.name || "").toLowerCase().includes(q) || (c.phone || "").includes(q));
+  renderCustomerList(filtered);
+};
+
+function renderCustomerList(list) {
+  const el = document.getElementById("ins-customer-list");
+  if (!list.length) {
+    el.innerHTML = `<p class="no-data-msg" style="padding:1rem 0">No customers found.</p>`;
+    return;
+  }
+  el.innerHTML = list.map((c, i) => {
+    const initial = (c.name || "?").trim().charAt(0).toUpperCase() || "?";
+    const sub = c.phone || "No phone on file";
+    return `
+      <div class="ins-customer-row" onclick="showCustomerDetail(${i})">
+        <div class="ins-cust-avatar">${initial}</div>
+        <div class="ins-cust-info">
+          <div class="ins-cust-name">${escapeHtml(c.name || "Customer")}</div>
+          <div class="ins-cust-sub">${escapeHtml(sub)}</div>
+        </div>
+        <div class="ins-cust-stat">
+          <div class="ins-cust-jobs">${c.totalJobs}</div>
+          <div class="ins-cust-jobs-label">jobs</div>
+        </div>
+      </div>`;
+  }).join("");
+  // store the currently-rendered list for index lookup
+  renderCustomerList._current = list;
+}
+
+window.showCustomerDetail = function (idx) {
+  const c = (renderCustomerList._current || insightsCustomers)[idx];
+  if (!c) return;
+  document.getElementById("cust-modal-title").textContent = c.name || "Customer";
+
+  const badgeMap = {
+    confirmed: "badge-confirmed", finished: "badge-finished",
+    noshow: "badge-noshow", cancelled: "badge-cancelled",
+  };
+  const jobs = [...c.jobs].sort((a, z) =>
+    (z.dateKey || "").localeCompare(a.dateKey || "") ||
+    (z.startTime || "").localeCompare(a.startTime || ""));
+
+  const jobsHtml = jobs.map(j => {
+    const d = new Date((j.dateKey || "") + "T00:00:00");
+    const dateStr = isNaN(d) ? j.dateKey : d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    const timeStr = j.startTime ? formatDisplayTime(j.startTime) : "";
+    const badge = badgeMap[j.status] || "badge-confirmed";
+    const priceStr = j.price ? `₹${j.price}` : "—";
+    return `
+      <div class="cust-job">
+        <div class="cust-job-main">
+          <div class="cust-job-service">${escapeHtml(j.serviceName)}</div>
+          <div class="cust-job-when">${dateStr}${timeStr ? " · " + timeStr : ""}</div>
+        </div>
+        <div class="cust-job-right">
+          <div class="cust-job-price">${priceStr}</div>
+          <span class="status-badge cust-job-badge ${badge}">${j.status}</span>
+        </div>
+      </div>`;
+  }).join("");
+
+  document.getElementById("customer-detail-content").innerHTML = `
+    <p class="modal-sub">${escapeHtml(c.phone || "No phone on file")}</p>
+    <div class="cust-spend">
+      <div class="cust-spend-item"><span class="cust-spend-num">${c.totalJobs}</span><span class="cust-spend-label">Completed</span></div>
+      <div class="cust-spend-item"><span class="cust-spend-num">₹${c.totalSpend}</span><span class="cust-spend-label">Total Spent</span></div>
+      <div class="cust-spend-item"><span class="cust-spend-num">${c.jobs.length}</span><span class="cust-spend-label">All Bookings</span></div>
+    </div>
+    <div class="cust-jobs-list">${jobsHtml}</div>`;
+
+  document.getElementById("modal-customer").classList.remove("hidden");
+};
+
+function escapeHtml(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 // ═══════════════════════════════════

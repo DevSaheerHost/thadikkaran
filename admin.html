@@ -116,6 +116,10 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           No-Shows
         </button>
+        <button class="nav-link" data-tab="insights" onclick="switchTab('insights', this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          Insights
+        </button>
         <button class="nav-link" data-tab="settings" onclick="switchTab('settings', this)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
           Settings
@@ -392,6 +396,53 @@
         <div id="trash-list" class="trash-list"></div>
       </div>
 
+      <!-- ── TAB: INSIGHTS (customers + charts) ── -->
+      <div id="tab-insights" class="tab-content hidden">
+        <div class="tab-header">
+          <div class="tab-header-text">
+            <h2 class="tab-title">Insights</h2>
+            <p class="tab-sub">Customers, jobs &amp; revenue trends</p>
+          </div>
+        </div>
+
+        <div id="insights-loading" class="loading-spinner"><div class="spinner"></div></div>
+
+        <div id="insights-body" class="hidden">
+          <!-- Summary cards -->
+          <div class="ins-summary">
+            <div class="ins-card"><span class="ins-num" id="ins-customers">0</span><span class="ins-label">Customers</span></div>
+            <div class="ins-card"><span class="ins-num" id="ins-jobs">0</span><span class="ins-label">Total Jobs</span></div>
+            <div class="ins-card"><span class="ins-num" id="ins-revenue">₹0</span><span class="ins-label">Revenue</span></div>
+            <div class="ins-card"><span class="ins-num" id="ins-month-rev">₹0</span><span class="ins-label">This Month</span></div>
+          </div>
+
+          <!-- Charts -->
+          <div class="ins-section">
+            <div class="ins-section-head">
+              <h3 class="ins-section-title">Trends</h3>
+              <div class="ins-toggle">
+                <button class="ins-toggle-btn active" data-range="daily"   onclick="switchChart('daily', this)">Daily</button>
+                <button class="ins-toggle-btn"        data-range="monthly" onclick="switchChart('monthly', this)">Monthly</button>
+              </div>
+            </div>
+            <div class="ins-metric-toggle">
+              <button class="ins-metric-btn active" data-metric="revenue"  onclick="switchMetric('revenue', this)">Revenue</button>
+              <button class="ins-metric-btn"        data-metric="bookings" onclick="switchMetric('bookings', this)">Bookings</button>
+            </div>
+            <div id="ins-chart" class="ins-chart"></div>
+          </div>
+
+          <!-- Customers -->
+          <div class="ins-section">
+            <div class="ins-section-head">
+              <h3 class="ins-section-title">Customers</h3>
+            </div>
+            <input type="text" id="ins-search" class="ins-search" placeholder="Search by name or phone…" oninput="filterCustomers()" />
+            <div id="ins-customer-list" class="ins-customer-list"></div>
+          </div>
+        </div>
+      </div>
+
     </main><!-- /admin-main -->
   </div><!-- /screen-app -->
 
@@ -498,6 +549,22 @@
       <div class="modal-actions" style="margin-top:1.25rem">
         <button class="btn btn-ghost" onclick="closeModal('modal-booking-detail')">Close</button>
         <button class="btn btn-primary" onclick="closeModal('modal-booking-detail'); switchTab('bookings', document.querySelector('.nav-link[data-tab=\'bookings\']'))">View Bookings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       MODAL: CUSTOMER DETAIL (job history)
+  ══════════════════════════════════════ -->
+  <div id="modal-customer" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-slot-header">
+        <h3 class="modal-title" id="cust-modal-title">Customer</h3>
+        <button class="btn-icon" onclick="closeModal('modal-customer')">&#x2715;</button>
+      </div>
+      <div id="customer-detail-content"></div>
+      <div class="modal-actions" style="margin-top:1.25rem">
+        <button class="btn btn-ghost" onclick="closeModal('modal-customer')">Close</button>
       </div>
     </div>
   </div>

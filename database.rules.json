@@ -1,0 +1,71 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "admin": {
+      "allowedUids": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid"
+        }
+      },
+      "fcmTokens": {
+        ".read": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid"
+        }
+      }
+    },
+
+    "services": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true"
+    },
+
+    "settings": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true"
+    },
+
+    "bookings": {
+      ".read": "auth != null",
+      "$date": {
+        ".write": "auth != null"
+      }
+    },
+
+    "blocked": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true"
+    },
+
+    "deleted": {
+      ".read": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true"
+    },
+
+    "noshows": {
+      ".read": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true"
+    },
+
+    "reviews": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "reminders": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('admin/allowedUids').child(auth.uid).val() === true)",
+        ".write": "auth != null && (auth.uid === $uid || root.child('admin/allowedUids').child(auth.uid).val() === true)"
+      }
+    },
+
+    "users": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('admin/allowedUids').child(auth.uid).val() === true)",
+        ".write": "auth != null && (auth.uid === $uid || root.child('admin/allowedUids').child(auth.uid).val() === true)"
+      }
+    }
+  }
+}
