@@ -501,7 +501,56 @@ function rerenderSlots() {
 
   document.getElementById("slots-loading").classList.add("hidden");
   document.getElementById("no-slots-msg").classList.toggle("hidden", hasAvailable);
+  if (!hasAvailable) updateWaitlistUI();
   if (selectedGone) showSlotTakenBanner();
+}
+
+// ── Waitlist (join when a date is fully booked) ──
+let myWaitlistDates = new Set();
+
+function updateWaitlistUI() {
+  const dateKey = selectedDate ? formatDateKey(selectedDate) : null;
+  const btn    = document.getElementById("waitlist-btn");
+  const joined = document.getElementById("waitlist-joined");
+  if (!btn || !joined) return;
+  const isJoined = dateKey && myWaitlistDates.has(dateKey);
+  btn.disabled = false;
+  btn.textContent = "🔔 Notify me if a slot opens";
+  btn.classList.toggle("hidden", !!isJoined);
+  joined.classList.toggle("hidden", !isJoined);
+}
+
+window.joinWaitlist = async function () {
+  if (!currentUser || !selectedDate) return;
+  const dateKey = formatDateKey(selectedDate);
+  const btn = document.getElementById("waitlist-btn");
+  btn.disabled = true;
+  btn.textContent = "Joining…";
+  try {
+    await set(ref(db, `waitlist/${dateKey}/${currentUser.uid}`), {
+      uid:         currentUser.uid,
+      name:        currentUser.displayName || "Customer",
+      phone:       userPhone || "",
+      serviceName: selectedService ? selectedService.name : "",
+      createdAt:   Date.now(),
+    });
+    myWaitlistDates.add(dateKey);
+  } catch (e) {
+    // leave button enabled to retry
+  }
+  updateWaitlistUI();
+};
+
+// Ping waitlisted users for a date when a slot frees up (fire-and-forget).
+// Hits a tiny event-driven endpoint — no cron, negligible serverless usage.
+function notifyWaitlist(dateKey) {
+  try {
+    fetch("/api/notify-waitlist", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dateKey }),
+    }).catch(() => {});
+  } catch (_) {}
 }
 
 function showSlotTakenBanner() {
@@ -1145,6 +1194,7 @@ window.confirmClientCancel = async function () {
       cancelReason: reason || "Cancelled by customer",
       cancelledBy:  "client"
     });
+    notifyWaitlist(dateKey);   // a slot just opened — ping anyone waiting
     window.closeClientCancelModal();
     loadMyBookings();
   } catch (e) {

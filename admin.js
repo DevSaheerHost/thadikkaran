@@ -1719,6 +1719,12 @@ window.confirmCancelBooking = async function () {
     cancelReason: reason || "Cancelled by shop",
     cancelledBy:  "admin"
   });
+  // A slot just opened — notify anyone on the waitlist for this date
+  fetch("/api/notify-waitlist", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dateKey }),
+  }).catch(() => {});
   closeModal("modal-cancel");
   showToast("Booking cancelled.");
   loadBookings();

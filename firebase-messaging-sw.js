@@ -16,24 +16,37 @@ const messaging = firebase.messaging();
 // ── Background FCM (works for both admin new-booking and client reminders) ──
 messaging.onBackgroundMessage((payload) => {
   const type  = payload.data?.type || "booking";
-  const isClient = ["reminder", "ontime", "thankyou"].includes(type);
+  // Everything except the admin "booking" alert is a client-facing notification
+  const isClient    = type !== "booking";
+  const isReminder  = ["tenMin", "onTime", "thanks", "reminder", "ontime", "thankyou"].includes(type);
 
   const title = payload.data?.title || (isClient ? "✂ Thadikkaran" : "New Booking – Thadikkaran");
   const body  = payload.data?.body  || (isClient ? "Appointment reminder" : "A new appointment has been made.");
   const url   = payload.data?.url || (isClient ? "https://thadikkaran.vercel.app/" : "https://thadikkaran.vercel.app/admin");
 
+  let actions;
+  if (isReminder && payload.data?.bookingId) {
+    // Two-way reminder: let the customer confirm or reschedule
+    actions = [
+      { action: "confirm",    title: "✓ I'll be there" },
+      { action: "reschedule", title: "Reschedule" },
+    ];
+  } else if (isClient) {
+    actions = [{ action: "view", title: "Open" }];
+  } else {
+    actions = [{ action: "view", title: "View Booking" }, { action: "dismiss", title: "Dismiss" }];
+  }
+
   self.registration.showNotification(title, {
     body,
     icon:  "/icon-192.png",
     badge: "/badge-72.png",
-    tag:   isClient ? "thadikkaran-reminder" : "thadikkaran-booking",
+    tag:   type === "booking" ? "thadikkaran-booking" : (type === "waitlist" ? "thadikkaran-waitlist" : "thadikkaran-reminder"),
     renotify: true,
     requireInteraction: !isClient,
     vibrate: [200, 100, 200],
     data: { url, ...payload.data },
-    actions: isClient
-      ? [{ action: "view", title: "View Booking" }]
-      : [{ action: "view", title: "View Booking" }, { action: "dismiss", title: "Dismiss" }]
+    actions
   });
 });
 
@@ -50,6 +63,22 @@ self.addEventListener("notificationclick", (event) => {
     targetUrl += `?bdate=${encodeURIComponent(d.dateKey)}&bid=${encodeURIComponent(d.bookingId)}`;
   }
 
+  // Two-way reminder actions → client app handles confirm / reschedule
+  const isReschedule = event.action === "reschedule";
+  const isConfirm    = event.action === "confirm";
+  if ((isConfirm || isReschedule) && d.bookingId) {
+    const base = "https://thadikkaran.vercel.app/";
+    targetUrl = isConfirm
+      ? `${base}?cbid=${encodeURIComponent(d.bookingId)}&cdate=${encodeURIComponent(d.dateKey || "")}`
+      : `${base}?bookings=1`;
+  }
+
+  const clientMsg = isConfirm
+    ? { type: "REMINDER_CONFIRM", data: d }
+    : isReschedule
+      ? { type: "REMINDER_RESCHEDULE", data: d }
+      : { type: "BOOKING_NOTIFICATION_CLICK", data: d };
+
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
@@ -58,6 +87,7 @@ self.addEventListener("notificationclick", (event) => {
           return client.focus();
         }
         if (!client.url.includes("admin") && "focus" in client) {
+          client.postMessage(clientMsg);
           return client.focus();
         }
       }
@@ -82,7 +112,7 @@ self.addEventListener("message", (event) => {
 });
 
 // ── PWA caching (network-first, cache fallback) ──
-const CACHE = "thadikkaran-sw-v3";
+const CACHE = "thadikkaran-sw-v4";
 const PRECACHE = ["/", "/client.css", "/favicon.png", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {

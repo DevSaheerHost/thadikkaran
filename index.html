@@ -164,7 +164,11 @@
 
       <div id="slots-loading" class="loading-spinner"><div class="spinner"></div></div>
       <div class="slots-grid" id="slots-grid"></div>
-      <p id="no-slots-msg" class="no-slots-msg hidden">No available slots for this date. Please choose another day.</p>
+      <div id="no-slots-msg" class="no-slots-msg hidden">
+        <p>No available slots for this date.</p>
+        <button id="waitlist-btn" class="btn btn-outline btn-waitlist" onclick="joinWaitlist()">🔔 Notify me if a slot opens</button>
+        <p id="waitlist-joined" class="waitlist-joined hidden">✓ You're on the waitlist — we'll notify you if someone cancels.</p>
+      </div>
 
       <div class="step-footer">
         <button class="btn btn-ghost" onclick="history.back()">← Back</button>

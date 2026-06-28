@@ -61,6 +61,16 @@
       }
     },
 
+    "waitlist": {
+      "$date": {
+        ".read": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true",
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid"
+        }
+      }
+    },
+
     "users": {
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || root.child('admin/allowedUids').child(auth.uid).val() === true)",
