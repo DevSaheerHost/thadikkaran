@@ -735,6 +735,7 @@ async function loadInsights() {
 
   const custMap = {};                // key → customer object
   const serviceSet = new Set();      // distinct service names (for the service filter)
+  const serviceStats = {};           // serviceName → { count, revenue }
   insightsDaily   = {};
   insightsMonthly = {};
   let totalJobs = 0, totalRevenue = 0, monthRevenue = 0;
@@ -765,6 +766,10 @@ async function loadInsights() {
           totalJobs    += 1;
           totalRevenue += price;
           if (monthKey === nowMonthKey) monthRevenue += price;
+
+          const ss = (serviceStats[b.serviceName] ||= { count: 0, revenue: 0 });
+          ss.count   += 1;
+          ss.revenue += price;
         }
 
         // Customer aggregation — key by uid, then phone, then name
@@ -840,6 +845,7 @@ async function loadInsights() {
     pendingInsightsFilter = null;
   }
 
+  renderTopServices(serviceStats, totalRevenue);
   renderChart();
   applyCustomerFilters();
 
@@ -911,6 +917,65 @@ function renderChart() {
       </div>`;
   }).join("");
 }
+
+// Top services breakdown — share of revenue + job count
+function renderTopServices(serviceStats, totalRevenue) {
+  const el = document.getElementById("ins-services");
+  if (!el) return;
+  const rows = Object.entries(serviceStats)
+    .map(([name, s]) => ({ name, ...s }))
+    .sort((a, b) => b.revenue - a.revenue);
+
+  if (!rows.length) {
+    el.innerHTML = `<p class="no-data-msg" style="padding:0.5rem 0">No service data yet.</p>`;
+    return;
+  }
+  const maxRev = Math.max(1, ...rows.map(r => r.revenue));
+  el.innerHTML = rows.map(r => {
+    const pct   = totalRevenue > 0 ? Math.round((r.revenue / totalRevenue) * 100) : 0;
+    const barPct = Math.max(2, Math.round((r.revenue / maxRev) * 100));
+    return `
+      <div class="ins-svc-row">
+        <div class="ins-svc-top">
+          <span class="ins-svc-name">${escapeHtml(r.name)}</span>
+          <span class="ins-svc-rev">₹${r.revenue} · ${pct}%</span>
+        </div>
+        <div class="ins-svc-track"><div class="ins-svc-fill" style="width:${barPct}%"></div></div>
+        <div class="ins-svc-count">${r.count} job${r.count === 1 ? "" : "s"}</div>
+      </div>`;
+  }).join("");
+}
+
+// Export the currently-shown customer list to a CSV download
+window.exportCustomersCSV = function () {
+  const list = renderCustomerList._current || insightsCustomers;
+  if (!list.length) { showToast("No customers to export."); return; }
+
+  const fmtDate = ts => ts ? formatDateKey(new Date(ts)) : "";
+  const esc = v => {
+    const s = String(v ?? "");
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const header = ["Name", "Phone", "Completed Jobs", "Total Spent (INR)", "No-shows", "Blocked", "First Visit", "Last Visit"];
+  const lines = [header.join(",")];
+  list.forEach(c => {
+    lines.push([
+      esc(c.name), esc(c.phone), c.totalJobs, c.totalSpend, c.noShows,
+      c.blocked ? "Yes" : "No", fmtDate(c.firstVisit), fmtDate(c.lastVisit),
+    ].join(","));
+  });
+
+  const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href = url;
+  a.download = `thadikkaran-customers-${formatDateKey(new Date())}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast(`✓ Exported ${list.length} customer${list.length === 1 ? "" : "s"}.`);
+};
 
 const NEW_CUSTOMER_MS  = 30 * 24 * 60 * 60 * 1000;   // first visit within 30 days
 const INACTIVE_MS      = 60 * 24 * 60 * 60 * 1000;   // 60+ days since last visit

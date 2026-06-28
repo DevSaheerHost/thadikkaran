@@ -435,10 +435,21 @@
             <div id="ins-chart" class="ins-chart"></div>
           </div>
 
+          <!-- Top services -->
+          <div class="ins-section">
+            <div class="ins-section-head">
+              <h3 class="ins-section-title">Top Services</h3>
+            </div>
+            <div id="ins-services" class="ins-services"></div>
+          </div>
+
           <!-- Customers -->
           <div class="ins-section">
             <div class="ins-section-head">
               <h3 class="ins-section-title">Customers</h3>
+              <button class="btn btn-sm btn-outline ins-export-btn" onclick="exportCustomersCSV()">⬇ CSV</button>
+            </div>
+            <div class="ins-filter-row">
               <select id="ins-filter" class="ins-filter" onchange="applyCustomerFilters()">
                 <option value="recent">Recent visit</option>
                 <option value="visits">Most visits</option>
@@ -450,13 +461,11 @@
                 <option value="noshows">No-shows</option>
                 <option value="blocked">Blocked</option>
               </select>
-            </div>
-            <div class="ins-filter-row">
               <select id="ins-service" class="ins-filter ins-service" onchange="applyCustomerFilters()">
                 <option value="">All services</option>
               </select>
-              <input type="text" id="ins-search" class="ins-search" placeholder="Search by name or phone…" oninput="applyCustomerFilters()" />
             </div>
+            <input type="text" id="ins-search" class="ins-search" placeholder="Search by name or phone…" oninput="applyCustomerFilters()" />
             <div id="ins-customer-list" class="ins-customer-list"></div>
           </div>
         </div>
