@@ -17,15 +17,16 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   const type  = payload.data?.type || "booking";
   // Everything except the admin "booking" alert is a client-facing notification
-  const isClient    = type !== "booking";
-  const isReminder  = ["tenMin", "onTime", "thanks", "reminder", "ontime", "thankyou"].includes(type);
+  const isClient = type !== "booking";
+  // Only the pre-appointment confirmation reminders are two-way
+  const isTwoWay = ["confirmReq", "tenMin"].includes(type) && payload.data?.bookingId;
 
   const title = payload.data?.title || (isClient ? "✂ Thadikkaran" : "New Booking – Thadikkaran");
   const body  = payload.data?.body  || (isClient ? "Appointment reminder" : "A new appointment has been made.");
   const url   = payload.data?.url || (isClient ? "https://thadikkaran.vercel.app/" : "https://thadikkaran.vercel.app/admin");
 
   let actions;
-  if (isReminder && payload.data?.bookingId) {
+  if (isTwoWay) {
     // Two-way reminder: let the customer confirm or reschedule
     actions = [
       { action: "confirm",    title: "✓ I'll be there" },

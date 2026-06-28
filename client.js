@@ -172,6 +172,7 @@ async function showApp(user) {
   initClientFCM();
   // Seed history so the phone back button navigates between steps
   history.replaceState({ step: 1 }, '');
+  handleReminderParams();
 }
 
 async function loadServiceDurations() {
@@ -922,7 +923,56 @@ async function initClientFCM() {
         type
       );
     });
+    // Listen for reminder action clicks relayed from the service worker
+    navigator.serviceWorker.addEventListener("message", (event) => {
+      const m = event.data || {};
+      if (m.type === "REMINDER_CONFIRM" && m.data?.bookingId) {
+        confirmBookingFromReminder(m.data.dateKey, m.data.bookingId);
+      } else if (m.type === "REMINDER_RESCHEDULE") {
+        openMyBookings();
+      }
+    });
   } catch (e) { /* silent — notifications are enhancement only */ }
+}
+
+// Mark a booking as confirmed by the customer (from a reminder action)
+async function confirmBookingFromReminder(dateKey, bookingId) {
+  if (!dateKey || !bookingId || !currentUser) return;
+  try {
+    await update(ref(db, `bookings/${dateKey}/${bookingId}`), {
+      clientConfirmed:   true,
+      clientConfirmedAt: Date.now(),
+    });
+    clientToast("✓ Thanks! See you at your appointment. 💈");
+  } catch (e) { /* ignore */ }
+}
+
+// Handle reminder deep-links when the app is opened fresh from a notification
+function handleReminderParams() {
+  const p = new URLSearchParams(window.location.search);
+  const cbid = p.get("cbid");
+  if (cbid) {
+    history.replaceState({}, "", window.location.pathname);
+    confirmBookingFromReminder(p.get("cdate") || "", cbid);
+  } else if (p.get("bookings") === "1") {
+    history.replaceState({}, "", window.location.pathname);
+    setTimeout(() => openMyBookings(), 400);
+  }
+}
+
+// Lightweight transient toast
+function clientToast(msg) {
+  let el = document.getElementById("client-toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "client-toast";
+    el.className = "client-toast";
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(clientToast._t);
+  clientToast._t = setTimeout(() => el.classList.remove("show"), 4000);
 }
 
 async function saveClientFCMToken() {
@@ -945,6 +995,12 @@ async function scheduleReminders(bookingId, booking) {
   const name    = currentUser?.displayName?.split(" ")[0] || "there";
 
   const reminders = [
+    {
+      key: "confirmReq",
+      time: startMs - 3 * 60 * 60 * 1000,
+      title: "✂ Confirm your appointment",
+      body:  `You have ${booking.serviceName} today at ${fmtTimeStr(booking.startTime)}. Are you coming?`
+    },
     {
       key: "tenMin",
       time: startMs - 10 * 60 * 1000,

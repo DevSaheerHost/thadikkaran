@@ -38,6 +38,11 @@ module.exports = async function handler(req, res) {
 
       const REMINDER_DEFS = [
         {
+          key:   "confirmReq",
+          title: "✂ Confirm your appointment",
+          body:  `You have ${r.serviceName} today at ${r.startTime}. Are you coming?`,
+        },
+        {
           key:   "tenMin",
           title: "✂ Appointment in 10 Minutes",
           body:  `Your ${r.serviceName} starts at ${r.startTime}. Head over now!`,
@@ -71,6 +76,7 @@ module.exports = async function handler(req, res) {
                 title: def.title,
                 body: def.body,
                 bookingId,
+                dateKey: r.dateKey || "",
                 url: "https://thadikkaran.vercel.app/",
               },
             });

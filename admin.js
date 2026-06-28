@@ -626,6 +626,7 @@ function buildBookingCard(item) {
       <div class="booking-meta">
         <span class="status-badge ${badgeClass}">${statusLabel}</span>
         ${sourceBadge}
+        ${!isBlock && item.clientConfirmed && item.status !== "cancelled" && item.status !== "finished" ? `<span class="status-badge badge-cconfirmed">✓ Confirmed</span>` : ""}
       </div>
       ${!isBlock && item.createdAt ? `<div class="booking-booked-at">Booked ${formatBookedAt(item.createdAt)}</div>` : ""}
       ${!isBlock && item.price ? `<div class="booking-price-tag">₹${item.price}</div>` : ""}

@@ -756,6 +756,7 @@ body {
 .badge-blocked   { background: var(--warn-bg); color: var(--warn); }
 .badge-walk-in   { background: #e8e8ff; color: #4c4cca; }
 .badge-finished  { background: #e0f2fe; color: #0369a1; }
+.badge-cconfirmed { background: #e6f7ee; color: #276749; }
 
 .booking-actions {
   display: flex;
