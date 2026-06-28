@@ -140,6 +140,52 @@ function showAuthScreen() {
   document.getElementById("screen-auth").classList.remove("hidden");
   document.getElementById("screen-app").classList.add("hidden");
   document.getElementById("screen-app").classList.remove("active");
+  loadReviewsShowcase();
+}
+
+// Social proof on the sign-in screen — top recent reviews (publicly readable)
+let _showcaseLoaded = false;
+async function loadReviewsShowcase() {
+  if (_showcaseLoaded) return;
+  const wrap = document.getElementById("reviews-showcase");
+  if (!wrap) return;
+  try {
+    const snap = await get(ref(db, "reviews"));
+    if (!snap.exists()) return;
+    const all = [];
+    snap.forEach(c => { const r = c.val(); if (r && r.rating) all.push(r); });
+
+    const featured = all
+      .filter(r => r.rating >= 4 && r.text && r.text.trim().length > 0)
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+      .slice(0, 6);
+    if (!featured.length) return;
+
+    const avg = (all.reduce((s, r) => s + r.rating, 0) / all.length);
+    const stars = n => "★★★★★".slice(0, n) + "☆☆☆☆☆".slice(0, 5 - n);
+
+    wrap.innerHTML = `
+      <div class="rs-head">
+        <span class="rs-stars">${stars(Math.round(avg))}</span>
+        <span class="rs-summary">${avg.toFixed(1)} · ${all.length} review${all.length === 1 ? "" : "s"}</span>
+      </div>
+      <div class="rs-track">
+        ${featured.map(r => `
+          <div class="rs-card">
+            <div class="rs-card-stars">${stars(r.rating)}</div>
+            <p class="rs-text">"${escapeText(r.text)}"</p>
+            <p class="rs-author">— ${escapeText((r.customerName || "Customer").split(" ")[0])}</p>
+          </div>`).join("")}
+      </div>`;
+    wrap.classList.remove("hidden");
+    _showcaseLoaded = true;
+  } catch (e) { /* showcase is optional */ }
+}
+
+function escapeText(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 function showBlockedScreen() {

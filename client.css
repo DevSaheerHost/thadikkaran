@@ -918,6 +918,46 @@ body {
   transform: translateX(-50%) translateY(0);
 }
 
+/* ── Reviews showcase (sign-in screen social proof) ── */
+.reviews-showcase {
+  margin-top: 1.75rem;
+  width: 100%;
+}
+.rs-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+}
+.rs-stars { color: #e8b94e; font-size: 1rem; letter-spacing: 1px; }
+.rs-summary { color: var(--text-muted); font-size: 0.82rem; font-weight: 500; }
+.rs-track {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+.rs-track::-webkit-scrollbar { display: none; }
+.rs-card {
+  flex: 0 0 78%;
+  scroll-snap-align: center;
+  background: var(--surface, #fff);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md, 12px);
+  padding: 0.9rem 1rem;
+}
+.rs-card-stars { color: #e8b94e; font-size: 0.85rem; letter-spacing: 1px; margin-bottom: 0.4rem; }
+.rs-text {
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--text, #1b1b1b);
+  margin-bottom: 0.5rem;
+}
+.rs-author { font-size: 0.78rem; color: var(--text-muted); font-weight: 600; }
+
 /* ── Confirm Card ── */
 .confirm-card {
   background: var(--surface);
