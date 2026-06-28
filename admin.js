@@ -1168,7 +1168,28 @@ window.showCustomerDetail = function (idx) {
     </div>
     <div class="cust-jobs-list">${jobsHtml}</div>`;
 
+  // Wire the WhatsApp button (only when we have a phone number)
+  _detailCustomer = c;
+  const waBtn = document.getElementById("cust-whatsapp-btn");
+  waBtn.classList.toggle("hidden", !c.phone);
+
   document.getElementById("modal-customer").classList.remove("hidden");
+};
+
+let _detailCustomer = null;
+
+// Open WhatsApp with a pre-filled, context-aware message for this customer
+window.whatsappCurrentCustomer = function () {
+  const c = _detailCustomer;
+  if (!c || !c.phone) return;
+  const digits = String(c.phone).replace(/\D/g, "");   // e.g. +91 98… → 9198…
+  if (!digits) return;
+  const first = (c.name || "there").trim().split(" ")[0];
+  const site  = "https://thadikkaran.vercel.app/";
+  const msg = isInactiveCustomer(c)
+    ? `Hi ${first}! 👋 We miss you at Thadikkaran. Come back for a fresh cut 💈 Book here: ${site}`
+    : `Hi ${first}! 👋 Thanks for choosing Thadikkaran. Book your next appointment here: ${site}`;
+  window.open(`https://wa.me/${digits}?text=${encodeURIComponent(msg)}`, "_blank");
 };
 
 function escapeHtml(str) {
