@@ -761,7 +761,7 @@ async function loadInsights() {
                   : `n:${(b.name || "Walk-in").toLowerCase()}`;
         const c = (custMap[key] ||= {
           key, name: b.name || "Walk-in", phone: b.phone || "",
-          jobs: [], totalJobs: 0, totalSpend: 0, lastVisit: 0,
+          jobs: [], totalJobs: 0, totalSpend: 0, lastVisit: 0, firstVisit: Infinity,
         });
         if (b.name && !c.name) c.name = b.name;
         if (b.phone && !c.phone) c.phone = b.phone;
@@ -775,12 +775,14 @@ async function loadInsights() {
         });
         if (isRevenue) { c.totalJobs += 1; c.totalSpend += price; }
         const visitTs = b.createdAt || 0;
-        if (visitTs > c.lastVisit) c.lastVisit = visitTs;
+        if (visitTs > c.lastVisit)  c.lastVisit  = visitTs;
+        if (visitTs && visitTs < c.firstVisit) c.firstVisit = visitTs;
       });
     });
   }
 
   insightsCustomers = Object.values(custMap)
+    .map(c => ({ ...c, firstVisit: c.firstVisit === Infinity ? 0 : c.firstVisit }))
     .sort((a, z) => z.lastVisit - a.lastVisit);
 
   // Summary cards
@@ -790,7 +792,7 @@ async function loadInsights() {
   document.getElementById("ins-month-rev").textContent = `₹${monthRevenue}`;
 
   renderChart();
-  renderCustomerList(insightsCustomers);
+  applyCustomerFilters();
 
   loading.classList.add("hidden");
   body.classList.remove("hidden");
@@ -861,34 +863,74 @@ function renderChart() {
   }).join("");
 }
 
-window.filterCustomers = function () {
-  const q = document.getElementById("ins-search").value.trim().toLowerCase();
-  if (!q) { renderCustomerList(insightsCustomers); return; }
-  const filtered = insightsCustomers.filter(c =>
+const NEW_CUSTOMER_MS = 30 * 24 * 60 * 60 * 1000;   // first visit within 30 days
+const REGULAR_MIN_JOBS = 3;                          // 3+ completed jobs = regular
+
+function isNewCustomer(c) {
+  return c.firstVisit && (Date.now() - c.firstVisit) <= NEW_CUSTOMER_MS;
+}
+
+// Combined search + filter/sort for the customer list
+window.applyCustomerFilters = function () {
+  const q    = (document.getElementById("ins-search").value || "").trim().toLowerCase();
+  const mode = document.getElementById("ins-filter").value;
+
+  let list = insightsCustomers.slice();
+
+  // Text search (name or phone)
+  if (q) list = list.filter(c =>
     (c.name || "").toLowerCase().includes(q) || (c.phone || "").includes(q));
-  renderCustomerList(filtered);
+
+  // Filter + sort by selected mode
+  switch (mode) {
+    case "visits":
+      list.sort((a, b) => b.totalJobs - a.totalJobs || b.lastVisit - a.lastVisit);
+      break;
+    case "regulars":
+      list = list.filter(c => c.totalJobs >= REGULAR_MIN_JOBS)
+                 .sort((a, b) => b.totalJobs - a.totalJobs);
+      break;
+    case "new":
+      list = list.filter(isNewCustomer)
+                 .sort((a, b) => b.firstVisit - a.firstVisit);
+      break;
+    case "spend-high":
+      list.sort((a, b) => b.totalSpend - a.totalSpend);
+      break;
+    case "spend-low":
+      list.sort((a, b) => a.totalSpend - b.totalSpend);
+      break;
+    case "recent":
+    default:
+      list.sort((a, b) => b.lastVisit - a.lastVisit);
+  }
+
+  renderCustomerList(list, mode);
 };
 
-function renderCustomerList(list) {
+function renderCustomerList(list, mode = "recent") {
   const el = document.getElementById("ins-customer-list");
   if (!list.length) {
     el.innerHTML = `<p class="no-data-msg" style="padding:1rem 0">No customers found.</p>`;
+    renderCustomerList._current = list;
     return;
   }
+  const spendMode = mode === "spend-high" || mode === "spend-low";
   el.innerHTML = list.map((c, i) => {
     const initial = (c.name || "?").trim().charAt(0).toUpperCase() || "?";
-    const sub = c.phone || "No phone on file";
+    const sub = `${escapeHtml(c.phone || "No phone")} · ₹${c.totalSpend} spent`;
+    const newBadge = isNewCustomer(c) ? `<span class="ins-new-badge">NEW</span>` : "";
+    const stat = spendMode
+      ? `<div class="ins-cust-jobs">₹${c.totalSpend}</div><div class="ins-cust-jobs-label">spent</div>`
+      : `<div class="ins-cust-jobs">${c.totalJobs}</div><div class="ins-cust-jobs-label">jobs</div>`;
     return `
       <div class="ins-customer-row" onclick="showCustomerDetail(${i})">
         <div class="ins-cust-avatar">${initial}</div>
         <div class="ins-cust-info">
-          <div class="ins-cust-name">${escapeHtml(c.name || "Customer")}</div>
-          <div class="ins-cust-sub">${escapeHtml(sub)}</div>
+          <div class="ins-cust-name">${escapeHtml(c.name || "Customer")}${newBadge}</div>
+          <div class="ins-cust-sub">${sub}</div>
         </div>
-        <div class="ins-cust-stat">
-          <div class="ins-cust-jobs">${c.totalJobs}</div>
-          <div class="ins-cust-jobs-label">jobs</div>
-        </div>
+        <div class="ins-cust-stat">${stat}</div>
       </div>`;
   }).join("");
   // store the currently-rendered list for index lookup

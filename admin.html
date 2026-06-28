@@ -436,8 +436,16 @@
           <div class="ins-section">
             <div class="ins-section-head">
               <h3 class="ins-section-title">Customers</h3>
+              <select id="ins-filter" class="ins-filter" onchange="applyCustomerFilters()">
+                <option value="recent">Recent visit</option>
+                <option value="visits">Most visits</option>
+                <option value="regulars">Regulars (3+)</option>
+                <option value="new">New customers</option>
+                <option value="spend-high">Highest spend</option>
+                <option value="spend-low">Lowest spend</option>
+              </select>
             </div>
-            <input type="text" id="ins-search" class="ins-search" placeholder="Search by name or phone…" oninput="filterCustomers()" />
+            <input type="text" id="ins-search" class="ins-search" placeholder="Search by name or phone…" oninput="applyCustomerFilters()" />
             <div id="ins-customer-list" class="ins-customer-list"></div>
           </div>
         </div>

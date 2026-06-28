@@ -1693,6 +1693,34 @@ body {
   align-self: center;
 }
 
+/* Filter dropdown */
+.ins-filter {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--black);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+}
+.ins-filter:focus { outline: none; border-color: var(--mid); }
+
+/* NEW customer badge */
+.ins-new-badge {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #276749;
+  background: #e6f7ee;
+  padding: 1px 5px;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
 /* Search */
 .ins-search {
   width: 100%;
