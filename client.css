@@ -1392,3 +1392,43 @@ body {
   font-style: italic;
   margin-top: 0.25rem;
 }
+
+/* ═══════════════════════════════════════════════
+   SKELETON LOADERS (replace spinners; mirror data UI)
+═══════════════════════════════════════════════ */
+@keyframes skel-shimmer { to { background-position-x: -200%; } }
+.skel {
+  background: linear-gradient(90deg, #ececec 25%, #f6f6f6 50%, #ececec 75%);
+  background-size: 200% 100%;
+  animation: skel-shimmer 1.25s linear infinite;
+  border-radius: 6px;
+  display: block;
+}
+
+/* Slot grid skeleton — mirrors .slots-grid / .slot-btn */
+.skel-slots {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+}
+.skel-slot-btn {
+  height: 46px;
+  border-radius: var(--radius-sm);
+}
+
+/* My-bookings card skeleton — mirrors .mb-card */
+.skel-mb-list { display: flex; flex-direction: column; gap: 0.75rem; }
+.skel-mb-card {
+  background: var(--off-white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.skel-mb-card .smb-top { display: flex; justify-content: space-between; align-items: center; }
+.skel-mb-card .smb-title { width: 50%; height: 16px; }
+.skel-mb-card .smb-badge { width: 64px; height: 18px; border-radius: 99px; }
+.skel-mb-card .smb-date  { width: 40%; height: 12px; }
+.skel-mb-card .smb-price { width: 55%; height: 12px; }

@@ -2072,7 +2072,14 @@ async function showBookingDetailModal(dateKey, bookingId) {
   const modal   = document.getElementById("modal-booking-detail");
   const content = document.getElementById("booking-detail-content");
   modal.classList.remove("hidden");
-  content.innerHTML = `<div class="spinner" style="margin:2rem auto"></div>`;
+  content.innerHTML = `
+    <div class="skel-list" style="margin-top:0.5rem">
+      <span class="skel" style="height:16px;width:60%"></span>
+      <span class="skel" style="height:13px;width:80%"></span>
+      <span class="skel" style="height:13px;width:70%"></span>
+      <span class="skel" style="height:13px;width:75%"></span>
+      <span class="skel" style="height:13px;width:50%"></span>
+    </div>`;
 
   try {
     const snap = await get(ref(db, `bookings/${dateKey}/${bookingId}`));

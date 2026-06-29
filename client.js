@@ -1110,7 +1110,11 @@ window.closeMyBookings = function (event) {
 
 async function loadMyBookings() {
   const container = document.getElementById("my-bookings-list");
-  container.innerHTML = `<div class="mb-loading"><div class="spinner" style="border-color:#e0e0e0;border-top-color:#0a0a0a"></div></div>`;
+  container.innerHTML = `
+    <div class="skel-mb-list">
+      <div class="skel-mb-card"><div class="smb-top"><span class="skel smb-title"></span><span class="skel smb-badge"></span></div><span class="skel smb-date"></span><span class="skel smb-price"></span></div>
+      <div class="skel-mb-card"><div class="smb-top"><span class="skel smb-title"></span><span class="skel smb-badge"></span></div><span class="skel smb-date"></span><span class="skel smb-price"></span></div>
+    </div>`;
 
   if (!currentUser) return;
 

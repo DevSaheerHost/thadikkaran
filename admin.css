@@ -1894,3 +1894,76 @@ body {
 @media (max-width: 640px) {
   .ins-summary { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ═══════════════════════════════════════════════
+   SKELETON LOADERS (replace spinners; mirror data UI)
+═══════════════════════════════════════════════ */
+@keyframes skel-shimmer { to { background-position-x: -200%; } }
+.skel {
+  background: linear-gradient(90deg, #ececec 25%, #f6f6f6 50%, #ececec 75%);
+  background-size: 200% 100%;
+  animation: skel-shimmer 1.25s linear infinite;
+  border-radius: 6px;
+  display: block;
+}
+.skel-list { display: flex; flex-direction: column; gap: 0.85rem; }
+
+/* Booking card skeleton — mirrors .booking-card */
+.skel-booking {
+  display: flex;
+  gap: 1rem;
+  align-items: stretch;
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.1rem;
+}
+.skel-booking .skb-time   { width: 46px; height: 70px; flex-shrink: 0; }
+.skel-booking .skb-sep    { width: 1.5px; background: var(--border); flex-shrink: 0; animation: none; }
+.skel-booking .skb-body   { flex: 1; display: flex; flex-direction: column; gap: 0.55rem; }
+.skel-booking .skb-line-1 { width: 55%; height: 15px; }
+.skel-booking .skb-line-2 { width: 70%; height: 12px; }
+.skel-booking .skb-line-3 { width: 40%; height: 18px; border-radius: 99px; }
+.skel-booking .skb-actions{ display: flex; flex-direction: column; gap: 0.4rem; flex-shrink: 0; }
+.skel-booking .skb-btn    { width: 64px; height: 26px; border-radius: 6px; }
+
+/* Stat cards skeleton */
+.skel-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 1.5rem; }
+.skel-stat  { height: 64px; border-radius: var(--radius-md); }
+
+/* Insights section skeleton */
+.skel-section {
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1.1rem 1rem;
+  margin-bottom: 1.25rem;
+}
+.skel-chart { height: 160px; border-radius: 8px; }
+.skel-svc-row { height: 16px; margin: 0.7rem 0; }
+.skel-svc-row:nth-child(1) { width: 80%; }
+.skel-svc-row:nth-child(2) { width: 65%; }
+.skel-svc-row:nth-child(3) { width: 50%; }
+
+/* Customer/list row skeleton — mirrors .ins-customer-row */
+.skel-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.skel-row .skr-avatar { width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0; }
+.skel-row .skr-info   { flex: 1; display: flex; flex-direction: column; gap: 0.4rem; }
+.skel-row .skr-l1     { width: 45%; height: 13px; }
+.skel-row .skr-l2     { width: 65%; height: 11px; }
+.skel-row .skr-stat   { width: 30px; height: 22px; flex-shrink: 0; }
+
+/* Slot grid skeleton */
+.skel-slot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 8px;
+}
+.skel-slot { height: 42px; border-radius: var(--radius-sm); }

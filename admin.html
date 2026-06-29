@@ -178,7 +178,23 @@
           </div>
         </div>
 
-        <div id="bookings-loading" class="loading-spinner"><div class="spinner"></div></div>
+        <div id="bookings-loading" class="skel-list">
+          <div class="skel-booking">
+            <span class="skel skb-time"></span><div class="skb-sep"></div>
+            <div class="skb-body"><span class="skel skb-line-1"></span><span class="skel skb-line-2"></span><span class="skel skb-line-3"></span></div>
+            <div class="skb-actions"><span class="skel skb-btn"></span><span class="skel skb-btn"></span></div>
+          </div>
+          <div class="skel-booking">
+            <span class="skel skb-time"></span><div class="skb-sep"></div>
+            <div class="skb-body"><span class="skel skb-line-1"></span><span class="skel skb-line-2"></span><span class="skel skb-line-3"></span></div>
+            <div class="skb-actions"><span class="skel skb-btn"></span><span class="skel skb-btn"></span></div>
+          </div>
+          <div class="skel-booking">
+            <span class="skel skb-time"></span><div class="skb-sep"></div>
+            <div class="skb-body"><span class="skel skb-line-1"></span><span class="skel skb-line-2"></span><span class="skel skb-line-3"></span></div>
+            <div class="skb-actions"><span class="skel skb-btn"></span><span class="skel skb-btn"></span></div>
+          </div>
+        </div>
         <div id="bookings-list" class="bookings-list"></div>
         <p id="no-bookings-msg" class="no-data-msg hidden">No bookings for this date.</p>
       </div>
@@ -378,7 +394,11 @@
             <p class="tab-sub">All ratings and feedback from customers.</p>
           </div>
         </div>
-        <div id="reviews-loading" class="loading-spinner"><div class="spinner"></div></div>
+        <div id="reviews-loading" class="skel-list">
+          <div class="skel-row"><span class="skel skr-avatar"></span><div class="skr-info"><span class="skel skr-l1"></span><span class="skel skr-l2"></span></div></div>
+          <div class="skel-row"><span class="skel skr-avatar"></span><div class="skr-info"><span class="skel skr-l1"></span><span class="skel skr-l2"></span></div></div>
+          <div class="skel-row"><span class="skel skr-avatar"></span><div class="skr-info"><span class="skel skr-l1"></span><span class="skel skr-l2"></span></div></div>
+        </div>
         <div id="reviews-list" class="reviews-list"></div>
       </div>
 
@@ -392,7 +412,10 @@
             <p class="tab-sub">Deleted bookings — restore to put them back.</p>
           </div>
         </div>
-        <div id="trash-loading" class="loading-spinner"><div class="spinner"></div></div>
+        <div id="trash-loading" class="skel-list">
+          <div class="skel-row"><span class="skel skr-avatar"></span><div class="skr-info"><span class="skel skr-l1"></span><span class="skel skr-l2"></span></div><span class="skel skr-stat"></span></div>
+          <div class="skel-row"><span class="skel skr-avatar"></span><div class="skr-info"><span class="skel skr-l1"></span><span class="skel skr-l2"></span></div><span class="skel skr-stat"></span></div>
+        </div>
         <div id="trash-list" class="trash-list"></div>
       </div>
 
@@ -405,7 +428,23 @@
           </div>
         </div>
 
-        <div id="insights-loading" class="loading-spinner"><div class="spinner"></div></div>
+        <div id="insights-loading">
+          <div class="skel-stats">
+            <span class="skel skel-stat"></span><span class="skel skel-stat"></span>
+            <span class="skel skel-stat"></span><span class="skel skel-stat"></span>
+          </div>
+          <div class="skel-section"><span class="skel skel-chart"></span></div>
+          <div class="skel-section">
+            <span class="skel skel-svc-row"></span><span class="skel skel-svc-row"></span><span class="skel skel-svc-row"></span>
+          </div>
+          <div class="skel-section">
+            <div class="skel-list">
+              <div class="skel-row"><span class="skel skr-avatar"></span><div class="skr-info"><span class="skel skr-l1"></span><span class="skel skr-l2"></span></div><span class="skel skr-stat"></span></div>
+              <div class="skel-row"><span class="skel skr-avatar"></span><div class="skr-info"><span class="skel skr-l1"></span><span class="skel skr-l2"></span></div><span class="skel skr-stat"></span></div>
+              <div class="skel-row"><span class="skel skr-avatar"></span><div class="skr-info"><span class="skel skr-l1"></span><span class="skel skr-l2"></span></div><span class="skel skr-stat"></span></div>
+            </div>
+          </div>
+        </div>
 
         <div id="insights-body" class="hidden">
           <!-- Inactive-customers banner -->
@@ -559,7 +598,11 @@
         <span class="sv-dot sv-dot--booked"></span><span>Booked</span>
         <span class="sv-dot sv-dot--blocked"></span><span>Blocked</span>
       </div>
-      <div id="slot-view-loading" class="loading-spinner" style="padding:24px 0"><div class="spinner"></div></div>
+      <div id="slot-view-loading" class="skel-slot-grid" style="padding:8px 0">
+        <span class="skel skel-slot"></span><span class="skel skel-slot"></span><span class="skel skel-slot"></span>
+        <span class="skel skel-slot"></span><span class="skel skel-slot"></span><span class="skel skel-slot"></span>
+        <span class="skel skel-slot"></span><span class="skel skel-slot"></span><span class="skel skel-slot"></span>
+      </div>
       <div id="slot-view-grid" class="slot-view-grid"></div>
     </div>
   </div>
