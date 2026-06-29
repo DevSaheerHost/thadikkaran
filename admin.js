@@ -581,7 +581,8 @@ function buildBookingCard(item) {
   };
   const badgeClass = statusMap[item.status] || "badge-confirmed";
   const statusLabel = item.status === "blocked" ? "Blocked" : (item.status || "confirmed");
-  const sourceBadge = item.source === "admin"  ? `<span class="status-badge badge-walk-in">Walk-in</span>` : "";
+  // Manual / walk-in bookings (added from the admin panel) get a corner sticker
+  const sourceSticker = item.source === "admin" ? `<div class="booking-manual-sticker">✋ Walk-in</div>` : "";
 
   const actionsHtml = isBlock
     ? (item._isLunch
@@ -602,6 +603,7 @@ function buildBookingCard(item) {
   const svcIcon = !isBlock ? (SVC_ICONS[item.serviceId] || "") : "";
 
   card.innerHTML = `
+    ${sourceSticker}
     <div class="booking-time">
       <div class="booking-time-start">${formatDisplayTime(item.startTime)}</div>
       <div class="booking-tl">
@@ -625,7 +627,6 @@ function buildBookingCard(item) {
       ${!isBlock && item.phone ? `<a class="booking-phone" href="tel:${item.phone.startsWith('+') ? item.phone : '+91' + item.phone}">📞 ${item.phone.startsWith('+') ? item.phone.replace('+91', '+91 ') : '+91 ' + item.phone}</a>` : ""}
       <div class="booking-meta">
         <span class="status-badge ${badgeClass}">${statusLabel}</span>
-        ${sourceBadge}
         ${!isBlock && item.clientConfirmed && item.status !== "cancelled" && item.status !== "finished" ? `<span class="status-badge badge-cconfirmed">✓ Confirmed</span>` : ""}
       </div>
       ${!isBlock && item.createdAt ? `<div class="booking-booked-at">Booked ${formatBookedAt(item.createdAt)}</div>` : ""}
@@ -1110,6 +1111,7 @@ function renderCustomerList(list, mode = "recent") {
     else                     stat = `<div class="ins-cust-jobs">${c.totalJobs}</div><div class="ins-cust-jobs-label">jobs</div>`;
     return `
       <div class="ins-customer-row" onclick="showCustomerDetail(${i})">
+        <div class="ins-cust-rank">${i + 1}</div>
         <div class="ins-cust-avatar">${initial}</div>
         <div class="ins-cust-info">
           <div class="ins-cust-name">${escapeHtml(c.name || "Customer")}${badges}</div>

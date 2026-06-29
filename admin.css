@@ -755,6 +755,22 @@ body {
 .badge-cancelled { background: var(--off-white); color: var(--mid); }
 .badge-blocked   { background: var(--warn-bg); color: var(--warn); }
 .badge-walk-in   { background: #e8e8ff; color: #4c4cca; }
+
+/* Manual / walk-in booking corner sticker */
+.booking-manual-sticker {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  background: linear-gradient(135deg, #f6c453, #e8a020);
+  color: #3a2a00;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 3px 9px;
+  border-radius: 0 var(--radius-md) 0 10px;
+  box-shadow: -1px 1px 4px rgba(0,0,0,0.08);
+  z-index: 2;
+}
 .badge-finished  { background: #e0f2fe; color: #0369a1; }
 .badge-cconfirmed { background: #e6f7ee; color: #276749; }
 
@@ -1823,6 +1839,16 @@ body {
   background: var(--white);
 }
 .ins-customer-row:hover { border-color: var(--mid); box-shadow: var(--shadow-sm); }
+.ins-cust-rank {
+  flex-shrink: 0;
+  min-width: 22px;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--mid);
+}
+.ins-customer-row:nth-child(1) .ins-cust-rank { color: #d4a34e; }
 .ins-cust-avatar {
   width: 38px; height: 38px;
   border-radius: 50%;
