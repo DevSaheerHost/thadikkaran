@@ -1405,6 +1405,21 @@ body {
   display: block;
 }
 
+/* Calendar skeleton — mirrors .calendar-strip / .cal-day */
+.skel-cal-day {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 0.4rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+.skel-cal-day .scd-name { width: 60%; height: 10px; }
+.skel-cal-day .scd-num  { width: 38%; height: 20px; }
+.skel-cal-day .scd-mon  { width: 48%; height: 9px; }
+
 /* Slot grid skeleton — mirrors .slots-grid / .slot-btn */
 .skel-slots {
   display: grid;
