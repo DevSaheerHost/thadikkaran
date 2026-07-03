@@ -1351,6 +1351,16 @@ body {
   opacity: 0.5;
 }
 
+.sv-slot--clickable {
+  cursor: pointer;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.sv-slot--clickable:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+.sv-slot--clickable:active { transform: translateY(0); }
+
 .sv-slot-time {
   font-size: 0.88rem;
   font-weight: 700;

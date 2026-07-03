@@ -1973,6 +1973,7 @@ window.openSlotViewModal = async function () {
         end:   timeToMinutes(b.startTime) + (b.duration || 30),
         label: b.name ? `${b.name} – ${b.serviceName || ""}` : (b.serviceName || "Booking"),
         status: b.status || "confirmed",
+        key:   child.key,
         type:  "booked"
       });
     });
@@ -2033,6 +2034,27 @@ window.openSlotViewModal = async function () {
 
     el.appendChild(timeEl);
     el.appendChild(labelEl);
+
+    // Booked slot → open the booking's detail; free upcoming slot → prefilled walk-in form
+    if (hit && hit.type === "booked" && hit.key) {
+      el.classList.add("sv-slot--clickable");
+      el.addEventListener("click", () => {
+        closeModal("modal-slot-view");
+        showBookingDetailModal(currentDateKey, hit.key, "Booking Details");
+      });
+    } else if (!hit && !isPast) {
+      el.classList.add("sv-slot--clickable");
+      el.addEventListener("click", () => {
+        closeModal("modal-slot-view");
+        switchTab("manual", document.querySelector('.nav-link[data-tab="manual"]'));
+        const mDate = document.getElementById("m-date");
+        const mTime = document.getElementById("m-time");
+        if (mDate) mDate.value = currentDateKey;
+        if (mTime) mTime.value = timeStr;
+        document.getElementById("m-name")?.focus();
+      });
+    }
+
     grid.appendChild(el);
   });
 };
@@ -2068,9 +2090,11 @@ function updateReviewsBadge() {
 //  BOOKING DETAIL MODAL (notification click)
 // ═══════════════════════════════════
 
-async function showBookingDetailModal(dateKey, bookingId) {
+async function showBookingDetailModal(dateKey, bookingId, title = "New Booking") {
   const modal   = document.getElementById("modal-booking-detail");
   const content = document.getElementById("booking-detail-content");
+  const titleEl = document.getElementById("bd-modal-title");
+  if (titleEl) titleEl.textContent = title;
   modal.classList.remove("hidden");
   content.innerHTML = `
     <div class="skel-list" style="margin-top:0.5rem">
