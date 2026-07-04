@@ -1756,19 +1756,14 @@ window.confirmCancelBooking = async function () {
 };
 
 window.finishBooking = async function (key, dateKey) {
-  const now    = new Date();
-  const endStr = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
-  const snap   = await get(ref(db, `bookings/${dateKey}/${key}`));
+  const snap = await get(ref(db, `bookings/${dateKey}/${key}`));
   if (!snap.exists()) return;
-  const b            = snap.val();
-  const startMin     = timeToMinutes(b.startTime);
-  const endMin       = timeToMinutes(endStr);
-  const actualDur    = Math.max(endMin - startMin, 1);
 
+  // Do NOT overwrite duration/endTime with elapsed time — clicking Finish
+  // hours later made one booking "occupy" every slot until that moment.
+  // The scheduled slot stays intact; finishedAt records the actual finish.
   await update(ref(db, `bookings/${dateKey}/${key}`), {
     status:      "finished",
-    endTime:     endStr,
-    duration:    actualDur,
     finishedAt:  Date.now()
   });
   showToast("✓ Booking marked as finished.");
@@ -1967,7 +1962,9 @@ window.openSlotViewModal = async function () {
   if (bookSnap.exists()) {
     bookSnap.forEach(child => {
       const b = child.val();
-      if (b.status === "cancelled" || b.status === "noshow") return;
+      // finished excluded too: the job is done, the chair is free again
+      // (and matches client-side availability, which ignores finished)
+      if (b.status === "cancelled" || b.status === "noshow" || b.status === "finished") return;
       occupied.push({
         start: timeToMinutes(b.startTime),
         end:   timeToMinutes(b.startTime) + (b.duration || 30),
