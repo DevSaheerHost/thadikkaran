@@ -1278,8 +1278,9 @@ window.submitManualBooking = async function () {
   const startMinutes = timeToMinutes(timeVal);
   const endMinutes   = startMinutes + duration;
 
-  if (endMinutes > 20*60) {
-    errEl.textContent = "Appointment would end after closing time (8:00 PM).";
+  // Admin walk-ins may run past closing — only block starts at/after close.
+  if (startMinutes >= 20*60) {
+    errEl.textContent = "Start time is at or after closing time (8:00 PM).";
     errEl.classList.remove("hidden");
     return;
   }
