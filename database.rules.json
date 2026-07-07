@@ -61,6 +61,16 @@
       }
     },
 
+    "contacts": {
+      ".read": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true",
+      "$date": {
+        "$bookingId": {
+          ".write": "auth != null && !data.exists()"
+        }
+      }
+    },
+
     "waitlist": {
       "$date": {
         ".read": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true",

@@ -525,9 +525,21 @@ function loadBookings() {
     // Update stats immediately from bookings snapshot — don't wait for blocks
     updateStats(bookingItems);
 
-    // Also load blocks for full card rendering
-    get(ref(db, `blocked/${currentDateKey}`)).then(blockSnap => {
+    // Also load blocks + contacts (admin-only phone branch) for full card rendering
+    Promise.all([
+      get(ref(db, `blocked/${currentDateKey}`)),
+      get(ref(db, `contacts/${currentDateKey}`)).catch(() => null),
+    ]).then(([blockSnap, contactSnap]) => {
       const items = [...bookingItems];
+
+      // Join phones from contacts (new bookings) — legacy bookings still carry item.phone
+      if (contactSnap && contactSnap.exists()) {
+        const contacts = contactSnap.val() || {};
+        items.forEach(it => {
+          if (!it.phone && contacts[it.key]?.phone) it.phone = contacts[it.key].phone;
+        });
+      }
+
       if (blockSnap.exists()) {
         blockSnap.forEach(c => {
           items.push({ key: c.key, ...c.val(), source: "block", status: "blocked" });
@@ -727,9 +739,11 @@ async function loadInsights() {
   loading.classList.remove("hidden");
   body.classList.add("hidden");
 
-  let snap;
+  let snap, contactsAll = {};
   try {
     snap = await get(ref(db, "bookings"));
+    const cSnap = await get(ref(db, "contacts")).catch(() => null);
+    if (cSnap && cSnap.exists()) contactsAll = cSnap.val() || {};
   } catch (e) {
     loading.innerHTML = `<p class="no-data-msg">Couldn't load insights. Please try again.</p>`;
     return;
@@ -749,6 +763,10 @@ async function loadInsights() {
       dateNode.forEach(child => {
         const b = child.val();
         if (!b || !b.serviceName) return;
+        // Newer bookings keep the phone in the admin-only contacts branch
+        if (!b.phone && contactsAll[dateKey]?.[child.key]?.phone) {
+          b.phone = contactsAll[dateKey][child.key].phone;
+        }
         if (b.status !== "blocked") serviceSet.add(b.serviceName);
         const status = b.status || "confirmed";
         if (status === "blocked") return;
@@ -1285,9 +1303,9 @@ window.submitManualBooking = async function () {
     return;
   }
 
+  // Phone lives in the admin-only contacts branch, not the client-readable booking
   const booking = {
     name,
-    phone,
     serviceId:   svcId,
     serviceName: svcName,
     price,
@@ -1302,7 +1320,8 @@ window.submitManualBooking = async function () {
   };
 
   try {
-    await push(ref(db, `bookings/${dateVal}`), booking);
+    const newRef = await push(ref(db, `bookings/${dateVal}`), booking);
+    if (phone) await set(ref(db, `contacts/${dateVal}/${newRef.key}`), { phone, name });
     showToast("✓ Walk-in booking added!");
     // Reset form
     document.getElementById("m-name").value  = "";
@@ -1552,6 +1571,11 @@ window.openNoshowModal = async function (bookingKey, dateKey) {
 
   noshowBooking = { key: bookingKey, dateKey, booking: snap.val() };
   const b = noshowBooking.booking;
+  if (!b.phone) {
+    // Newer bookings keep the phone in the admin-only contacts branch
+    const cSnap = await get(ref(db, `contacts/${dateKey}/${bookingKey}`)).catch(() => null);
+    if (cSnap?.exists()) b.phone = cSnap.val().phone || "";
+  }
 
   document.getElementById("noshow-label").textContent =
     `${b.name} – ${b.serviceName} at ${formatDisplayTime(b.startTime)}`;
@@ -2112,7 +2136,13 @@ async function showBookingDetailModal(dateKey, bookingId, title = "New Booking")
     const b      = snap.val();
     const name   = b.customerName || b.name || "Customer";
     const svc    = b.serviceName  || b.service || "—";
-    const phone  = b.phone || "—";
+    let phone    = b.phone || "";
+    if (!phone) {
+      // Phone lives in the admin-only contacts branch for newer bookings
+      const cSnap = await get(ref(db, `contacts/${dateKey}/${bookingId}`)).catch(() => null);
+      phone = cSnap?.exists() ? (cSnap.val().phone || "") : "";
+    }
+    phone = phone || "—";
     const status = b.status || "confirmed";
     const source = b.source === "admin" ? "Walk-in" : "Online";
     const date   = new Date(dateKey + "T00:00:00").toLocaleDateString("en-IN",

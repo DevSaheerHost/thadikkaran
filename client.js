@@ -799,10 +799,12 @@ window.confirmBooking = async function () {
   const endMin   = selectedSlot[0] * 60 + selectedSlot[1] + selectedService.duration;
   const endStr   = `${String(Math.floor(endMin/60)).padStart(2,"0")}:${String(endMin%60).padStart(2,"0")}`;
 
+  // NOTE: phone is intentionally NOT stored here — bookings/{date} is readable
+  // by any signed-in user (needed for slot availability). The phone goes to
+  // the admin-only contacts/{date}/{id} branch below instead.
   const booking = {
     uid:         currentUser.uid,
     name:        currentUser.displayName || "Client",
-    phone:       userPhone || "",
     serviceId:   selectedService.id,
     serviceName: selectedService.name,
     price:       selectedService.price,
@@ -844,6 +846,14 @@ window.confirmBooking = async function () {
     }
 
     const bookingId = bookingKey;
+
+    // Store the phone in the admin-only contacts branch (never client-readable)
+    set(ref(db, `contacts/${dateKey}/${bookingId}`), {
+      phone: userPhone || "",
+      name:  currentUser.displayName || "Client",
+    }).catch(() => {});
+    // Keep the profile phone up to date for admin lookups
+    if (userPhone) set(ref(db, `users/${currentUser.uid}/phone`), userPhone).catch(() => {});
 
     // Also update user's booking history (bookingId links to live data)
     await push(ref(db, `users/${currentUser.uid}/bookings`), {

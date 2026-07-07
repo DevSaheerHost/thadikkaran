@@ -43,7 +43,12 @@ export function query(r, ...c)   { return r; }
 export function orderByChild(p)  { return { _type: 'orderByChild', _path: p }; }
 export function equalTo(v)       { return { _type: 'equalTo', _value: v }; }
 export function onValue(r, cb)   {
-  setTimeout(() => cb(snap), 100);
+  // Serve seeded preview data (window.__stubData) when the exact path matches
+  const seeded = (typeof window !== 'undefined' && window.__stubData && r._path &&
+    Object.prototype.hasOwnProperty.call(window.__stubData, r._path))
+    ? makeSnap(window.__stubData[r._path], r._path.split('/').pop())
+    : snap;
+  setTimeout(() => cb(seeded), 100);
   return () => {};
 }
 export async function runTransaction(r, fn) {
