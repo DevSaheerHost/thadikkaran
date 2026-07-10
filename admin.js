@@ -580,7 +580,8 @@ function buildBookingCard(item) {
   const card = document.createElement("div");
   card.className = `booking-card status-${item.status || "confirmed"}`;
   card.dataset.bookingKey = item.key || "";
-  card.onclick=()=>{
+  card.onclick=(e)=>{
+    if (e.target.closest('button, a,.booking-tl-line, .booking-actions')) return;
     if (!isBlock && item.phone) openClientHistory(item.phone, item.name);
   }
 
