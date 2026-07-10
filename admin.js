@@ -580,6 +580,9 @@ function buildBookingCard(item) {
   const card = document.createElement("div");
   card.className = `booking-card status-${item.status || "confirmed"}`;
   card.dataset.bookingKey = item.key || "";
+  card.onclick=()=>{
+    if (!isBlock && item.phone) openClientHistory(item.phone, item.name);
+  }
 
   const endMin = timeToMinutes(item.startTime) + (item.duration || 30);
   const endStr = minutesToTime(endMin);
@@ -651,6 +654,114 @@ function buildBookingCard(item) {
 
   return card;
 }
+
+
+
+
+
+function closeClientHistory() {
+  document.querySelector('#clientHistoryModal')?.classList.remove('active');
+  document.querySelector('#clientHistoryModal')?.classList.add('hidden');
+}
+
+async function openClientHistory(phone, name) {
+  let modal = document.getElementById('clientHistoryModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'clientHistoryModal';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-box client-history-box">
+        <div class="modal-header">
+          <h3 id="chTitle">Client History</h3>
+          <button class="modal-close btn-icon" id="chCloseBtn">✕</button>
+        </div>
+        <div id="chStats" class="ch-stats"></div>
+        <div id="chList" class="ch-list"></div>
+      </div>`;
+    document.body.appendChild(modal);
+
+    // Attach the close handler ONCE, right when the modal is first built
+    document.getElementById('chCloseBtn').addEventListener('click', closeClientHistory);
+  }
+
+  document.getElementById('chTitle').textContent = `${name || 'Client'} — ${phone}`;
+  document.getElementById('chStats').innerHTML = `
+  <div class="skel-ch-stats">
+    ${Array(5).fill('<div class="skel skel-ch-stat"></div>').join('')}
+  </div>`;
+document.getElementById('chList').innerHTML = `
+  <div class="skel-list">
+    ${Array(4).fill(`
+      <div class="skel-ch-row">
+        <div class="skel skch-date"></div>
+        <div class="skel skch-time"></div>
+        <div class="skel skch-svc"></div>
+        <div class="skel skch-price"></div>
+      </div>
+    `).join('')}
+  </div>`;
+  modal.classList.remove('hidden');
+  modal.classList.add('active');
+
+  try {
+    const snap = await get(ref(db, 'bookings'));
+    const allDates = snap.val() || {};
+    const matches = [];
+
+    Object.keys(allDates).forEach(dateKey => {
+      const dayBookings = allDates[dateKey] || {};
+      Object.keys(dayBookings).forEach(key => {
+        const b = dayBookings[key];
+        if (b.phone && b.phone === phone) {
+          matches.push({ ...b, key, dateKey: b.dateKey || dateKey });
+        }
+      });
+    });
+
+    matches.sort((a, b) => {
+      const ak = `${a.dateKey}T${a.startTime}`;
+      const bk = `${b.dateKey}T${b.startTime}`;
+      return bk.localeCompare(ak);
+    });
+
+    renderClientHistory(matches);
+  } catch (err) {
+    document.getElementById('chStats').innerHTML = `<div class="ch-error">Failed to load: ${err.message}</div>`;
+  }
+}
+function renderClientHistory(bookings) {
+  const total = bookings.length;
+  const finished = bookings.filter(b => b.status === 'finished');
+  const noshows = bookings.filter(b => b.status === 'noshow');
+  const cancelled = bookings.filter(b => b.status === 'cancelled');
+  const totalSpent = finished.reduce((sum, b) => sum + (Number(b.price) || 0), 0);
+
+  document.getElementById('chStats').innerHTML = `
+    <div class="ch-stat"><span>${total}</span>Total Visits</div>
+    <div class="ch-stat"><span>${finished.length}</span>Completed</div>
+    <div class="ch-stat"><span>${noshows.length}</span>No-Shows</div>
+    <div class="ch-stat"><span>${cancelled.length}</span>Cancelled</div>
+    <div class="ch-stat"><span>₹${totalSpent}</span>Total Spent</div>
+  `;
+
+  const statusMap = {
+    confirmed: 'badge-confirmed', noshow: 'badge-noshow',
+    cancelled: 'badge-cancelled', finished: 'badge-finished'
+  };
+
+  document.getElementById('chList').innerHTML = bookings.map(b => `
+    <div class="ch-row">
+      <div class="ch-row-date">${b.dateKey}</div>
+      <div class="ch-row-time">${formatDisplayTime(b.startTime)}</div>
+      <div class="ch-row-service">${b.serviceName || '-'}</div>
+      <div class="ch-row-price">${b.price ? '₹' + b.price : '-'}</div>
+      <span class="status-badge ${statusMap[b.status] || 'badge-confirmed'}">${b.status || 'confirmed'}</span>
+    </div>
+  `).join('') || `<div class="ch-empty">No history found.</div>`;
+}
+
+
 
 async function attachReviewStars(listEl) {
   try {
