@@ -813,10 +813,22 @@ body {
   color: #9B9B9B;
   cursor: not-allowed;
   border-color: #c8c8c8;
+  position: relative;
+
+    
+}
+.slot-btn.booked::after{
+  content: "X";
+  position: absolute;
+  top: 10%;
+  font-size: 23px;
+  color: #c0392b;
+  left: 40%;
 }
 
-.slot-btn.past.booked {
-  text-decoration: line-through;
+.slot-btn.past.booked::after{
+  
+
 }
 
 .slot-btn.my-booking {
