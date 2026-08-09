@@ -2377,7 +2377,7 @@ async function loadTrash() {
 }
 
 async function loadReviews() {
-  const list    = document.getElementById("reviews-list");
+  const list = document.getElementById("reviews-list");
   const spinner = document.getElementById("reviews-loading");
   list.innerHTML = "";
   spinner.classList.remove("hidden");
@@ -2397,20 +2397,33 @@ async function loadReviews() {
     list.innerHTML = `<p class="no-data-msg">No reviews yet.</p>`;
     return;
   }
-
+  
   const reviews = [];
-  snap.forEach(c => reviews.push({ _key: c.key, ...c.val() }));
-  reviews.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  
+  // Added curly braces to prevent returning the array length, 
+  // which causes Firebase's forEach to cancel the iteration.
+  snap.forEach(c => {
+    reviews.push({ _key: c.key, ...c.val() });
+  });
 
+  reviews.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  
   reviews.forEach(r => {
     const card = document.createElement("div");
     card.className = "review-card";
-    const stars = [1,2,3,4,5].map(i =>
+    
+    const stars = [1, 2, 3, 4, 5].map(i =>
       `<span class="rv-star-sm${i <= r.rating ? " filled" : ""}">${i <= r.rating ? "★" : "☆"}</span>`
     ).join("");
-    const date = new Date(r.createdAt).toLocaleDateString("en-IN",
-      { day: "numeric", month: "short", year: "2-digit" });
+    
+    const date = new Date(r.createdAt).toLocaleDateString("en-IN", { 
+      day: "numeric", 
+      month: "short", 
+      year: "2-digit" 
+    });
+    
     const textHtml = r.text ? `<p class="rv-text">"${r.text}"</p>` : "";
+    
     card.innerHTML = `
       <div class="rv-card-top">
         <span class="rv-service">${r.serviceName || "—"}</span>
@@ -2422,3 +2435,4 @@ async function loadReviews() {
     list.appendChild(card);
   });
 }
+
