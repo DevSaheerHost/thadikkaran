@@ -76,6 +76,8 @@ const SHOP = {
   maxAdvanceDays: 6,
   holidayDays: [2] // Tuesday = 2 (0=Sun, 1=Mon, 2=Tue...)
 };
+// Dates that override the weekly holiday (shop opens specially)
+const SPECIAL_OPEN_DATES = new Set(["2026-08-25"]); // yyyy-mm-dd, formatDateKey format
 
 // ── State ──
 let currentStep = 1;
@@ -388,9 +390,12 @@ function buildCalendarUI() {
   for (let i = 0; i <= SHOP.maxAdvanceDays; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() + i);
-
+    
+    const dateKey = formatDateKey(d);
+    const isSpecialOpen = SPECIAL_OPEN_DATES.has(dateKey);
     const isToday   = i === 0;
-    const isHoliday = SHOP.holidayDays.includes(d.getDay()) || closedDatesSet.has(formatDateKey(d));
+    const isHoliday = (SHOP.holidayDays.includes(d.getDay()) && !isSpecialOpen) 
+                   || (closedDatesSet.has(dateKey) && !isSpecialOpen);
     const disabled  = isHoliday || (isToday && todayCutoffPassed);
 
     const dayEl = document.createElement("div");
