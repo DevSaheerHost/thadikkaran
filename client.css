@@ -1459,3 +1459,28 @@ body {
 .skel-mb-card .smb-badge { width: 64px; height: 18px; border-radius: 99px; }
 .skel-mb-card .smb-date  { width: 40%; height: 12px; }
 .skel-mb-card .smb-price { width: 55%; height: 12px; }
+
+
+
+
+
+
+.cal-day.special-open {
+  border-color: #d4a34e;
+}
+.cal-day-special {
+  color: #d4a34e;
+  font-size: 0.6rem;
+  margin-top: 1px;
+}
+.special-open-note {
+  background: #fff8ec;
+  border: 1.5px solid #d4a34e;
+  color: #8a5a10;
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  margin-bottom: 0.75rem;
+  animation: fadeIn 0.25s ease;
+}

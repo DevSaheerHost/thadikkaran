@@ -76,8 +76,10 @@ const SHOP = {
   maxAdvanceDays: 6,
   holidayDays: [2] // Tuesday = 2 (0=Sun, 1=Mon, 2=Tue...)
 };
-// Dates that override the weekly holiday (shop opens specially)
-const SPECIAL_OPEN_DATES = new Set(["2026-08-25"]); // yyyy-mm-dd, formatDateKey format
+// Special-open dates that override the weekly holiday, with a reason to display
+const SPECIAL_OPEN_DATES = {
+  "2026-08-25": "ഓണം ആശംസകൾ! Shop open specially for Onam"
+};
 
 // ── State ──
 let currentStep = 1;
@@ -371,11 +373,54 @@ function buildServicesUI() {
   });
 }
 
+
+// Finds the next special-open date that hasn't passed yet
+function getUpcomingSpecialDate() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const entries = Object.entries(SPECIAL_OPEN_DATES)
+    .map(([key, reason]) => {
+      const [y, m, d] = key.split("-").map(Number);
+      return { key, reason, date: new Date(y, m - 1, d) };
+    })
+    .filter(e => e.date >= today)
+    .sort((a, b) => a.date - b.date);
+
+  return entries[0] || null;
+}
+
+// Shows a banner only within 7 days before (and on) the special date
+function renderSpecialOpenBanner() {
+  let banner = document.getElementById("special-open-note");
+  if (!banner) {
+    banner = document.createElement("p");
+    banner.id = "special-open-note";
+    banner.className = "special-open-note hidden";
+    document.getElementById("calendar-strip").insertAdjacentElement("beforebegin", banner);
+  }
+
+  const upcoming = getUpcomingSpecialDate();
+  if (!upcoming) { banner.classList.add("hidden"); return; }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((upcoming.date - today) / 86400000);
+
+  if (diffDays >= 0 && diffDays <= 7) {
+    banner.textContent = upcoming.reason;
+    banner.classList.remove("hidden");
+  } else {
+    banner.classList.add("hidden");
+  }
+}
+
 // ═══════════════════════════════════
 //  CALENDAR UI
 // ═══════════════════════════════════
 
 function buildCalendarUI() {
+  renderSpecialOpenBanner()
   const container = document.getElementById("calendar-strip");
   container.innerHTML = "";
 
@@ -392,18 +437,19 @@ function buildCalendarUI() {
     d.setDate(today.getDate() + i);
     
     const dateKey = formatDateKey(d);
-    const isSpecialOpen = SPECIAL_OPEN_DATES.has(dateKey);
+    const specialReason = SPECIAL_OPEN_DATES[dateKey] || null;
     const isToday   = i === 0;
-    const isHoliday = (SHOP.holidayDays.includes(d.getDay()) && !isSpecialOpen) 
-                   || (closedDatesSet.has(dateKey) && !isSpecialOpen);
+    const isHoliday      = !specialReason &&
+      (SHOP.holidayDays.includes(d.getDay()) || closedDatesSet.has(dateKey));
     const disabled  = isHoliday || (isToday && todayCutoffPassed);
 
     const dayEl = document.createElement("div");
-    dayEl.className = "cal-day" + (disabled ? " disabled" : "") + (isToday ? " today" : "");
+    dayEl.className = "cal-day" + (disabled ? " disabled" : "") + (isToday ? " today" : "") + (specialReason ? " special-open" : "");
     dayEl.innerHTML = `
       <span class="cal-day-name">${isToday ? "Today" : DAY_NAMES[d.getDay()]}</span>
       <span class="cal-day-num">${d.getDate()}</span>
       <span class="cal-day-month">${MONTH_NAMES[d.getMonth()]}</span>
+      ${specialReason ? '<span class="cal-day-special">✦</span>' : ""}
     `;
 
     if (!disabled) {
