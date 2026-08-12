@@ -55,9 +55,8 @@ const messaging = getMessaging(app);
 const VAPID_KEY = "BJljfSryCZol-Pg9YfT2x9OKMP4kom5Q6OBeuzgN4773-PLqhvhTPFOVA2PRvwTKDCc3ZeN1h1Uc0ilieNj6NQQ";
 // Shop location — update coordinates after confirming on Google Maps
 const SHOP_MAPS_URL = "https://maps.app.goo.gl/jXQPye2JHpAyTq4M9";
-const SHOP_LAT = 10.17878;
-const SHOP_LNG = 76.330631;
-
+const SHOP_LAT = 10.1787967;
+const SHOP_LNG = 76.3307853;
 // ── Services Data ──
 const SERVICES = [
   { id: "haircut",       name: "Hair Cut (Mens)",    price: 150,  duration: 40,  priceDisplay: "₹150" },
@@ -392,7 +391,7 @@ function buildCalendarUI() {
 
     const isToday   = i === 0;
     const isHoliday = SHOP.holidayDays.includes(d.getDay()) || closedDatesSet.has(formatDateKey(d));
-    const disabled  = false//isHoliday || (isToday && todayCutoffPassed);
+    const disabled  = isHoliday || (isToday && todayCutoffPassed);
 
     const dayEl = document.createElement("div");
     dayEl.className = "cal-day" + (disabled ? " disabled" : "") + (isToday ? " today" : "");
