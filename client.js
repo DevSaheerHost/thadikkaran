@@ -392,7 +392,7 @@ function buildCalendarUI() {
 
     const isToday   = i === 0;
     const isHoliday = SHOP.holidayDays.includes(d.getDay()) || closedDatesSet.has(formatDateKey(d));
-    const disabled  = isHoliday || (isToday && todayCutoffPassed);
+    const disabled  = false//isHoliday || (isToday && todayCutoffPassed);
 
     const dayEl = document.createElement("div");
     dayEl.className = "cal-day" + (disabled ? " disabled" : "") + (isToday ? " today" : "");
