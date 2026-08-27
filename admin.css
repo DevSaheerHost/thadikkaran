@@ -524,7 +524,23 @@ body {
 }
 .date-picker-wrap:hover { border-color: var(--black); color: var(--black); }
 .date-picker-wrap svg { pointer-events: none; }
+/* Standalone date input (e.g. Settings → Closed Days) — normal visible field */
 .date-picker {
+  font-size: 0.82rem;
+  padding: 0.4rem 0.6rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  color: var(--black);
+  cursor: pointer;
+  outline: none;
+}
+.date-picker:focus { border-color: var(--black); }
+
+/* Only inside the icon wrapper is the input an invisible click overlay.
+   Scoping this is essential — unscoped it stretches an invisible date
+   field over the whole panel and hijacks every click. */
+.date-picker-wrap .date-picker {
   position: absolute;
   inset: 0;
   width: 100%;
