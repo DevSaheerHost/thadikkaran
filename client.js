@@ -215,6 +215,7 @@ async function showApp(user) {
   await loadServiceRatings();
   watchLunchBreak();
   watchClosedDates();
+  watchShopClosure();
   buildServicesUI();
   buildCalendarUI();
   watchRescheduledBookings();
@@ -247,6 +248,69 @@ function watchLunchBreak() {
     if (snap.exists()) lunchBreakConfig = { ...lunchBreakConfig, ...snap.val() };
     scheduleRerender();
   });
+}
+
+// ── Temporary shop closure ──
+let shopClosure     = null;   // { active, startDate, endDate, reason }
+let unsubClosure    = null;
+
+function watchShopClosure() {
+  if (unsubClosure) { unsubClosure(); unsubClosure = null; }
+  unsubClosure = onValue(ref(db, "settings/closure"), snap => {
+    shopClosure = snap.exists() ? snap.val() : null;
+    applyClosureUI();
+  });
+}
+
+// True when the shop is closed right now (start reached, end not yet passed)
+function isShopClosedNow() {
+  if (!shopClosure || !shopClosure.active) return false;
+  const today = formatDateKey(new Date());
+  if (shopClosure.startDate && today < shopClosure.startDate) return false;
+  if (shopClosure.endDate   && today > shopClosure.endDate)   return false;
+  return true;
+}
+
+// True when a specific date falls inside the closure
+function isDateClosedByClosure(dateKey) {
+  if (!shopClosure || !shopClosure.active) return false;
+  if (shopClosure.startDate && dateKey < shopClosure.startDate) return false;
+  if (shopClosure.endDate   && dateKey > shopClosure.endDate)   return false;
+  return true;
+}
+
+function applyClosureUI() {
+  const notice   = document.getElementById("closure-notice");
+  const stepsBar = document.querySelector(".steps-bar");
+  if (!notice) return;
+
+  const closed = isShopClosedNow();
+
+  if (closed) {
+    document.getElementById("cn-reason").textContent = shopClosure.reason || "";
+    const fmt = k => new Date(k + "T00:00:00")
+      .toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+    document.getElementById("cn-dates").textContent = shopClosure.endDate
+      ? `Closed ${fmt(shopClosure.startDate)} → ${fmt(shopClosure.endDate)}`
+      : `Closed from ${fmt(shopClosure.startDate)} until further notice`;
+
+    notice.classList.remove("hidden");
+    if (stepsBar) stepsBar.classList.add("hidden");
+    document.querySelectorAll(".step-content").forEach(el => {
+      el.classList.add("hidden");
+      el.classList.remove("active");
+    });
+  } else {
+    notice.classList.add("hidden");
+    if (stepsBar) stepsBar.classList.remove("hidden");
+    // Restore the current step if the booking flow was hidden
+    const cur = document.getElementById(`step-${currentStep}`);
+    if (cur && cur.classList.contains("hidden")) {
+      cur.classList.remove("hidden");
+      cur.classList.add("active");
+    }
+    if (currentStep === 1) buildCalendarUI();
+  }
 }
 
 function watchClosedDates() {
@@ -441,7 +505,8 @@ function buildCalendarUI() {
     const isToday   = i === 0;
     const isHoliday      = !specialReason &&
       (SHOP.holidayDays.includes(d.getDay()) || closedDatesSet.has(dateKey));
-    const disabled  = isHoliday || (isToday && todayCutoffPassed);
+    // A temporary closure overrides everything, including special-open days
+    const disabled  = isHoliday || isDateClosedByClosure(dateKey) || (isToday && todayCutoffPassed);
 
     const dayEl = document.createElement("div");
     dayEl.className = "cal-day" + (disabled ? " disabled" : "") + (isToday ? " today" : "") + (specialReason ? " special-open" : "");
@@ -837,6 +902,19 @@ window.confirmBooking = async function () {
   const blockedSnap = await get(ref(db, `users/${currentUser.uid}/blocked`));
   if (blockedSnap.exists() && blockedSnap.val() === true) {
     showBlockedScreen();
+    return;
+  }
+
+  // Guard: the shop may have closed while this booking was being filled in
+  try {
+    const cSnap = await get(ref(db, "settings/closure"));
+    shopClosure = cSnap.exists() ? cSnap.val() : null;
+  } catch (_) { /* fall back to the watched value */ }
+  if (isDateClosedByClosure(formatDateKey(selectedDate))) {
+    applyClosureUI();
+    document.getElementById("booking-error").textContent =
+      "The shop just closed for this date. Please check back later.";
+    document.getElementById("booking-error").classList.remove("hidden");
     return;
   }
 

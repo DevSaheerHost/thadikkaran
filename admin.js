@@ -463,7 +463,7 @@ window.switchTab = function (tabId, btn) {
   if (tabId === "bookings") loadBookings();
   if (tabId === "block")    loadActiveBlocks();
   if (tabId === "noshows")  loadNoshows();
-  if (tabId === "settings") { loadLunchSettings(); loadServiceSettings(); loadClosedDates(); loadNotifStatus(); }
+  if (tabId === "settings") { loadLunchSettings(); loadServiceSettings(); loadClosedDates(); loadNotifStatus(); loadClosureSettings(); }
   if (tabId === 'reviews') {
     localStorage.setItem('reviewsSeenAt', Date.now());
     updateReviewsBadge();
@@ -2014,6 +2014,181 @@ function showToast(msg, duration = 3000) {
   clearTimeout(window._toastTimer);
   window._toastTimer = setTimeout(() => toast.classList.add("hidden"), duration);
 }
+
+// ═══════════════════════════════════
+//  TEMPORARY SHOP CLOSURE
+// ═══════════════════════════════════
+
+let closureConfig = null;   // { active, startDate, endDate, reason, ... }
+
+async function loadClosureSettings() {
+  try {
+    const snap = await get(ref(db, "settings/closure"));
+    closureConfig = snap.exists() ? snap.val() : null;
+  } catch (e) { closureConfig = null; }
+  renderClosureUI();
+}
+
+function renderClosureUI() {
+  const activeBox = document.getElementById("closure-active-box");
+  const form      = document.getElementById("closure-form");
+  if (!activeBox || !form) return;
+
+  if (closureConfig && closureConfig.active) {
+    const from = closureConfig.startDate
+      ? new Date(closureConfig.startDate + "T00:00:00")
+          .toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+      : "now";
+    const until = closureConfig.endDate
+      ? new Date(closureConfig.endDate + "T00:00:00")
+          .toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+      : "until you reopen";
+    document.getElementById("closure-active-detail").innerHTML =
+      `<div><strong>${from}</strong> → <strong>${until}</strong></div>` +
+      (closureConfig.reason ? `<div class="closure-reason-text">"${escapeHtml(closureConfig.reason)}"</div>` : "");
+    activeBox.classList.remove("hidden");
+    form.classList.add("hidden");
+  } else {
+    activeBox.classList.add("hidden");
+    form.classList.remove("hidden");
+    const start = document.getElementById("closure-start");
+    if (start && !start.value) start.value = formatDateKey(new Date());
+  }
+}
+
+window.toggleClosureIndefinite = function () {
+  const on  = document.getElementById("closure-indefinite").checked;
+  const end = document.getElementById("closure-end");
+  end.disabled = on;
+  if (on) end.value = "";
+};
+
+// Cancel every active booking inside the closed range; returns affected count
+async function cancelBookingsInRange(startDate, endDate) {
+  const snap = await get(ref(db, "bookings"));
+  if (!snap.exists()) return 0;
+
+  const updates = [];
+  snap.forEach(dateNode => {
+    const dateKey = dateNode.key;
+    if (dateKey < startDate) return;
+    if (endDate && dateKey > endDate) return;
+    dateNode.forEach(child => {
+      const b = child.val();
+      if (!b) return;
+      const status = b.status || "confirmed";
+      if (status === "cancelled" || status === "noshow" || status === "finished") return;
+      updates.push(update(ref(db, `bookings/${dateKey}/${child.key}`), {
+        status:       "cancelled",
+        cancelledAt:  Date.now(),
+        cancelReason: "Shop temporarily closed",
+        cancelledBy:  "admin-closure",
+      }));
+    });
+  });
+
+  await Promise.all(updates);
+  return updates.length;
+}
+
+window.closeShopTemporarily = async function () {
+  const btn    = document.getElementById("btn-close-shop");
+  const errEl  = document.getElementById("closure-error");
+  const start  = document.getElementById("closure-start").value;
+  const indef  = document.getElementById("closure-indefinite").checked;
+  const end    = indef ? "" : document.getElementById("closure-end").value;
+  const reason = document.getElementById("closure-reason").value.trim();
+
+  errEl.classList.add("hidden");
+  if (!start) {
+    errEl.textContent = "Please choose a start date.";
+    errEl.classList.remove("hidden");
+    return;
+  }
+  if (!indef && !end) {
+    errEl.textContent = "Choose an end date, or tick “Until I reopen it manually”.";
+    errEl.classList.remove("hidden");
+    return;
+  }
+  if (end && end < start) {
+    errEl.textContent = "End date cannot be before the start date.";
+    errEl.classList.remove("hidden");
+    return;
+  }
+  if (!confirm("Close the shop and cancel all bookings in this period?\n\nAll customers will be notified.")) return;
+
+  btn.disabled = true;
+  btn.textContent = "Closing…";
+
+  try {
+    const entry = {
+      active:    true,
+      startDate: start,
+      endDate:   end || null,
+      reason:    reason || "The shop is temporarily closed. We'll be back soon.",
+      createdAt: Date.now(),
+    };
+    await set(ref(db, "settings/closure"), entry);
+    closureConfig = entry;
+
+    btn.textContent = "Cancelling bookings…";
+    const cancelled = await cancelBookingsInRange(start, end || null);
+
+    btn.textContent = "Notifying customers…";
+    let notified = 0;
+    try {
+      const resp = await fetch("/api/notify-closure", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "closed", startDate: start, endDate: end || null, reason: entry.reason }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      notified = data.sent || 0;
+    } catch (_) { /* closure still applied even if push fails */ }
+
+    renderClosureUI();
+    loadBookings();
+    showToast(`🚫 Shop closed. ${cancelled} booking${cancelled === 1 ? "" : "s"} cancelled, ${notified} customer${notified === 1 ? "" : "s"} notified.`, 7000);
+  } catch (e) {
+    errEl.textContent = "Couldn't close the shop. Please try again.";
+    errEl.classList.remove("hidden");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "🚫 Close Shop & Notify Customers";
+  }
+};
+
+window.reopenShop = async function () {
+  const btn = document.getElementById("btn-reopen");
+  if (!confirm("Reopen the shop?\n\nAll customers will be notified that bookings are open again.")) return;
+
+  btn.disabled = true;
+  btn.textContent = "Reopening…";
+  try {
+    await update(ref(db, "settings/closure"), { active: false, reopenedAt: Date.now() });
+    if (closureConfig) closureConfig.active = false;
+
+    btn.textContent = "Notifying customers…";
+    let notified = 0;
+    try {
+      const resp = await fetch("/api/notify-closure", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "reopened" }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      notified = data.sent || 0;
+    } catch (_) { /* reopen still applied even if push fails */ }
+
+    renderClosureUI();
+    showToast(`✓ Shop reopened. ${notified} customer${notified === 1 ? "" : "s"} notified.`, 6000);
+  } catch (e) {
+    showToast("Couldn't reopen the shop. Please try again.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "✓ Reopen Shop & Notify Customers";
+  }
+};
 
 // ── Closed Days ──
 async function initClosedDates() {

@@ -146,6 +146,16 @@
       <p class="header-greeting" id="header-greeting">Good morning</p>
     </header>
 
+    <!-- Temporary closure notice (shown instead of the booking flow) -->
+    <div id="closure-notice" class="closure-notice hidden">
+      <div class="cn-icon">🚫</div>
+      <h2 class="cn-title">We're temporarily closed</h2>
+      <p class="cn-reason" id="cn-reason"></p>
+      <p class="cn-dates" id="cn-dates"></p>
+      <p class="cn-sub">Online booking is paused. We'll notify you as soon as we reopen.</p>
+      <button class="btn btn-outline" onclick="openMyBookings()">View My Bookings</button>
+    </div>
+
     <!-- Step Indicator -->
     <div class="steps-bar">
       <div class="step active" data-step="1"><span class="step-num">1</span><span class="step-label">Date</span></div>

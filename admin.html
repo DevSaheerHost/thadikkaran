@@ -314,6 +314,51 @@
           </div>
         </div>
 
+        <!-- Temporary Shop Closure -->
+        <div class="settings-section closure-section">
+          <h3 class="section-mini-title">Temporary Closure</h3>
+          <p class="settings-hint">Close the shop for emergencies or leave. Blocks new bookings, cancels bookings in the range, shows a notice on the booking page, and notifies all customers.</p>
+
+          <!-- Active state -->
+          <div id="closure-active-box" class="closure-active hidden">
+            <div class="closure-active-head">
+              <span class="closure-dot"></span>
+              <strong>Shop is temporarily closed</strong>
+            </div>
+            <div class="closure-active-detail" id="closure-active-detail"></div>
+            <button class="btn btn-success" onclick="reopenShop()" id="btn-reopen">
+              ✓ Reopen Shop &amp; Notify Customers
+            </button>
+          </div>
+
+          <!-- Setup form -->
+          <div id="closure-form">
+            <div class="closure-row">
+              <div class="input-group" style="flex:1;margin-bottom:0">
+                <label class="input-label">From</label>
+                <input type="date" id="closure-start" class="input-field" />
+              </div>
+              <div class="input-group" style="flex:1;margin-bottom:0">
+                <label class="input-label">Until</label>
+                <input type="date" id="closure-end" class="input-field" />
+              </div>
+            </div>
+            <label class="closure-check">
+              <input type="checkbox" id="closure-indefinite" onchange="toggleClosureIndefinite()" />
+              <span>Until I reopen it manually (no end date)</span>
+            </label>
+            <div class="input-group">
+              <label class="input-label">Reason shown to customers</label>
+              <input type="text" id="closure-reason" class="input-field"
+                     placeholder="e.g. Closed for a family emergency. Back soon." />
+            </div>
+            <div id="closure-error" class="error-msg hidden"></div>
+            <button class="btn btn-danger" onclick="closeShopTemporarily()" id="btn-close-shop">
+              🚫 Close Shop &amp; Notify Customers
+            </button>
+          </div>
+        </div>
+
         <!-- Lunch Break -->
         <div class="settings-section">
           <h3 class="section-mini-title">Lunch Break</h3>
