@@ -314,27 +314,42 @@ function applyClosureUI() {
   }
 }
 
-// ── Active slot preset (admin-defined custom times) ──
-let activeSlotPreset = null;   // { name, slots:[{start,duration}] } or null = built-in
+// ── Slot presets (admin-defined custom times, assignable per weekday) ──
+let slotPresetsAll  = {};        // id → { name, slots:[{start,duration}] }
+let fallbackPresetId = "default";// used by days with no weekday assignment
+let weekdayPresets   = {};       // "0".."6" (Sun..Sat) → presetId
+let unsubPresetsAll  = null;
 let unsubSlotPreset  = null;
+let unsubWeekdayMap  = null;
 
 function watchSlotPreset() {
+  if (unsubPresetsAll) { unsubPresetsAll(); unsubPresetsAll = null; }
   if (unsubSlotPreset) { unsubSlotPreset(); unsubSlotPreset = null; }
-  unsubSlotPreset = onValue(ref(db, "settings/activeSlotPreset"), async snap => {
-    const id = snap.exists() ? snap.val() : "default";
-    if (!id || id === "default") {
-      activeSlotPreset = null;
-      scheduleRerender();
-      return;
-    }
-    try {
-      const pSnap = await get(ref(db, `settings/slotPresets/${id}`));
-      activeSlotPreset = pSnap.exists() ? pSnap.val() : null;
-    } catch (e) {
-      activeSlotPreset = null;   // fall back to the built-in grid
-    }
+  if (unsubWeekdayMap) { unsubWeekdayMap(); unsubWeekdayMap = null; }
+
+  unsubPresetsAll = onValue(ref(db, "settings/slotPresets"), snap => {
+    slotPresetsAll = snap.exists() ? (snap.val() || {}) : {};
     scheduleRerender();
   });
+  unsubSlotPreset = onValue(ref(db, "settings/activeSlotPreset"), snap => {
+    fallbackPresetId = snap.exists() ? (snap.val() || "default") : "default";
+    scheduleRerender();
+  });
+  unsubWeekdayMap = onValue(ref(db, "settings/weekdayPresets"), snap => {
+    weekdayPresets = snap.exists() ? (snap.val() || {}) : {};
+    scheduleRerender();
+  });
+}
+
+// The preset that applies on a date: weekday assignment → global fallback →
+// null (meaning the built-in default grid)
+function presetForDate(date) {
+  if (!date) return null;
+  const assigned = weekdayPresets[String(date.getDay())];
+  const id = assigned || fallbackPresetId || "default";
+  if (!id || id === "default") return null;
+  const p = slotPresetsAll[id];
+  return (p && Array.isArray(p.slots) && p.slots.length) ? p : null;
 }
 
 function watchClosedDates() {
@@ -763,12 +778,12 @@ function generateSlots() {
   const openMin  = SHOP.openHour  * 60 + SHOP.openMin;
   const closeMin = SHOP.closeHour * 60 + SHOP.closeMin;
 
-  const usingPreset = !!(activeSlotPreset && Array.isArray(activeSlotPreset.slots) && activeSlotPreset.slots.length);
+  const preset = presetForDate(selectedDate);
   const mins = new Set();
 
-  if (usingPreset) {
-    // Custom preset from the admin panel — use its times verbatim
-    activeSlotPreset.slots.forEach(s => {
+  if (preset) {
+    // Custom preset for this weekday — use its times verbatim
+    preset.slots.forEach(s => {
       const m = timeStrToMin(s.start);
       if (Number.isFinite(m)) mins.add(m);
     });

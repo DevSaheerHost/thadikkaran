@@ -1596,7 +1596,7 @@ window.openEditModal = async function (bookingKey, dateKey) {
   const grid = document.getElementById("edit-slots-grid");
   grid.innerHTML = "";
 
-  for (const ps of activeSlotTimes()) {
+  for (const ps of activeSlotTimes(dateKey)) {
     const min      = timeToMinutes(ps.start);
     const timeStr  = ps.start;
     const slotEnd  = min + b.duration;
@@ -2195,11 +2195,14 @@ window.reopenShop = async function () {
 // ═══════════════════════════════════
 
 const MAX_SLOTS      = 17;
+// Weekly holiday(s) — mirrors SHOP.holidayDays in client.js (2 = Tuesday)
+const SHOP_HOLIDAY_DAYS = [2];
 const DEFAULT_DUR    = 40;
 const DEFAULT_PRESET = "default";
 
 let slotPresets     = {};              // id → { name, slots:[{start,duration}] }
-let activePresetId  = DEFAULT_PRESET;
+let activePresetId  = DEFAULT_PRESET;  // fallback for days with no assignment
+let weekdayPresets  = {};              // "0".."6" (Sun..Sat) → presetId
 let editingPresetId = null;            // id being edited (or "__new__")
 let editingSlots    = [];              // working copy: [{start,duration}]
 let editingSlotIdx  = null;            // index being edited via the modal, null = adding
@@ -2218,36 +2221,118 @@ function builtinSlots() {
 
 async function loadSlotPresets() {
   try {
-    const [pSnap, aSnap] = await Promise.all([
+    const [pSnap, aSnap, wSnap] = await Promise.all([
       get(ref(db, "settings/slotPresets")),
       get(ref(db, "settings/activeSlotPreset")),
+      get(ref(db, "settings/weekdayPresets")),
     ]);
     slotPresets    = pSnap.exists() ? (pSnap.val() || {}) : {};
     activePresetId = aSnap.exists() ? (aSnap.val() || DEFAULT_PRESET) : DEFAULT_PRESET;
+    weekdayPresets = wSnap.exists() ? (wSnap.val() || {}) : {};
   } catch (e) {
-    slotPresets = {}; activePresetId = DEFAULT_PRESET;
+    slotPresets = {}; activePresetId = DEFAULT_PRESET; weekdayPresets = {};
   }
   renderPresetChips();
+  renderWeekdayRows();
 }
 
-// Slots of the currently active preset (used by admin slot grids)
-function activeSlotTimes() {
-  if (activePresetId === DEFAULT_PRESET) return builtinSlots();
-  const p = slotPresets[activePresetId];
+// Which preset id applies on a given date (weekday assignment → global → default)
+function presetIdForDate(dateKey) {
+  try {
+    const dow = new Date(dateKey + "T00:00:00").getDay();
+    const assigned = weekdayPresets[String(dow)];
+    if (assigned) return assigned;
+  } catch (_) { /* fall through */ }
+  return activePresetId || DEFAULT_PRESET;
+}
+
+// Slots that apply on a given date (defaults to the day being viewed)
+function activeSlotTimes(dateKey = currentDateKey) {
+  const id = presetIdForDate(dateKey);
+  if (id === DEFAULT_PRESET) return builtinSlots();
+  const p = slotPresets[id];
   if (!p || !Array.isArray(p.slots) || !p.slots.length) return builtinSlots();
   return [...p.slots].sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
 }
+
+// ── Weekday assignment ──
+const WEEKDAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+function renderWeekdayRows() {
+  const wrap = document.getElementById("weekday-rows");
+  if (!wrap) return;
+
+  const options = [{ id: DEFAULT_PRESET, name: "Default" }]
+    .concat(Object.entries(slotPresets).map(([id, p]) => ({ id, name: p.name || "Untitled" })));
+
+  wrap.innerHTML = WEEKDAY_NAMES.map((name, dow) => {
+    const sel = weekdayPresets[String(dow)] || DEFAULT_PRESET;
+    const isHoliday = Array.isArray(SHOP_HOLIDAY_DAYS) && SHOP_HOLIDAY_DAYS.includes(dow);
+    const opts = options.map(o =>
+      `<option value="${o.id}"${o.id === sel ? " selected" : ""}>${escapeHtml(o.name)}</option>`
+    ).join("");
+    return `<div class="weekday-row">
+      <span class="wd-name">${name}${isHoliday ? ` <span class="wd-holiday">closed</span>` : ""}</span>
+      <select class="ins-filter wd-select" onchange="setWeekdayPreset(${dow}, this.value)">${opts}</select>
+    </div>`;
+  }).join("");
+}
+
+window.setWeekdayPreset = async function (dow, presetId) {
+  try {
+    if (presetId === DEFAULT_PRESET) {
+      await remove(ref(db, `settings/weekdayPresets/${dow}`));
+      delete weekdayPresets[String(dow)];
+    } else {
+      await set(ref(db, `settings/weekdayPresets/${dow}`), presetId);
+      weekdayPresets[String(dow)] = presetId;
+    }
+    const label = presetId === DEFAULT_PRESET
+      ? "Default"
+      : ((slotPresets[presetId] && slotPresets[presetId].name) || "preset");
+    showToast(`✓ ${WEEKDAY_NAMES[dow]} → ${label}`);
+    renderPresetChips();
+    loadBookings();
+  } catch (e) {
+    showToast("Couldn't update the weekly schedule.");
+    renderWeekdayRows();
+  }
+};
+
+window.resetWeekdayPresets = async function () {
+  if (!confirm("Reset every day back to the Default preset?")) return;
+  try {
+    await remove(ref(db, "settings/weekdayPresets"));
+    weekdayPresets = {};
+    renderWeekdayRows();
+    renderPresetChips();
+    showToast("✓ All days reset to Default.");
+    loadBookings();
+  } catch (e) {
+    showToast("Couldn't reset the schedule.");
+  }
+};
 
 function renderPresetChips() {
   const wrap = document.getElementById("preset-chips");
   if (!wrap) return;
 
+  const SHORT = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  // Which weekdays end up on this preset (explicit assignment, or the
+  // global fallback for days with no assignment)
+  const daysUsing = (id) => SHORT.filter((_, dow) => {
+    const assigned = weekdayPresets[String(dow)];
+    return assigned ? assigned === id : (activePresetId || DEFAULT_PRESET) === id;
+  });
+
   const chip = (id, name, count) => {
-    const isActive = id === activePresetId;
-    return `<button class="preset-chip${isActive ? " active" : ""}" onclick="openPresetEditor('${id}')">
+    const days = daysUsing(id);
+    const live = days.length > 0;
+    const daysLabel = days.length === 7 ? "Every day" : days.join(" · ");
+    return `<button class="preset-chip${live ? " active" : ""}" onclick="openPresetEditor('${id}')">
       <span class="pc-name">${escapeHtml(name)}</span>
       <span class="pc-meta">${count} slot${count === 1 ? "" : "s"}</span>
-      ${isActive ? `<span class="pc-live">● LIVE</span>` : ""}
+      ${live ? `<span class="pc-days">${daysLabel}</span>` : `<span class="pc-days pc-days--none">Not scheduled</span>`}
     </button>`;
   };
 
@@ -2504,6 +2589,7 @@ window.savePreset = async function () {
     slotPresets[id] = { name, slots };
     editingPresetId = id;
     renderPresetChips();
+    renderWeekdayRows();
     document.getElementById("btn-delete-preset").classList.remove("hidden");
     document.getElementById("btn-activate-preset").classList.toggle("hidden", id === activePresetId);
     showToast("✓ Preset saved.");
@@ -2519,6 +2605,7 @@ window.activatePreset = async function () {
     await set(ref(db, "settings/activeSlotPreset"), editingPresetId);
     activePresetId = editingPresetId;
     renderPresetChips();
+    renderWeekdayRows();
     document.getElementById("btn-activate-preset").classList.add("hidden");
     showToast("✓ This preset is now live for customers.");
     loadBookings();
@@ -2533,6 +2620,14 @@ window.deletePreset = async function () {
   try {
     await remove(ref(db, `settings/slotPresets/${editingPresetId}`));
     delete slotPresets[editingPresetId];
+
+    // Drop any weekday assignments pointing at the deleted preset
+    const orphans = Object.entries(weekdayPresets)
+      .filter(([, id]) => id === editingPresetId)
+      .map(([dow]) => dow);
+    await Promise.all(orphans.map(dow => remove(ref(db, `settings/weekdayPresets/${dow}`))));
+    orphans.forEach(dow => { delete weekdayPresets[dow]; });
+
     if (activePresetId === editingPresetId) {
       await set(ref(db, "settings/activeSlotPreset"), DEFAULT_PRESET);
       activePresetId = DEFAULT_PRESET;
@@ -2542,6 +2637,7 @@ window.deletePreset = async function () {
     }
     closePresetEditor();
     renderPresetChips();
+    renderWeekdayRows();
   } catch (e) {
     showToast("Couldn't delete the preset.");
   }

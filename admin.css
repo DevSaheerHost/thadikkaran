@@ -2353,3 +2353,66 @@ body {
 @media (max-width: 480px) {
   .preset-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ── Weekday preset assignment ── */
+.weekday-panel {
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.9rem 1rem;
+  margin-bottom: 1rem;
+}
+.weekday-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.2rem;
+}
+.weekday-title {
+  font-family: var(--font-display);
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--black);
+}
+.weekday-rows { display: flex; flex-direction: column; gap: 0.4rem; }
+.weekday-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.weekday-row:last-child { border-bottom: none; }
+.wd-name {
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: var(--dark);
+  white-space: nowrap;
+}
+.wd-holiday {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--warn);
+  background: var(--warn-bg);
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin-left: 4px;
+}
+.wd-select { min-width: 150px; max-width: 55%; }
+
+/* Preset chip: which days use it */
+.pc-days {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: #2e7d32;
+  margin-top: 2px;
+}
+.pc-days--none { color: var(--light); font-weight: 400; }
+
+@media (max-width: 480px) {
+  .wd-select { min-width: 120px; }
+}

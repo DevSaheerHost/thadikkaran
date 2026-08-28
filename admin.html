@@ -392,6 +392,16 @@
 
           <div id="preset-chips" class="preset-chips"></div>
 
+          <!-- Weekday assignment -->
+          <div class="weekday-panel">
+            <div class="weekday-panel-head">
+              <h4 class="weekday-title">Weekly Schedule</h4>
+              <button class="btn btn-sm btn-ghost" onclick="resetWeekdayPresets()">Reset all to Default</button>
+            </div>
+            <p class="settings-hint" style="margin-bottom:0.6rem">Pick which preset each day uses. Days left on “Default” use the built-in times.</p>
+            <div id="weekday-rows" class="weekday-rows"></div>
+          </div>
+
           <div id="preset-editor" class="preset-editor hidden">
             <div class="preset-editor-head">
               <input type="text" id="preset-name" class="input-field preset-name-input"
