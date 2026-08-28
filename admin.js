@@ -1772,6 +1772,9 @@ window.saveLunchBreak = async function () {
   lunchBreakConfig = { enabled, startTime, endTime };
   document.getElementById("lunch-times-row").style.opacity = enabled ? "1" : "0.4";
   await set(ref(db, "settings/lunchBreak"), lunchBreakConfig);
+  // The Default preset's slot count depends on the lunch-end slot
+  renderPresetChips();
+  if (editingPresetId === DEFAULT_PRESET) openPresetEditor(DEFAULT_PRESET);
   showToast(enabled ? `✓ Lunch break set: ${formatDisplayTime(startTime)} – ${formatDisplayTime(endTime)}` : "Lunch break disabled.");
 };
 
@@ -2208,15 +2211,22 @@ let editingSlots    = [];              // working copy: [{start,duration}]
 let editingSlotIdx  = null;            // index being edited via the modal, null = adding
 let slotMode        = "duration";
 
-// The built-in grid — same shape the client falls back to
+// The built-in grid — same shape the client falls back to, including the
+// lunch-break-end slot the client injects so the counts match everywhere.
 function builtinSlots() {
   const OPEN = 9 * 60, CLOSE = 20 * 60, STEP = 40;
-  const out = [];
-  for (let m = OPEN; m + STEP <= CLOSE + STEP && out.length < MAX_SLOTS; m += STEP) {
-    if (m > CLOSE) break;
-    out.push({ start: minutesToTime(m), duration: STEP });
+  const mins = new Set();
+  for (let m = OPEN; m <= CLOSE; m += STEP) {
+    if (mins.size >= MAX_SLOTS) break;
+    mins.add(m);
   }
-  return out;
+  if (lunchBreakConfig.enabled && lunchBreakConfig.endTime) {
+    const [eh, em] = lunchBreakConfig.endTime.split(":").map(Number);
+    const le = eh * 60 + em;
+    if (le > OPEN && le < CLOSE) mins.add(le);
+  }
+  return [...mins].sort((a, b) => a - b)
+    .map(m => ({ start: minutesToTime(m), duration: STEP }));
 }
 
 async function loadSlotPresets() {
@@ -2396,7 +2406,9 @@ function renderPresetGrid() {
   const sorted = [...editingSlots].sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
   editingSlots = sorted;
 
-  document.getElementById("preset-count").textContent = `${sorted.length} / ${MAX_SLOTS}`;
+  document.getElementById("preset-count").textContent = readOnly
+    ? `${sorted.length} slot${sorted.length === 1 ? "" : "s"}`
+    : `${sorted.length} / ${MAX_SLOTS}`;
 
   let html = sorted.map((s, i) => {
     const end = minutesToTime(timeToMinutes(s.start) + (s.duration || DEFAULT_DUR));
@@ -2757,17 +2769,10 @@ window.openSlotViewModal = async function () {
     occupied.push({ start: ls, end: le, label: "Lunch Break", type: "blocked" });
   }
 
-  // Slots are exactly this day's preset (weekday assignment → global → default)
-  const CLOSE = 20 * 60;
+  // Exactly this day's slots (weekday assignment → global → built-in grid).
+  // builtinSlots() already includes the lunch-break-end slot; custom presets
+  // define every time explicitly, so nothing extra is injected here.
   const mins = new Set(activeSlotTimes(currentDateKey).map(s => timeToMinutes(s.start)));
-  // Inject lunch break end (2:30 PM is off the 40-min grid) only when THIS DAY
-  // uses the built-in grid — a custom preset defines every time explicitly.
-  if (presetIdForDate(currentDateKey) === DEFAULT_PRESET &&
-      lunchBreakConfig.enabled && lunchBreakConfig.endTime) {
-    const [eh, em] = lunchBreakConfig.endTime.split(":").map(Number);
-    const le = eh * 60 + em;
-    if (le > 0 && le < CLOSE) mins.add(le);
-  }
   const slots = [...mins].sort((a, b) => a - b);
 
   const grid = document.getElementById("slot-view-grid");
