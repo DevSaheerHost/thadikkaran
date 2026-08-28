@@ -2757,12 +2757,13 @@ window.openSlotViewModal = async function () {
     occupied.push({ start: ls, end: le, label: "Lunch Break", type: "blocked" });
   }
 
-  // Slots come from the active preset (Default = built-in 40-min grid)
+  // Slots are exactly this day's preset (weekday assignment → global → default)
   const CLOSE = 20 * 60;
-  const mins = new Set(activeSlotTimes().map(s => timeToMinutes(s.start)));
-  // Inject lunch break end (2:30 PM is off the 40-min grid) — default grid only;
-  // custom presets define every time explicitly.
-  if (activePresetId === DEFAULT_PRESET && lunchBreakConfig.enabled && lunchBreakConfig.endTime) {
+  const mins = new Set(activeSlotTimes(currentDateKey).map(s => timeToMinutes(s.start)));
+  // Inject lunch break end (2:30 PM is off the 40-min grid) only when THIS DAY
+  // uses the built-in grid — a custom preset defines every time explicitly.
+  if (presetIdForDate(currentDateKey) === DEFAULT_PRESET &&
+      lunchBreakConfig.enabled && lunchBreakConfig.endTime) {
     const [eh, em] = lunchBreakConfig.endTime.split(":").map(Number);
     const le = eh * 60 + em;
     if (le > 0 && le < CLOSE) mins.add(le);
