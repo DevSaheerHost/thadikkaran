@@ -463,7 +463,7 @@ window.switchTab = function (tabId, btn) {
   if (tabId === "bookings") loadBookings();
   if (tabId === "block")    loadActiveBlocks();
   if (tabId === "noshows")  loadNoshows();
-  if (tabId === "settings") { loadLunchSettings(); loadServiceSettings(); loadClosedDates(); loadNotifStatus(); loadClosureSettings(); }
+  if (tabId === "settings") { loadLunchSettings(); loadServiceSettings(); loadClosedDates(); loadNotifStatus(); loadClosureSettings(); loadSlotPresets(); }
   if (tabId === 'reviews') {
     localStorage.setItem('reviewsSeenAt', Date.now());
     updateReviewsBadge();
@@ -1592,13 +1592,13 @@ window.openEditModal = async function (bookingKey, dateKey) {
     });
   }
 
-  // Build slot grid 9:00 AM – 8:00 PM
+  // Build the slot grid from the active preset
   const grid = document.getElementById("edit-slots-grid");
   grid.innerHTML = "";
-  const OPEN = 9 * 60, CLOSE = 20 * 60;
 
-  for (let min = OPEN; min <= CLOSE; min += 40) {
-    const timeStr  = minutesToTime(min);
+  for (const ps of activeSlotTimes()) {
+    const min      = timeToMinutes(ps.start);
+    const timeStr  = ps.start;
     const slotEnd  = min + b.duration;
     const hits     = occupied.filter(o => min < o.end && slotEnd > o.start);
     const isActive = timeStr === b.startTime;
@@ -2190,6 +2190,363 @@ window.reopenShop = async function () {
   }
 };
 
+// ═══════════════════════════════════
+//  TIME SLOT PRESETS
+// ═══════════════════════════════════
+
+const MAX_SLOTS      = 17;
+const DEFAULT_DUR    = 40;
+const DEFAULT_PRESET = "default";
+
+let slotPresets     = {};              // id → { name, slots:[{start,duration}] }
+let activePresetId  = DEFAULT_PRESET;
+let editingPresetId = null;            // id being edited (or "__new__")
+let editingSlots    = [];              // working copy: [{start,duration}]
+let editingSlotIdx  = null;            // index being edited via the modal, null = adding
+let slotMode        = "duration";
+
+// The built-in grid — same shape the client falls back to
+function builtinSlots() {
+  const OPEN = 9 * 60, CLOSE = 20 * 60, STEP = 40;
+  const out = [];
+  for (let m = OPEN; m + STEP <= CLOSE + STEP && out.length < MAX_SLOTS; m += STEP) {
+    if (m > CLOSE) break;
+    out.push({ start: minutesToTime(m), duration: STEP });
+  }
+  return out;
+}
+
+async function loadSlotPresets() {
+  try {
+    const [pSnap, aSnap] = await Promise.all([
+      get(ref(db, "settings/slotPresets")),
+      get(ref(db, "settings/activeSlotPreset")),
+    ]);
+    slotPresets    = pSnap.exists() ? (pSnap.val() || {}) : {};
+    activePresetId = aSnap.exists() ? (aSnap.val() || DEFAULT_PRESET) : DEFAULT_PRESET;
+  } catch (e) {
+    slotPresets = {}; activePresetId = DEFAULT_PRESET;
+  }
+  renderPresetChips();
+}
+
+// Slots of the currently active preset (used by admin slot grids)
+function activeSlotTimes() {
+  if (activePresetId === DEFAULT_PRESET) return builtinSlots();
+  const p = slotPresets[activePresetId];
+  if (!p || !Array.isArray(p.slots) || !p.slots.length) return builtinSlots();
+  return [...p.slots].sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
+}
+
+function renderPresetChips() {
+  const wrap = document.getElementById("preset-chips");
+  if (!wrap) return;
+
+  const chip = (id, name, count) => {
+    const isActive = id === activePresetId;
+    return `<button class="preset-chip${isActive ? " active" : ""}" onclick="openPresetEditor('${id}')">
+      <span class="pc-name">${escapeHtml(name)}</span>
+      <span class="pc-meta">${count} slot${count === 1 ? "" : "s"}</span>
+      ${isActive ? `<span class="pc-live">● LIVE</span>` : ""}
+    </button>`;
+  };
+
+  let html = chip(DEFAULT_PRESET, "Default", builtinSlots().length);
+  Object.entries(slotPresets).forEach(([id, p]) => {
+    html += chip(id, p.name || "Untitled", (p.slots || []).length);
+  });
+  html += `<button class="preset-chip preset-chip--new" onclick="openPresetEditor('__new__')">
+    <span class="pc-plus">＋</span><span class="pc-name">Create New Preset</span>
+  </button>`;
+
+  wrap.innerHTML = html;
+}
+
+window.openPresetEditor = function (id) {
+  editingPresetId = id;
+  const editor = document.getElementById("preset-editor");
+  const nameEl = document.getElementById("preset-name");
+  const hint   = document.getElementById("preset-default-hint");
+
+  if (id === "__new__") {
+    editingSlots = [];
+    nameEl.value = "";
+    nameEl.disabled = false;
+    hint.textContent = "";
+  } else if (id === DEFAULT_PRESET) {
+    editingSlots = builtinSlots();
+    nameEl.value = "Default";
+    nameEl.disabled = true;
+    hint.textContent = "The default preset is built in and can't be edited or deleted. Create a new preset to customise times.";
+  } else {
+    const p = slotPresets[id] || {};
+    editingSlots = [...(p.slots || [])];
+    nameEl.value = p.name || "";
+    nameEl.disabled = false;
+    hint.textContent = "";
+  }
+
+  const isDefault = id === DEFAULT_PRESET;
+  document.getElementById("btn-save-preset").classList.toggle("hidden", isDefault);
+  document.getElementById("btn-delete-preset").classList.toggle("hidden", isDefault || id === "__new__");
+  document.getElementById("btn-activate-preset").classList.toggle("hidden",
+    id === "__new__" || id === activePresetId);
+
+  document.getElementById("preset-error").classList.add("hidden");
+  editor.classList.remove("hidden");
+  renderPresetGrid();
+  editor.scrollIntoView({ behavior: "smooth", block: "nearest" });
+};
+
+window.closePresetEditor = function () {
+  editingPresetId = null;
+  document.getElementById("preset-editor").classList.add("hidden");
+};
+
+function renderPresetGrid() {
+  const grid = document.getElementById("preset-grid");
+  if (!grid) return;
+  const readOnly = editingPresetId === DEFAULT_PRESET;
+
+  const sorted = [...editingSlots].sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
+  editingSlots = sorted;
+
+  document.getElementById("preset-count").textContent = `${sorted.length} / ${MAX_SLOTS}`;
+
+  let html = sorted.map((s, i) => {
+    const end = minutesToTime(timeToMinutes(s.start) + (s.duration || DEFAULT_DUR));
+    return `<div class="slot-cell${readOnly ? " slot-cell--readonly" : ""}"
+                 ${readOnly ? "" : `onclick="editSlotAt(${i})"`}>
+      <span class="sc-time">${formatDisplayTime(s.start)}</span>
+      <span class="sc-range">to ${formatDisplayTime(end)}</span>
+      <span class="sc-dur">${s.duration || DEFAULT_DUR}m</span>
+      ${readOnly ? "" : `<button class="sc-del" onclick="event.stopPropagation();removeSlotAt(${i})" title="Remove">✕</button>`}
+    </div>`;
+  }).join("");
+
+  if (!readOnly) {
+    const remaining = MAX_SLOTS - sorted.length;
+    for (let i = 0; i < remaining; i++) {
+      html += `<button class="slot-cell slot-cell--add" onclick="addSlotAt()">＋</button>`;
+    }
+  }
+
+  grid.innerHTML = html || `<p class="no-data-msg" style="grid-column:1/-1">No slots yet.</p>`;
+}
+
+// ── Slot time modal ──
+window.addSlotAt = function () {
+  if (editingSlots.length >= MAX_SLOTS) return;
+  editingSlotIdx = null;
+  document.getElementById("st-title").textContent = "Add Slot";
+  document.getElementById("btn-save-slot").textContent = "Add Slot";
+
+  // Suggest the next time after the last slot
+  let suggested = "09:00";
+  if (editingSlots.length) {
+    const last = editingSlots[editingSlots.length - 1];
+    const next = timeToMinutes(last.start) + (last.duration || DEFAULT_DUR);
+    if (next < 24 * 60) suggested = minutesToTime(next);
+  }
+  document.getElementById("st-start").value    = suggested;
+  document.getElementById("st-duration").value = DEFAULT_DUR;
+  document.getElementById("st-end").value      = minutesToTime(timeToMinutes(suggested) + DEFAULT_DUR);
+  setSlotMode("duration", document.querySelector('.st-mode-btn[data-mode="duration"]'));
+  document.getElementById("st-error").classList.add("hidden");
+  document.getElementById("modal-slot-time").classList.remove("hidden");
+  updateSlotPreview();
+};
+
+window.editSlotAt = function (idx) {
+  const s = editingSlots[idx];
+  if (!s) return;
+  editingSlotIdx = idx;
+  document.getElementById("st-title").textContent = "Edit Slot";
+  document.getElementById("btn-save-slot").textContent = "Save Slot";
+  document.getElementById("st-start").value    = s.start;
+  document.getElementById("st-duration").value = s.duration || DEFAULT_DUR;
+  document.getElementById("st-end").value      = minutesToTime(timeToMinutes(s.start) + (s.duration || DEFAULT_DUR));
+  setSlotMode("duration", document.querySelector('.st-mode-btn[data-mode="duration"]'));
+  document.getElementById("st-error").classList.add("hidden");
+  document.getElementById("modal-slot-time").classList.remove("hidden");
+  updateSlotPreview();
+};
+
+window.removeSlotAt = function (idx) {
+  editingSlots.splice(idx, 1);
+  renderPresetGrid();
+};
+
+window.setSlotMode = function (mode, btn) {
+  slotMode = mode;
+  document.querySelectorAll(".st-mode-btn").forEach(b => b.classList.remove("active"));
+  if (btn) btn.classList.add("active");
+  document.getElementById("st-duration-group").classList.toggle("hidden", mode !== "duration");
+  document.getElementById("st-end-group").classList.toggle("hidden", mode !== "end");
+  updateSlotPreview();
+};
+
+window.setSlotDuration = function (min) {
+  document.getElementById("st-duration").value = min;
+  updateSlotPreview();
+};
+
+window.bumpSlotDuration = function (delta) {
+  const el = document.getElementById("st-duration");
+  const v  = Math.min(480, Math.max(5, (parseInt(el.value, 10) || DEFAULT_DUR) + delta));
+  el.value = v;
+  updateSlotPreview();
+};
+
+// Resolve the modal inputs into { start, duration } or an error string
+function resolveSlotInput() {
+  const start = document.getElementById("st-start").value;
+  if (!start) return { error: "Pick a start time." };
+  const sMin = timeToMinutes(start);
+
+  let duration;
+  if (slotMode === "duration") {
+    duration = parseInt(document.getElementById("st-duration").value, 10);
+    if (!duration || duration < 5) return { error: "Duration must be at least 5 minutes." };
+  } else {
+    const end = document.getElementById("st-end").value;
+    if (!end) return { error: "Pick an end time." };
+    duration = timeToMinutes(end) - sMin;
+    if (duration <= 0) return { error: "End time must be after the start time." };
+  }
+  if (sMin + duration > 24 * 60) return { error: "Slot would run past midnight." };
+
+  // Overlap check against the other slots in this preset
+  const eMin = sMin + duration;
+  for (let i = 0; i < editingSlots.length; i++) {
+    if (i === editingSlotIdx) continue;
+    const o    = editingSlots[i];
+    const oS   = timeToMinutes(o.start);
+    const oE   = oS + (o.duration || DEFAULT_DUR);
+    if (sMin < oE && eMin > oS) {
+      return { error: `Overlaps ${formatDisplayTime(o.start)} – ${formatDisplayTime(minutesToTime(oE))}.` };
+    }
+  }
+  return { start, duration };
+}
+
+window.updateSlotPreview = function () {
+  const prev = document.getElementById("st-preview");
+  const err  = document.getElementById("st-error");
+  const r    = resolveSlotInput();
+
+  if (r.error) {
+    prev.textContent = "—";
+    prev.classList.add("st-preview--bad");
+    err.textContent = r.error;
+    err.classList.remove("hidden");
+    return;
+  }
+  const end = minutesToTime(timeToMinutes(r.start) + r.duration);
+  prev.textContent = `${formatDisplayTime(r.start)} → ${formatDisplayTime(end)}  ·  ${r.duration} min`;
+  prev.classList.remove("st-preview--bad");
+  err.classList.add("hidden");
+
+  // Keep the hidden field in sync so switching modes carries the value over
+  if (slotMode === "duration") document.getElementById("st-end").value = end;
+  else document.getElementById("st-duration").value = r.duration;
+};
+
+window.saveSlotTime = function () {
+  const r = resolveSlotInput();
+  if (r.error) {
+    const err = document.getElementById("st-error");
+    err.textContent = r.error;
+    err.classList.remove("hidden");
+    return;
+  }
+  if (editingSlotIdx === null) {
+    if (editingSlots.length >= MAX_SLOTS) return;
+    editingSlots.push({ start: r.start, duration: r.duration });
+  } else {
+    editingSlots[editingSlotIdx] = { start: r.start, duration: r.duration };
+  }
+  closeModal("modal-slot-time");
+  renderPresetGrid();
+};
+
+// ── Preset persistence ──
+window.savePreset = async function () {
+  const errEl = document.getElementById("preset-error");
+  const name  = document.getElementById("preset-name").value.trim();
+  errEl.classList.add("hidden");
+
+  if (!name) {
+    errEl.textContent = "Give the preset a name.";
+    errEl.classList.remove("hidden");
+    return;
+  }
+  if (!editingSlots.length) {
+    errEl.textContent = "Add at least one slot.";
+    errEl.classList.remove("hidden");
+    return;
+  }
+
+  const slots = [...editingSlots].sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
+  try {
+    let id = editingPresetId;
+    if (id === "__new__") {
+      const newRef = push(ref(db, "settings/slotPresets"));
+      id = newRef.key;
+      await set(newRef, { name, slots, createdAt: Date.now() });
+    } else {
+      await set(ref(db, `settings/slotPresets/${id}`), {
+        name, slots,
+        createdAt: (slotPresets[id] && slotPresets[id].createdAt) || Date.now(),
+        updatedAt: Date.now(),
+      });
+    }
+    slotPresets[id] = { name, slots };
+    editingPresetId = id;
+    renderPresetChips();
+    document.getElementById("btn-delete-preset").classList.remove("hidden");
+    document.getElementById("btn-activate-preset").classList.toggle("hidden", id === activePresetId);
+    showToast("✓ Preset saved.");
+  } catch (e) {
+    errEl.textContent = "Couldn't save the preset. Please try again.";
+    errEl.classList.remove("hidden");
+  }
+};
+
+window.activatePreset = async function () {
+  if (!editingPresetId || editingPresetId === "__new__") return;
+  try {
+    await set(ref(db, "settings/activeSlotPreset"), editingPresetId);
+    activePresetId = editingPresetId;
+    renderPresetChips();
+    document.getElementById("btn-activate-preset").classList.add("hidden");
+    showToast("✓ This preset is now live for customers.");
+    loadBookings();
+  } catch (e) {
+    showToast("Couldn't activate the preset.");
+  }
+};
+
+window.deletePreset = async function () {
+  if (!editingPresetId || editingPresetId === DEFAULT_PRESET || editingPresetId === "__new__") return;
+  if (!confirm("Delete this preset?")) return;
+  try {
+    await remove(ref(db, `settings/slotPresets/${editingPresetId}`));
+    delete slotPresets[editingPresetId];
+    if (activePresetId === editingPresetId) {
+      await set(ref(db, "settings/activeSlotPreset"), DEFAULT_PRESET);
+      activePresetId = DEFAULT_PRESET;
+      showToast("Preset deleted. Switched back to Default.");
+    } else {
+      showToast("Preset deleted.");
+    }
+    closePresetEditor();
+    renderPresetChips();
+  } catch (e) {
+    showToast("Couldn't delete the preset.");
+  }
+};
+
 // ── Closed Days ──
 async function initClosedDates() {
   try {
@@ -2304,15 +2661,15 @@ window.openSlotViewModal = async function () {
     occupied.push({ start: ls, end: le, label: "Lunch Break", type: "blocked" });
   }
 
-  // Generate slots — fixed 40-min grid + lunch end injection
-  const OPEN = 9 * 60, CLOSE = 20 * 60, STEP = 40;
-  const mins = new Set();
-  for (let m = OPEN; m <= CLOSE; m += STEP) mins.add(m);
-  // Inject lunch break end time (2:30 PM is off the 40-min grid)
-  if (lunchBreakConfig.enabled && lunchBreakConfig.endTime) {
+  // Slots come from the active preset (Default = built-in 40-min grid)
+  const CLOSE = 20 * 60;
+  const mins = new Set(activeSlotTimes().map(s => timeToMinutes(s.start)));
+  // Inject lunch break end (2:30 PM is off the 40-min grid) — default grid only;
+  // custom presets define every time explicitly.
+  if (activePresetId === DEFAULT_PRESET && lunchBreakConfig.enabled && lunchBreakConfig.endTime) {
     const [eh, em] = lunchBreakConfig.endTime.split(":").map(Number);
     const le = eh * 60 + em;
-    if (le > OPEN && le < CLOSE) mins.add(le);
+    if (le > 0 && le < CLOSE) mins.add(le);
   }
   const slots = [...mins].sort((a, b) => a - b);
 
@@ -2324,7 +2681,6 @@ window.openSlotViewModal = async function () {
   const isToday = currentDateKey === formatDateKey(now);
 
   slots.forEach(min => {
-    if (min >= CLOSE) return;
     const timeStr = minutesToTime(min);
     const hit = occupied.find(o => min >= o.start && min < o.end);
     const isPast = isToday && (now.getHours() * 60 + now.getMinutes()) > min;

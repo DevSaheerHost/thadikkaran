@@ -216,6 +216,7 @@ async function showApp(user) {
   watchLunchBreak();
   watchClosedDates();
   watchShopClosure();
+  watchSlotPreset();
   buildServicesUI();
   buildCalendarUI();
   watchRescheduledBookings();
@@ -311,6 +312,29 @@ function applyClosureUI() {
     }
     if (currentStep === 1) buildCalendarUI();
   }
+}
+
+// ── Active slot preset (admin-defined custom times) ──
+let activeSlotPreset = null;   // { name, slots:[{start,duration}] } or null = built-in
+let unsubSlotPreset  = null;
+
+function watchSlotPreset() {
+  if (unsubSlotPreset) { unsubSlotPreset(); unsubSlotPreset = null; }
+  unsubSlotPreset = onValue(ref(db, "settings/activeSlotPreset"), async snap => {
+    const id = snap.exists() ? snap.val() : "default";
+    if (!id || id === "default") {
+      activeSlotPreset = null;
+      scheduleRerender();
+      return;
+    }
+    try {
+      const pSnap = await get(ref(db, `settings/slotPresets/${id}`));
+      activeSlotPreset = pSnap.exists() ? pSnap.val() : null;
+    } catch (e) {
+      activeSlotPreset = null;   // fall back to the built-in grid
+    }
+    scheduleRerender();
+  });
 }
 
 function watchClosedDates() {
@@ -739,14 +763,26 @@ function generateSlots() {
   const openMin  = SHOP.openHour  * 60 + SHOP.openMin;
   const closeMin = SHOP.closeHour * 60 + SHOP.closeMin;
 
+  const usingPreset = !!(activeSlotPreset && Array.isArray(activeSlotPreset.slots) && activeSlotPreset.slots.length);
   const mins = new Set();
-  for (let m = openMin; m <= closeMin; m += SHOP.slotStep) mins.add(m);
 
-  // Inject lunch break end so the first afternoon slot aligns with break end
-  if (lunchBreakConfig.enabled && lunchBreakConfig.endTime) {
-    const [eh, em] = lunchBreakConfig.endTime.split(":").map(Number);
-    const lunchEnd = eh * 60 + em;
-    if (lunchEnd > openMin && lunchEnd < closeMin) mins.add(lunchEnd);
+  if (usingPreset) {
+    // Custom preset from the admin panel — use its times verbatim
+    activeSlotPreset.slots.forEach(s => {
+      const m = timeStrToMin(s.start);
+      if (Number.isFinite(m)) mins.add(m);
+    });
+  } else {
+    // Built-in default grid
+    for (let m = openMin; m <= closeMin; m += SHOP.slotStep) mins.add(m);
+
+    // Inject lunch break end so the first afternoon slot aligns with break end.
+    // Skipped for custom presets — the admin defined those times explicitly.
+    if (lunchBreakConfig.enabled && lunchBreakConfig.endTime) {
+      const [eh, em] = lunchBreakConfig.endTime.split(":").map(Number);
+      const lunchEnd = eh * 60 + em;
+      if (lunchEnd > openMin && lunchEnd < closeMin) mins.add(lunchEnd);
+    }
   }
 
   return [...mins].sort((a, b) => a - b).map(m => [Math.floor(m / 60), m % 60]);

@@ -385,6 +385,34 @@
           </div>
         </div>
 
+        <!-- Slot Presets -->
+        <div class="settings-section">
+          <h3 class="section-mini-title">Time Slot Presets</h3>
+          <p class="settings-hint">Build custom sets of booking times. The active preset is what customers see. Max 17 slots per preset.</p>
+
+          <div id="preset-chips" class="preset-chips"></div>
+
+          <div id="preset-editor" class="preset-editor hidden">
+            <div class="preset-editor-head">
+              <input type="text" id="preset-name" class="input-field preset-name-input"
+                     placeholder="Preset name" maxlength="28" />
+              <span class="preset-count" id="preset-count">0 / 17</span>
+            </div>
+
+            <div id="preset-grid" class="preset-grid"></div>
+
+            <p class="settings-hint" id="preset-default-hint" style="margin-top:0.6rem"></p>
+
+            <div class="preset-actions">
+              <button class="btn btn-sm btn-primary" onclick="savePreset()" id="btn-save-preset">Save Preset</button>
+              <button class="btn btn-sm btn-success" onclick="activatePreset()" id="btn-activate-preset">Use This Preset</button>
+              <button class="btn btn-sm btn-danger" onclick="deletePreset()" id="btn-delete-preset">Delete</button>
+              <button class="btn btn-sm btn-ghost" onclick="closePresetEditor()">Close</button>
+            </div>
+            <div id="preset-error" class="error-msg hidden"></div>
+          </div>
+        </div>
+
         <!-- Notification Status -->
         <div class="settings-section">
           <h3 class="section-mini-title">Push Notifications</h3>
@@ -685,6 +713,57 @@
       <div class="modal-actions" style="margin-top:1.25rem">
         <button class="btn btn-ghost" onclick="closeModal('modal-customer')">Close</button>
         <button id="cust-whatsapp-btn" class="btn btn-success hidden" onclick="whatsappCurrentCustomer()">💬 WhatsApp</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       MODAL: ADD / EDIT SLOT TIME
+  ══════════════════════════════════════ -->
+  <div id="modal-slot-time" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-slot-header">
+        <h3 class="modal-title" id="st-title">Add Slot</h3>
+        <button class="btn-icon" onclick="closeModal('modal-slot-time')">&#x2715;</button>
+      </div>
+
+      <div class="input-group">
+        <label class="input-label">Start time</label>
+        <input type="time" id="st-start" class="input-field" onchange="updateSlotPreview()" oninput="updateSlotPreview()" />
+      </div>
+
+      <div class="st-mode">
+        <button class="st-mode-btn active" data-mode="duration" onclick="setSlotMode('duration', this)">Duration</button>
+        <button class="st-mode-btn"        data-mode="end"      onclick="setSlotMode('end', this)">End time</button>
+      </div>
+
+      <div class="input-group" id="st-duration-group">
+        <label class="input-label">Duration (minutes)</label>
+        <div class="st-dur-row">
+          <button type="button" class="st-step" onclick="bumpSlotDuration(-5)">−</button>
+          <input type="number" id="st-duration" class="input-field" value="40" min="5" max="480" step="5"
+                 onchange="updateSlotPreview()" oninput="updateSlotPreview()" />
+          <button type="button" class="st-step" onclick="bumpSlotDuration(5)">+</button>
+        </div>
+        <div class="st-presets">
+          <button type="button" class="st-chip" onclick="setSlotDuration(20)">20m</button>
+          <button type="button" class="st-chip" onclick="setSlotDuration(30)">30m</button>
+          <button type="button" class="st-chip" onclick="setSlotDuration(40)">40m</button>
+          <button type="button" class="st-chip" onclick="setSlotDuration(60)">1h</button>
+        </div>
+      </div>
+
+      <div class="input-group hidden" id="st-end-group">
+        <label class="input-label">End time</label>
+        <input type="time" id="st-end" class="input-field" onchange="updateSlotPreview()" oninput="updateSlotPreview()" />
+      </div>
+
+      <div class="st-preview" id="st-preview">—</div>
+      <div id="st-error" class="error-msg hidden"></div>
+
+      <div class="modal-actions" style="margin-top:1rem">
+        <button class="btn btn-ghost" onclick="closeModal('modal-slot-time')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveSlotTime()" id="btn-save-slot">Add Slot</button>
       </div>
     </div>
   </div>
