@@ -2,516 +2,7 @@
   "rules": {
     ".read": false,
     ".write": false,
-    "products": {
-      ".read": true,
-      ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".indexOn": [
-        "category",
-        "isFeatured",
-        "isNewArrival",
-        "isOnSale",
-        "isComingSoon",
-        "createdAt",
-        "purchaseCount"
-      ]
-    },
-    "categories": {
-      ".read": true,
-      ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".indexOn": [
-        "order"
-      ]
-    },
-    "banners": {
-      ".read": true,
-      ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".indexOn": [
-        "order",
-        "active"
-      ]
-    },
-    "orders": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".indexOn": [
-        "userId",
-        "customerPhone",
-        "status",
-        "createdAt",
-        "paymentStatus"
-      ],
-      "$orderId": {
-        ".read": "auth != null && data.child('userId').val() === auth.uid",
-        ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true) || (auth != null && !data.exists() && newData.child('userId').val() === auth.uid)"
-      }
-    },
-    "users": {
-      ".indexOn": [
-        "referralCode"
-      ],
-      "$uid": {
-        ".read": "auth != null && (auth.uid === $uid || (root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true) || root.child('admin/allowedUids').child(auth.uid).val() === true)",
-        ".write": "auth != null && auth.uid === $uid",
-        "loyaltyPoints": {
-          ".read": "auth != null && auth.uid === $uid",
-          ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)"
-        },
-        "referredBy": {
-          ".write": "auth != null && auth.uid === $uid && !data.exists()"
-        },
-        "fcmToken": {
-          ".write": "auth != null && auth.uid === $uid"
-        },
-        "blocked": {
-          ".write": "root.child('admin/allowedUids').child(auth.uid).val() === true"
-        },
-        "noShowCount": {
-          ".write": "root.child('admin/allowedUids').child(auth.uid).val() === true"
-        },
-        "bookings": {
-          ".write": "auth != null && (auth.uid === $uid || root.child('admin/allowedUids').child(auth.uid).val() === true)"
-        },
-        "phone": {
-          ".write": "auth != null && (auth.uid === $uid || root.child('admin/allowedUids').child(auth.uid).val() === true)"
-        }
-      }
-    },
-    "addresses": {
-      "$uid": {
-        ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid"
-      }
-    },
-    "notifications": {
-      "$uid": {
-        ".read": "auth != null && auth.uid === $uid",
-        ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)"
-      }
-    },
-    "loyalty_history": {
-      "$uid": {
-        ".read": "auth != null && (auth.uid === $uid || (root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true))",
-        ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-        ".indexOn": [
-          "createdAt",
-          "type"
-        ]
-      }
-    },
-    "reviews": {
-      ".read": true,
-      ".indexOn": [
-        "productId",
-        "userId",
-        "createdAt",
-        "verified"
-      ],
-      "$productId": {
-        "$reviewId": {
-          ".write": "auth != null && (auth.uid === newData.child('userId').val() || (root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true))"
-        },
-        ".write": "auth != null && newData.hasChild('bookingId') && newData.child('uid').val() === auth.uid"
-      }
-    },
-    "order_reviews": {
-      "$orderId": {
-        "$productId": {
-          ".read": "auth != null",
-          ".write": "auth != null && !data.exists()"
-        }
-      }
-    },
-    "reservations": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".indexOn": [
-        "userId",
-        "status",
-        "createdAt"
-      ],
-      "$resId": {
-        ".read": "auth != null && data.child('userId').val() === auth.uid",
-        ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true) || (auth != null && !data.exists() && newData.child('userId').val() === auth.uid)"
-      }
-    },
-    "warranty_devices": {
-      ".read": "auth != null",
-      ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".indexOn": [
-        "imei",
-        "warrantyStatus",
-        "buyerCode",
-        "expireDate"
-      ]
-    },
-    "warranty_activity": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": "auth != null",
-      ".indexOn": [
-        "ts"
-      ]
-    },
-    "admins": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": "root.child('admins').child(auth.uid).child('role').val() === 'super_admin' && root.child('admins').child(auth.uid).child('disabled').val() !== true"
-    },
-    "admin_config": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": "root.child('admins').child(auth.uid).child('role').val() === 'super_admin' && root.child('admins').child(auth.uid).child('disabled').val() !== true"
-    },
-    "admin_fcm_tokens": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      "$uid": {
-        ".write": "auth != null && auth.uid === $uid"
-      }
-    },
-    "admin_stats": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)"
-    },
-    "push_notifications": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)"
-    },
-    "notification_clicks": {
-      "$notifId": {
-        "$uid": {
-          ".read": "auth.uid === $uid",
-          ".write": "auth.uid === $uid && !data.exists()"
-        }
-      }
-    },
-    "notification_customer_clicks": {
-      "$uid": {
-        ".read": "auth != null",
-        ".write": "auth.uid === $uid"
-      }
-    },
-    "notification_visits": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      "$date": {
-        ".write": "auth != null"
-      }
-    },
-    "customers": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".indexOn": [
-        "phone",
-        "createdAt"
-      ]
-    },
-    "dealers": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)"
-    },
-    "warehouse": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)"
-    },
-    "meetings": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".indexOn": [
-        "scheduledAt",
-        "status",
-        "createdAt",
-        "dateTime"
-      ]
-    },
-    "announcements": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".indexOn": [
-        "createdAt",
-        "ts"
-      ]
-    },
-    "chat": {
-      "$channel": {
-        ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-        ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-        ".indexOn": [
-          "ts"
-        ]
-      }
-    },
-    "audit_trail": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      "$emailKey": {
-        ".indexOn": [
-          "ts"
-        ]
-      }
-    },
-    "price_history": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".indexOn": [
-        "ts",
-        "productId"
-      ]
-    },
-    "search_analytics": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": "auth != null",
-      ".indexOn": [
-        "query",
-        "createdAt",
-        "productId",
-        "timestamp"
-      ]
-    },
-    "client_presence": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      "$uid": {
-        ".write": "auth != null && auth.uid === $uid",
-        ".indexOn": [
-          "lastSeen"
-        ]
-      }
-    },
-    "presence": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      "$uid": {
-        ".write": "auth != null && auth.uid === $uid"
-      }
-    },
-    "security_log": {
-      ".read": "root.child('admins').child(auth.uid).child('role').val() === 'super_admin' && root.child('admins').child(auth.uid).child('disabled').val() !== true",
-      "$emailKey": {
-        ".write": false,
-        ".indexOn": [
-          "ts"
-        ]
-      }
-    },
-    "security_log_rate": {
-      ".read": false,
-      ".write": false
-    },
-    "admin_action_rate": {
-      ".read": false,
-      ".write": false
-    },
-    "settings": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": "((root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true) || root.child('admin/allowedUids').child(auth.uid).val() === true)",
-      "exchangeRate": {
-        ".read": true
-      },
-      "logo": {
-        ".read": true
-      },
-      "deliveryEstimates": {
-        ".read": true
-      },
-      "tabby": {
-        ".read": true
-      },
-      "bestSeller": {
-        ".read": true
-      },
-      "bankDetails": {
-        ".read": "auth != null"
-      },
-      "lunchBreak": {
-        ".read": "auth != null"
-      },
-      "closure": {
-        ".read": "auth != null"
-      },
-      "closedDates": {
-        ".read": "auth != null"
-      },
-      "services": {
-        ".read": "auth != null"
-      },
-      "slotPresets": {
-        ".read": "auth != null"
-      },
-      "activeSlotPreset": {
-        ".read": "auth != null"
-      },
-      "weekdayPresets": {
-        ".read": "auth != null"
-      }
-    },
-    "price_list": {
-      ".read": "auth != null",
-      ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)"
-    },
-    "comments": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": "auth != null",
-      ".indexOn": [
-        "timestamp"
-      ]
-    },
-    "subscribers": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": "auth != null",
-      ".indexOn": [
-        "email",
-        "timestamp"
-      ]
-    },
-    "product_views": {
-      "$uid": {
-        ".read": "auth.uid === $uid",
-        ".write": false
-      }
-    },
-    "product_interest_pending": {
-      ".read": false,
-      ".write": false
-    },
-    "offline_orders": {
-      ".read": "auth != null && (root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)"
-    },
-    "price_alerts": {
-      "$productId": {
-        "$uid": {
-          ".read": "auth.uid === $uid",
-          ".write": "auth.uid === $uid"
-        }
-      }
-    },
-    "trade_in_requests": {
-      ".read": "auth != null && (root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".indexOn": [
-        "uid",
-        "status",
-        "createdAt"
-      ],
-      "$id": {
-        ".read": "auth != null && data.child('uid').val() === auth.uid",
-        ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true) || (auth != null && !data.exists() && newData.child('uid').val() === auth.uid)"
-      }
-    },
-    "return_requests": {
-      ".read": "auth != null && (root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".indexOn": [
-        "uid",
-        "status",
-        "createdAt"
-      ],
-      "$id": {
-        ".read": "auth != null && data.child('uid').val() === auth.uid",
-        ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true) || (auth != null && !data.exists() && newData.child('uid').val() === auth.uid)"
-      }
-    },
-    "product_qa": {
-      ".read": true,
-      ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".indexOn": [
-        "askedAt"
-      ]
-    },
-    "staff": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".indexOn": [
-        "designation",
-        "status",
-        "createdAt"
-      ]
-    },
-    "carts": {
-      "$uid": {
-        ".read": "auth.uid === $uid || (root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-        ".write": "auth.uid === $uid"
-      }
-    },
-    "discount_codes": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)"
-    },
-    "trash": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      "$type": {
-        ".indexOn": [
-          "deletedAt"
-        ]
-      }
-    },
-    "expenses": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".indexOn": [
-        "date",
-        "category",
-        "createdAt"
-      ]
-    },
-    "company_documents": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".indexOn": [
-        "type",
-        "expiresAt",
-        "createdAt"
-      ]
-    },
-    "document_shares": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".indexOn": [
-        "docId"
-      ]
-    },
-    "product_affinity": {
-      ".read": true,
-      ".write": false
-    },
-    "admin_logins": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": false,
-      ".indexOn": [
-        "ts",
-        "uid"
-      ]
-    },
-    "admin_sessions": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": false,
-      ".indexOn": [
-        "uid",
-        "createdAt"
-      ]
-    },
-    "admin_blocks": {
-      ".read": "root.child('admins').child(auth.uid).child('role').val() === 'super_admin' && root.child('admins').child(auth.uid).child('disabled').val() !== true",
-      ".write": false
-    },
-    "receipt_shares": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".indexOn": [
-        "expenseId"
-      ]
-    },
-    "product_requests": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".indexOn": [
-        "uid",
-        "status",
-        "createdAt"
-      ],
-      "$id": {
-        ".read": "auth != null && data.child('uid').val() === auth.uid",
-        ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)"
-      }
-    },
-    "stock_adjustments": {
-      ".read": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".write": "(root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true)",
-      ".indexOn": [
-        "productId",
-        "createdAt"
-      ]
-    },
+
     "admin": {
       "allowedUids": {
         ".read": "auth != null",
@@ -520,49 +11,78 @@
         }
       },
       "fcmTokens": {
-        ".read": "((root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true) || root.child('admin/allowedUids').child(auth.uid).val() === true)",
+        ".read": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true",
         "$uid": {
           ".write": "auth != null && auth.uid === $uid"
         }
       }
     },
+
+    "services": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true"
+    },
+
+    "settings": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true"
+    },
+
     "bookings": {
       ".read": "auth != null",
       "$date": {
         ".write": "auth != null"
       }
     },
+
     "blocked": {
       ".read": "auth != null",
-      ".write": "((root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true) || root.child('admin/allowedUids').child(auth.uid).val() === true)"
+      ".write": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true"
     },
+
     "deleted": {
-      ".read": "((root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true) || root.child('admin/allowedUids').child(auth.uid).val() === true)",
-      ".write": "((root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true) || root.child('admin/allowedUids').child(auth.uid).val() === true)"
+      ".read": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true"
     },
+
     "noshows": {
-      ".read": "((root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true) || root.child('admin/allowedUids').child(auth.uid).val() === true)",
-      ".write": "((root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true) || root.child('admin/allowedUids').child(auth.uid).val() === true)"
+      ".read": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true"
     },
+
+    "reviews": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+
+    "reminders": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('admin/allowedUids').child(auth.uid).val() === true)",
+        ".write": "auth != null && (auth.uid === $uid || root.child('admin/allowedUids').child(auth.uid).val() === true)"
+      }
+    },
+
     "contacts": {
-      ".read": "((root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true) || root.child('admin/allowedUids').child(auth.uid).val() === true)",
-      ".write": "((root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true) || root.child('admin/allowedUids').child(auth.uid).val() === true)",
+      ".read": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true",
       "$date": {
         "$bookingId": {
           ".write": "auth != null && !data.exists()"
         }
       }
     },
+
     "waitlist": {
       "$date": {
-        ".read": "((root.child('admins').child(auth.uid).exists() && root.child('admins').child(auth.uid).child('disabled').val() !== true) || root.child('admin/allowedUids').child(auth.uid).val() === true)",
+        ".read": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true",
         "$uid": {
           ".read": "auth != null && auth.uid === $uid",
           ".write": "auth != null && auth.uid === $uid"
         }
       }
     },
-    "reminders": {
+
+    "users": {
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || root.child('admin/allowedUids').child(auth.uid).val() === true)",
         ".write": "auth != null && (auth.uid === $uid || root.child('admin/allowedUids').child(auth.uid).val() === true)"
