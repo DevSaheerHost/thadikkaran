@@ -118,12 +118,21 @@ onAuthStateChanged(auth, async (user) => {
   // Guard: only explicitly allowed UIDs can access the admin panel
   try {
     const snap = await get(ref(db, `admin/allowedUids/${user.uid}`));
-    if (!snap.exists() || snap.val() !== true) {
-      showAccessDenied();
+    if (!snap.exists()) {
+      showAccessDenied("Your UID is not listed under admin/allowedUids.", user.uid, user.email || "");
+      return;
+    }
+    if (snap.val() !== true) {
+      showAccessDenied(
+        `Your entry exists but is ${JSON.stringify(snap.val())} — it must be boolean true (not a string).`,
+        user.uid, user.email || "");
       return;
     }
   } catch (e) {
-    showAccessDenied();
+    // Almost always a database-rules problem (PERMISSION_DENIED)
+    showAccessDenied(
+      `Couldn't read admin/allowedUids — ${e && e.message ? e.message : e}`,
+      user.uid, user.email || "");
     return;
   }
 
@@ -132,17 +141,37 @@ onAuthStateChanged(auth, async (user) => {
   initFCM();
 });
 
-function showAccessDenied() {
+function showAccessDenied(reason = "", uid = "", email = "") {
   hideSplash();
+  // Surface the real cause — a generic message makes this impossible to debug.
+  const diag = reason
+    ? `<div style="background:#151515;border:1px solid #2a2a2a;border-radius:10px;
+                   padding:0.9rem 1rem;margin-bottom:1.5rem;text-align:left">
+         <div style="color:#d4a34e;font-size:.7rem;letter-spacing:.08em;
+                     text-transform:uppercase;margin-bottom:.5rem">Diagnostics</div>
+         <div style="color:#bbb;font-size:.78rem;line-height:1.8;word-break:break-all">
+           <div><span style="color:#666">Reason:</span> ${reason}</div>
+           ${email ? `<div><span style="color:#666">Signed in as:</span> ${email}</div>` : ""}
+           ${uid ? `<div><span style="color:#666">Your UID:</span> <code style="color:#8fd18f">${uid}</code></div>` : ""}
+         </div>
+         <div style="color:#666;font-size:.72rem;margin-top:.7rem;line-height:1.6">
+           Check Firebase Console → Realtime Database → Data →
+           <code style="color:#999">admin/allowedUids/${uid || "&lt;uid&gt;"}</code>
+           is set to boolean <code style="color:#999">true</code>.
+         </div>
+       </div>`
+    : "";
+
   document.body.innerHTML = `
     <div style="min-height:100dvh;display:flex;align-items:center;justify-content:center;
                 background:#0a0a0a;font-family:sans-serif;padding:2rem;text-align:center">
-      <div>
+      <div style="max-width:420px">
         <div style="color:#d4a34e;font-size:2rem;margin-bottom:1rem">✦</div>
         <h2 style="color:#fff;font-size:1.3rem;font-weight:600;margin-bottom:.5rem">Access Denied</h2>
-        <p style="color:#666;font-size:.9rem;margin-bottom:2rem;line-height:1.6">
+        <p style="color:#666;font-size:.9rem;margin-bottom:1.5rem;line-height:1.6">
           This page is for shop staff only.<br>Your account doesn't have admin access.
         </p>
+        ${diag}
         <a href="/" style="color:#d4a34e;font-size:.9rem;text-decoration:none">← Back to Booking Page</a>
       </div>
     </div>`;
