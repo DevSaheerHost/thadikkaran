@@ -5,8 +5,9 @@
 
     "admin": {
       "allowedUids": {
+        ".read": "auth != null",
         "$uid": {
-          ".read": "auth != null && auth.uid === $uid"
+          ".read": "auth != null"
         }
       },
       "fcmTokens": {
