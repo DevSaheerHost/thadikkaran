@@ -553,7 +553,7 @@ function buildCalendarUI() {
       <span class="cal-day-name">${isToday ? "Today" : DAY_NAMES[d.getDay()]}</span>
       <span class="cal-day-num">${d.getDate()}</span>
       <span class="cal-day-month">${MONTH_NAMES[d.getMonth()]}</span>
-      ${specialReason ? '<span class="cal-day-special">✦</span>' : ""}
+      ${specialReason ? '<span class="cal-day-special"><svg class="ico-star" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 1.6l2.2 6.3 6.3 2.1-6.3 2.1L12 18.4l-2.2-6.3L3.5 10l6.3-2.1z"/></svg></span>' : ""}
     `;
 
     if (!disabled) {

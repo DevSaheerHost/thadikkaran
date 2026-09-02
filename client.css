@@ -1527,3 +1527,15 @@ body {
   margin-bottom: 1.25rem;
 }
 .closure-notice .btn { width: auto; margin-bottom: 0; }
+
+/* ── Inline icon glyphs (replace Unicode chars that render as tofu boxes) ── */
+.ico-star, .ico-scissors, .ico-plus {
+  width: 1em;
+  height: 1em;
+  display: inline-block;
+  vertical-align: -0.125em;
+  flex-shrink: 0;
+}
+/* Slightly larger than the old character so it reads clearly as an icon */
+.header-ornament { font-size: 1.05rem; display: inline-flex; align-items: center; }
+.sl-ornament, .brand-ornament { line-height: 1; }
