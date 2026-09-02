@@ -113,8 +113,8 @@ self.addEventListener("message", (event) => {
 });
 
 // ── PWA caching (network-first, cache fallback) ──
-const CACHE = "thadikkaran-sw-v4";
-const PRECACHE = ["/", "/client.css", "/favicon.png", "/icon-192.png", "/icon-512.png"];
+const CACHE = "thadikkaran-sw-v5";
+const PRECACHE = ["/", "/client.css", "/favicon.png", "/icon-192.png", "/icon-512.png", "/badge-72.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)));
