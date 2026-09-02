@@ -2416,14 +2416,3 @@ body {
 @media (max-width: 480px) {
   .wd-select { min-width: 120px; }
 }
-
-/* ── Inline icon glyphs (replace Unicode chars that render as tofu boxes) ── */
-.ico-star, .ico-scissors, .ico-plus {
-  width: 1em;
-  height: 1em;
-  display: inline-block;
-  vertical-align: -0.125em;
-  flex-shrink: 0;
-}
-.admin-splash-scissors { line-height: 1; }
-.pc-plus { display: inline-flex; align-items: center; }

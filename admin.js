@@ -166,7 +166,7 @@ function showAccessDenied(reason = "", uid = "", email = "") {
     <div style="min-height:100dvh;display:flex;align-items:center;justify-content:center;
                 background:#0a0a0a;font-family:sans-serif;padding:2rem;text-align:center">
       <div style="max-width:420px">
-        <div style="color:#d4a34e;font-size:2rem;line-height:1;margin-bottom:1rem"><svg class="ico-star" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 1.6l2.2 6.3 6.3 2.1-6.3 2.1L12 18.4l-2.2-6.3L3.5 10l6.3-2.1z"/></svg></div>
+        <div style="color:#d4a34e;font-size:2rem;margin-bottom:1rem">✦</div>
         <h2 style="color:#fff;font-size:1.3rem;font-weight:600;margin-bottom:.5rem">Access Denied</h2>
         <p style="color:#666;font-size:.9rem;margin-bottom:1.5rem;line-height:1.6">
           This page is for shop staff only.<br>Your account doesn't have admin access.
@@ -2380,7 +2380,7 @@ function renderPresetChips() {
     html += chip(id, p.name || "Untitled", (p.slots || []).length);
   });
   html += `<button class="preset-chip preset-chip--new" onclick="openPresetEditor('__new__')">
-    <span class="pc-plus"><svg class="ico-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span><span class="pc-name">Create New Preset</span>
+    <span class="pc-plus">＋</span><span class="pc-name">Create New Preset</span>
   </button>`;
 
   wrap.innerHTML = html;
@@ -2453,7 +2453,7 @@ function renderPresetGrid() {
   if (!readOnly) {
     const remaining = MAX_SLOTS - sorted.length;
     for (let i = 0; i < remaining; i++) {
-      html += `<button class="slot-cell slot-cell--add" onclick="addSlotAt()"><svg class="ico-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>`;
+      html += `<button class="slot-cell slot-cell--add" onclick="addSlotAt()">＋</button>`;
     }
   }
 
