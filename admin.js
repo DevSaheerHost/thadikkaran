@@ -213,6 +213,7 @@ function showApp() {
   initLunchBreak();
   initServiceDurations();
   initClosedDates();
+  ensureSlotPresets();
   startNewBookingWatcher();
   switchTab("bookings", document.querySelector('.nav-link[data-tab="bookings"]'));
   loadNoshows();
@@ -492,7 +493,7 @@ window.switchTab = function (tabId, btn) {
   if (tabId === "bookings") loadBookings();
   if (tabId === "block")    loadActiveBlocks();
   if (tabId === "noshows")  loadNoshows();
-  if (tabId === "settings") { loadLunchSettings(); loadServiceSettings(); loadClosedDates(); loadNotifStatus(); loadClosureSettings(); loadSlotPresets(); }
+  if (tabId === "settings") { loadLunchSettings(); loadServiceSettings(); loadClosedDates(); loadNotifStatus(); loadClosureSettings(); _presetsPromise = loadSlotPresets(); }
   if (tabId === 'reviews') {
     localStorage.setItem('reviewsSeenAt', Date.now());
     updateReviewsBadge();
@@ -1594,7 +1595,8 @@ window.openEditModal = async function (bookingKey, dateKey) {
   // Load bookings + blocks to detect conflicts
   const [bookSnap, blkSnap] = await Promise.all([
     get(ref(db, `bookings/${dateKey}`)),
-    get(ref(db, `blocked/${dateKey}`))
+    get(ref(db, `blocked/${dateKey}`)),
+    ensureSlotPresets(),          // else the grid shows the default times
   ]);
 
   const occupied = [];
@@ -2258,6 +2260,14 @@ function builtinSlots() {
     .map(m => ({ start: minutesToTime(m), duration: STEP }));
 }
 
+// Resolves once the presets are in memory. Any slot grid must await this,
+// otherwise it silently falls back to the built-in 18-slot default grid.
+let _presetsPromise = null;
+function ensureSlotPresets() {
+  if (!_presetsPromise) _presetsPromise = loadSlotPresets();
+  return _presetsPromise;
+}
+
 async function loadSlotPresets() {
   try {
     const [pSnap, aSnap, wSnap] = await Promise.all([
@@ -2760,7 +2770,8 @@ window.openSlotViewModal = async function () {
 
   const [bookSnap, blkSnap] = await Promise.all([
     get(ref(db, `bookings/${currentDateKey}`)),
-    get(ref(db, `blocked/${currentDateKey}`))
+    get(ref(db, `blocked/${currentDateKey}`)),
+    ensureSlotPresets(),          // else this day's preset is unknown
   ]);
 
   // Collect all occupied ranges
