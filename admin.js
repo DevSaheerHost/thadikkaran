@@ -2811,10 +2811,17 @@ window.openSlotViewModal = async function () {
   const now = new Date();
   const isToday = currentDateKey === formatDateKey(now);
 
+  // Tally this day's slots for the summary bar
+  let nBooked = 0, nBlocked = 0, nPast = 0, nFree = 0;
+
   slots.forEach(min => {
     const timeStr = minutesToTime(min);
     const hit = occupied.find(o => min >= o.start && min < o.end);
     const isPast = isToday && (now.getHours() * 60 + now.getMinutes()) > min;
+
+    if (hit) { if (hit.type === "blocked") nBlocked++; else nBooked++; }
+    else if (isPast) nPast++;
+    else nFree++;
 
     const el = document.createElement("div");
     el.className = "sv-slot" +
@@ -2853,7 +2860,32 @@ window.openSlotViewModal = async function () {
 
     grid.appendChild(el);
   });
+
+  renderSlotSummary(slots.length, nFree, nBooked, nBlocked, nPast, isToday);
 };
+
+// Summary bar above the slot grid: how many slots this day has, and how they're used
+function renderSlotSummary(total, free, booked, blocked, past, isToday) {
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set("sv-total",  total);
+  set("sv-free",   free);
+  set("sv-booked", booked);
+
+  // Fourth stat rolls up everything that can't be booked, so the four
+  // numbers always sum to the total (blocked + already-past).
+  set("sv-other", blocked + past);
+  set("sv-other-label",
+      past > 0 && blocked > 0 ? "Past / Blocked" : (past > 0 ? "Past" : "Blocked"));
+
+  const pct = n => total > 0 ? (n / total) * 100 : 0;
+  const bar = (id, n) => {
+    const el = document.getElementById(id);
+    if (el) el.style.width = pct(n) + "%";
+  };
+  bar("sv-bar-booked",  booked);
+  bar("sv-bar-blocked", blocked);
+  bar("sv-bar-past",    past);
+}
 
 // ═══════════════════════════════════
 //  REVIEWS

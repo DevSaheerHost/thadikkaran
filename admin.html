@@ -679,6 +679,30 @@
         </div>
         <button class="btn-icon" onclick="closeModal('modal-slot-view')">✕</button>
       </div>
+      <div class="sv-summary" id="sv-summary">
+        <div class="sv-stat">
+          <span class="sv-stat-num" id="sv-total">0</span>
+          <span class="sv-stat-label">Total slots</span>
+        </div>
+        <div class="sv-stat sv-stat--free">
+          <span class="sv-stat-num" id="sv-free">0</span>
+          <span class="sv-stat-label">Available</span>
+        </div>
+        <div class="sv-stat sv-stat--booked">
+          <span class="sv-stat-num" id="sv-booked">0</span>
+          <span class="sv-stat-label">Booked</span>
+        </div>
+        <div class="sv-stat sv-stat--other">
+          <span class="sv-stat-num" id="sv-other">0</span>
+          <span class="sv-stat-label" id="sv-other-label">Blocked</span>
+        </div>
+      </div>
+      <div class="sv-bar" id="sv-bar" aria-hidden="true">
+        <div class="sv-bar-booked"  id="sv-bar-booked"></div>
+        <div class="sv-bar-blocked" id="sv-bar-blocked"></div>
+        <div class="sv-bar-past"    id="sv-bar-past"></div>
+      </div>
+
       <div class="slot-view-legend">
         <span class="sv-dot sv-dot--free"></span><span>Available</span>
         <span class="sv-dot sv-dot--booked"></span><span>Booked</span>

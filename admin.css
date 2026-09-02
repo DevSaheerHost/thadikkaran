@@ -2416,3 +2416,58 @@ body {
 @media (max-width: 480px) {
   .wd-select { min-width: 120px; }
 }
+
+/* ── Slot availability summary (View Slots modal) ── */
+.sv-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+.sv-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 0.55rem 0.3rem;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.sv-stat-num {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--black);
+}
+.sv-stat-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--mid);
+  text-align: center;
+}
+.sv-stat--free   { background: #f0fdf4; border-color: #86efac; }
+.sv-stat--free   .sv-stat-num { color: #15803d; }
+.sv-stat--booked { background: #fffbeb; border-color: #fcd34d; }
+.sv-stat--booked .sv-stat-num { color: #b45309; }
+
+/* Proportional usage bar */
+.sv-bar {
+  display: flex;
+  height: 7px;
+  border-radius: 99px;
+  overflow: hidden;
+  background: #86efac;              /* remaining = available */
+  margin-bottom: 0.85rem;
+}
+.sv-bar-booked  { background: #f5b942; }
+.sv-bar-blocked { background: var(--light); }
+.sv-bar-past    { background: var(--border); }
+.sv-bar > div { transition: width var(--transition); }
+
+@media (max-width: 480px) {
+  .sv-stat-num { font-size: 1.1rem; }
+  .sv-stat-label { font-size: 0.56rem; }
+}
