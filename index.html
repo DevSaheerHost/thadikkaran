@@ -156,6 +156,13 @@
       <button class="btn btn-outline" onclick="openMyBookings()">View My Bookings</button>
     </div>
 
+    <!-- Admin announcement (price change, new timings, …) -->
+    <div id="announce-bar" class="announce-bar hidden">
+      <span class="ab-icon">📢</span>
+      <p class="ab-text" id="announce-text"></p>
+      <button class="ab-close" onclick="dismissAnnouncement()" aria-label="Dismiss">&#x2715;</button>
+    </div>
+
     <!-- Step Indicator -->
     <div class="steps-bar">
       <div class="step active" data-step="1"><span class="step-num">1</span><span class="step-label">Date</span></div>
@@ -170,7 +177,7 @@
     <!-- ── STEP 1: DATE ── -->
     <div id="step-1" class="step-content active">
 
-      <!-- Personalised prompts: time-to-rebook nudge and loyalty progress -->
+      <!-- Personalised prompt: nudge when this customer is due for a trim -->
       <div id="rebook-nudge" class="rebook-nudge hidden">
         <div class="rn-text">
           <strong id="rn-title">Time for a trim?</strong>
@@ -178,15 +185,6 @@
         </div>
         <button class="btn btn-sm btn-primary" id="rn-btn" onclick="rebookLast()">Book again</button>
       </div>
-      <div id="loyalty-card" class="loyalty-card hidden">
-        <div class="lc-top">
-          <span class="lc-title">Loyalty</span>
-          <span class="lc-count" id="lc-count"></span>
-        </div>
-        <div class="lc-track"><div class="lc-fill" id="lc-fill"></div></div>
-        <p class="lc-sub" id="lc-sub"></p>
-      </div>
-
       <div class="section-header">
         <h2 class="section-title">Pick a Date</h2>
         <p class="section-sub">Available for the next 6 days · Closed Tuesdays</p>
@@ -372,7 +370,7 @@
           </div>
           <div>
             <div class="loc-name">Thadikkaran Barbershop</div>
-            <div class="loc-distance" id="loc-distance">Getting your distance…</div>
+            <div class="loc-distance" id="loc-distance"></div>
           </div>
         </div>
         <button class="btn btn-primary btn-full loc-nav-btn" onclick="openDirections()">

@@ -379,6 +379,99 @@
           </div>
         </div>
 
+        <!-- Announcement Banner -->
+        <div class="settings-section">
+          <h3 class="section-mini-title">Announcement</h3>
+          <p class="settings-hint">Show a notice at the top of the customer booking page — a price change, new timings, anything. It disappears on its own when it expires.</p>
+
+          <!-- Currently live -->
+          <div id="ann-active-box" class="ann-active hidden">
+            <div class="ann-active-head">
+              <span class="ann-dot"></span>
+              <strong>Live on the booking page</strong>
+            </div>
+            <div class="ann-active-preview" id="ann-active-preview"></div>
+            <div class="ann-active-meta" id="ann-active-meta"></div>
+            <button class="btn btn-sm btn-outline" onclick="removeAnnouncement()" id="btn-ann-remove">
+              Remove now
+            </button>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label">Message</label>
+            <textarea id="ann-text" class="input-field ann-textarea" rows="3" maxlength="200"
+                      placeholder="e.g. Prices are going up from {date}. Book before then at the old rate!"
+                      oninput="updateAnnouncementPreview()"></textarea>
+            <div class="ann-tools">
+              <button type="button" class="ann-chip" onclick="insertAnnDate()">+ Insert date</button>
+              <span class="ann-count" id="ann-count">0 / 200</span>
+            </div>
+          </div>
+
+          <div class="closure-row">
+            <div class="input-group" style="flex:1;margin-bottom:0">
+              <label class="input-label">Date it refers to <span class="ann-optional">(optional)</span></label>
+              <input type="date" id="ann-date" class="input-field" onchange="updateAnnouncementPreview()" />
+            </div>
+            <div class="input-group" style="flex:1;margin-bottom:0">
+              <label class="input-label">Show for</label>
+              <select id="ann-duration" class="input-field" onchange="updateAnnouncementPreview()">
+                <option value="3">3 days</option>
+                <option value="7" selected>1 week</option>
+                <option value="14">2 weeks</option>
+                <option value="30">1 month</option>
+                <option value="until">Until the date above</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="ann-preview-wrap">
+            <span class="ann-preview-label">Customers will see</span>
+            <div class="ann-preview" id="ann-preview">
+              <span class="ann-preview-empty">Type a message above…</span>
+            </div>
+          </div>
+
+          <div id="ann-error" class="error-msg hidden"></div>
+          <button class="btn btn-primary" onclick="publishAnnouncement()" id="btn-ann-publish">
+            📢 Show on Booking Page
+          </button>
+        </div>
+
+        <!-- Custom Push Notification -->
+        <div class="settings-section">
+          <h3 class="section-mini-title">Send a Notification</h3>
+          <p class="settings-hint">Push a message straight to your customers' phones. Only reaches customers who allowed notifications.</p>
+
+          <div class="input-group">
+            <label class="input-label">Title <span class="ann-optional">(optional)</span></label>
+            <input type="text" id="push-title" class="input-field" maxlength="60"
+                   placeholder="✂ Thadikkaran" />
+          </div>
+          <div class="input-group">
+            <label class="input-label">Message</label>
+            <textarea id="push-body" class="input-field ann-textarea" rows="3" maxlength="180"
+                      placeholder="e.g. Open late this Saturday — walk-ins welcome until 9 PM!"
+                      oninput="updatePushCount()"></textarea>
+            <div class="ann-tools">
+              <span></span>
+              <span class="ann-count" id="push-count">0 / 180</span>
+            </div>
+          </div>
+          <div class="input-group">
+            <label class="input-label">Send to</label>
+            <select id="push-audience" class="input-field">
+              <option value="all">All customers</option>
+              <option value="inactive">Customers who haven't visited in 60+ days</option>
+              <option value="upcoming">Customers with a booking coming up</option>
+            </select>
+          </div>
+          <div id="push-error" class="error-msg hidden"></div>
+          <button class="btn btn-primary" onclick="sendCustomPush()" id="btn-push-send">
+            🔔 Send Notification
+          </button>
+        </div>
+
         <!-- Lunch Break -->
         <div class="settings-section">
           <h3 class="section-mini-title">Lunch Break</h3>

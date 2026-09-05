@@ -18,6 +18,7 @@ const TAGS = {
   booking:        "thadikkaran-booking",
   waitlist:       "thadikkaran-waitlist",
   "slot-open":    "thadikkaran-slot",
+  announcement:   "thadikkaran-announce",
   "shop-closed":  "thadikkaran-shop",
   "shop-reopened":"thadikkaran-shop",
 };

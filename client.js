@@ -197,16 +197,15 @@ function escapeText(str) {
 }
 
 // ═══════════════════════════════════
-//  LOYALTY, REBOOK NUDGE & UPSELL
+//  REBOOK NUDGE & UPSELL
 // ═══════════════════════════════════
 
-const LOYALTY_TARGET = 6;      // every 6th completed cut is free
 let myHistory = [];            // this user's recent bookings, newest first
 let myStats   = {};            // durable counters written by admin on "Finish"
 
-// Pull the user's own history + lifetime stats to drive loyalty and the nudge.
-// bookings/{date} is only scanned a couple of weeks back, so the lifetime
-// counters live on users/{uid} where the admin panel maintains them.
+// Pull the user's own history + visit stats to drive the rebook nudge.
+// bookings/{date} is only scanned a couple of weeks back, so the visit
+// rhythm lives on users/{uid} where the admin panel maintains it.
 async function loadMyHistory() {
   if (!currentUser) return;
   const [hist, stats] = await Promise.all([
@@ -215,34 +214,7 @@ async function loadMyHistory() {
   ]);
   myHistory = hist.filter(Boolean).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   myStats   = stats;
-  renderLoyalty();
   renderRebookNudge();
-}
-
-function completedVisits() {
-  const recent = myHistory.filter(b => b.status === "finished").length;
-  return Math.max(myStats.visits || 0, recent);
-}
-
-function renderLoyalty() {
-  const card = document.getElementById("loyalty-card");
-  if (!card) return;
-  const done = completedVisits();
-  if (done === 0) { card.classList.add("hidden"); return; }
-
-  const inCycle = done % LOYALTY_TARGET;
-  const due     = inCycle === 0;                    // just completed a full cycle
-  const left    = due ? 0 : LOYALTY_TARGET - inCycle;
-
-  document.getElementById("lc-count").textContent =
-    due ? "Free cut earned!" : `${inCycle} / ${LOYALTY_TARGET}`;
-  document.getElementById("lc-fill").style.width =
-    ((due ? LOYALTY_TARGET : inCycle) / LOYALTY_TARGET * 100) + "%";
-  document.getElementById("lc-sub").textContent = due
-    ? "Your next cut is on us — mention it at the shop."
-    : `${left} more visit${left === 1 ? "" : "s"} until a free cut.`;
-  card.classList.toggle("loyalty-card--due", due);
-  card.classList.remove("hidden");
 }
 
 // "Time for a trim?" — paced by this customer's own average gap between visits
@@ -389,6 +361,7 @@ async function showApp(user) {
   buildServicesUI();
   buildCalendarUI();
   watchRescheduledBookings();
+  watchAnnouncement();
   initClientFCM();
   loadMyHistory();
   // Seed history so the phone back button navigates between steps
@@ -424,6 +397,52 @@ function watchLunchBreak() {
 // ── Temporary shop closure ──
 let shopClosure     = null;   // { active, startDate, endDate, reason }
 let unsubClosure    = null;
+
+// ── Admin announcement banner ──
+// Lives at settings/announcement with an expiresAt the client checks, so it
+// disappears on its own with no cron job doing the cleanup.
+let unsubAnnounce = null;
+let currentAnnouncement = null;
+
+function watchAnnouncement() {
+  if (unsubAnnounce) { unsubAnnounce(); unsubAnnounce = null; }
+  unsubAnnounce = onValue(ref(db, "settings/announcement"), snap => {
+    currentAnnouncement = snap.exists() ? snap.val() : null;
+    applyAnnouncementUI();
+  }, () => {});
+}
+
+function announcementText(a) {
+  const pretty = a.date
+    ? new Date(a.date + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "long" })
+    : "";
+  return String(a.text || "").replace(/\{date\}/gi, pretty || "the date");
+}
+
+function applyAnnouncementUI() {
+  const bar = document.getElementById("announce-bar");
+  if (!bar) return;
+  const a = currentAnnouncement;
+
+  const live = a && a.text && a.expiresAt && Date.now() < a.expiresAt;
+  // A new announcement gets a new id, so dismissing one doesn't hide the next
+  let dismissed = false;
+  try { dismissed = localStorage.getItem("annDismissed") === (a && a.id); } catch (_) {}
+
+  // A closure notice replaces the whole booking flow — don't compete with it
+  if (!live || dismissed || isShopClosedNow()) { bar.classList.add("hidden"); return; }
+  document.getElementById("announce-text").textContent = announcementText(a);
+  bar.classList.remove("hidden");
+}
+
+window.dismissAnnouncement = function () {
+  try {
+    if (currentAnnouncement && currentAnnouncement.id) {
+      localStorage.setItem("annDismissed", currentAnnouncement.id);
+    }
+  } catch (_) {}
+  document.getElementById("announce-bar")?.classList.add("hidden");
+};
 
 function watchShopClosure() {
   if (unsubClosure) { unsubClosure(); unsubClosure = null; }
@@ -466,6 +485,7 @@ function applyClosureUI() {
       : `Closed from ${fmt(shopClosure.startDate)} until further notice`;
 
     notice.classList.remove("hidden");
+    document.getElementById("announce-bar")?.classList.add("hidden");
     if (stepsBar) stepsBar.classList.add("hidden");
     document.querySelectorAll(".step-content").forEach(el => {
       el.classList.add("hidden");
@@ -474,6 +494,7 @@ function applyClosureUI() {
   } else {
     notice.classList.add("hidden");
     if (stepsBar) stepsBar.classList.remove("hidden");
+    applyAnnouncementUI();   // may have been suppressed while closed
     // Restore the current step if the booking flow was hidden
     const cur = document.getElementById(`step-${currentStep}`);
     if (cur && cur.classList.contains("hidden")) {
@@ -1279,19 +1300,69 @@ window.resetBooking = function () {
 //  LOCATION
 // ═══════════════════════════════════
 
+let lastKnownDistance = null;      // remembered so reopening is instant
+
 window.openLocationPanel = function () {
   document.getElementById("drawer-location").classList.remove("hidden");
   document.body.style.overflow = "hidden";
-  // Try to calculate distance if coordinates are configured
-  if (SHOP_LAT && SHOP_LNG && navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(({ coords }) => {
-      const km = haversineKm(coords.latitude, coords.longitude, SHOP_LAT, SHOP_LNG);
-      const walkMin = Math.round(km / 5 * 60);
-      const driveMin = Math.round(km / 30 * 60);
-      document.getElementById("loc-distance").textContent =
-        `${km < 1 ? (km * 1000).toFixed(0) + " m" : km.toFixed(1) + " km"} away · ~${driveMin} min drive`;
-    }, () => {});
+  requestDistance();
+};
+
+/**
+ * Fill in "x km away".
+ *
+ * getCurrentPosition defaults to timeout: Infinity, so a device that can't
+ * get a fix (indoors, GPS off, a desktop with no wifi positioning) used to
+ * leave "Getting your distance…" on screen forever. Every path below now
+ * ends in a final message, and the line is tappable to try again.
+ */
+window.requestDistance = function () {
+  const el = document.getElementById("loc-distance");
+  if (!el) return;
+
+  const settle = (text, retryable) => {
+    el.textContent = text;
+    el.classList.toggle("loc-distance--retry", !!retryable);
+    el.onclick = retryable ? requestDistance : null;
+  };
+
+  if (lastKnownDistance) { settle(lastKnownDistance, false); return; }
+
+  if (!SHOP_LAT || !SHOP_LNG || !navigator.geolocation) {
+    settle("Kizhakkambalam, Ernakulam", false);
+    return;
   }
+
+  settle("Getting your distance…", false);
+  let done = false;
+
+  navigator.geolocation.getCurrentPosition(
+    ({ coords }) => {
+      if (done) return;
+      done = true;
+      const km = haversineKm(coords.latitude, coords.longitude, SHOP_LAT, SHOP_LNG);
+      const driveMin = Math.max(1, Math.round(km / 30 * 60));
+      lastKnownDistance =
+        `${km < 1 ? (km * 1000).toFixed(0) + " m" : km.toFixed(1) + " km"} away · ~${driveMin} min drive`;
+      settle(lastKnownDistance, false);
+    },
+    (err) => {
+      if (done) return;
+      done = true;
+      settle(err && err.code === 1
+        ? "Location off · tap to allow"      // PERMISSION_DENIED
+        : "Couldn't get your location · tap to retry", true);
+    },
+    { timeout: 8000, maximumAge: 5 * 60 * 1000, enableHighAccuracy: false }
+  );
+
+  // Belt and braces: some browsers fire neither callback when a permission
+  // prompt is dismissed rather than answered.
+  setTimeout(() => {
+    if (done) return;
+    done = true;
+    settle("Couldn't get your location · tap to retry", true);
+  }, 9000);
 };
 
 window.closeLocationPanel = function (event) {
@@ -1301,16 +1372,22 @@ window.closeLocationPanel = function (event) {
 };
 
 window.openDirections = function () {
-  if (navigator.geolocation && SHOP_LAT && SHOP_LNG) {
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        window.open(`https://www.google.com/maps/dir/${coords.latitude},${coords.longitude}/${SHOP_LAT},${SHOP_LNG}`, "_blank");
-      },
-      () => window.open(SHOP_MAPS_URL, "_blank")
-    );
-  } else {
+  if (!navigator.geolocation || !SHOP_LAT || !SHOP_LNG) {
     window.open(SHOP_MAPS_URL, "_blank");
+    return;
   }
+  // Without a timeout this can hang and never open Maps at all. Maps can work
+  // out "from here" on its own, so falling back is no real loss.
+  let opened = false;
+  const openWith = (url) => { if (opened) return; opened = true; window.open(url, "_blank"); };
+
+  navigator.geolocation.getCurrentPosition(
+    ({ coords }) => openWith(
+      `https://www.google.com/maps/dir/${coords.latitude},${coords.longitude}/${SHOP_LAT},${SHOP_LNG}`),
+    () => openWith(SHOP_MAPS_URL),
+    { timeout: 5000, maximumAge: 5 * 60 * 1000 }
+  );
+  setTimeout(() => openWith(SHOP_MAPS_URL), 5500);
 };
 
 function haversineKm(lat1, lon1, lat2, lon2) {
