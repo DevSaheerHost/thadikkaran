@@ -1154,6 +1154,14 @@ body {
   font-size: 0.75rem;
   color: var(--mid-gray);
   margin-top: 0.15rem;
+  min-height: 1em;          /* hold the line's space while it resolves */
+}
+
+/* Shown when the lookup failed — the whole line is a retry target */
+.loc-distance--retry {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .loc-nav-btn {

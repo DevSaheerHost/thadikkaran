@@ -1251,19 +1251,69 @@ window.resetBooking = function () {
 //  LOCATION
 // ═══════════════════════════════════
 
+let lastKnownDistance = null;      // remembered so reopening is instant
+
 window.openLocationPanel = function () {
   document.getElementById("drawer-location").classList.remove("hidden");
   document.body.style.overflow = "hidden";
-  // Try to calculate distance if coordinates are configured
-  if (SHOP_LAT && SHOP_LNG && navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(({ coords }) => {
-      const km = haversineKm(coords.latitude, coords.longitude, SHOP_LAT, SHOP_LNG);
-      const walkMin = Math.round(km / 5 * 60);
-      const driveMin = Math.round(km / 30 * 60);
-      document.getElementById("loc-distance").textContent =
-        `${km < 1 ? (km * 1000).toFixed(0) + " m" : km.toFixed(1) + " km"} away · ~${driveMin} min drive`;
-    }, () => {});
+  requestDistance();
+};
+
+/**
+ * Fill in "x km away".
+ *
+ * getCurrentPosition defaults to timeout: Infinity, so a device that can't
+ * get a fix (indoors, GPS off, a desktop with no wifi positioning) used to
+ * leave "Getting your distance…" on screen forever. Every path below now
+ * ends in a final message, and the line is tappable to try again.
+ */
+window.requestDistance = function () {
+  const el = document.getElementById("loc-distance");
+  if (!el) return;
+
+  const settle = (text, retryable) => {
+    el.textContent = text;
+    el.classList.toggle("loc-distance--retry", !!retryable);
+    el.onclick = retryable ? requestDistance : null;
+  };
+
+  if (lastKnownDistance) { settle(lastKnownDistance, false); return; }
+
+  if (!SHOP_LAT || !SHOP_LNG || !navigator.geolocation) {
+    settle("Kizhakkambalam, Ernakulam", false);
+    return;
   }
+
+  settle("Getting your distance…", false);
+  let done = false;
+
+  navigator.geolocation.getCurrentPosition(
+    ({ coords }) => {
+      if (done) return;
+      done = true;
+      const km = haversineKm(coords.latitude, coords.longitude, SHOP_LAT, SHOP_LNG);
+      const driveMin = Math.max(1, Math.round(km / 30 * 60));
+      lastKnownDistance =
+        `${km < 1 ? (km * 1000).toFixed(0) + " m" : km.toFixed(1) + " km"} away · ~${driveMin} min drive`;
+      settle(lastKnownDistance, false);
+    },
+    (err) => {
+      if (done) return;
+      done = true;
+      settle(err && err.code === 1
+        ? "Location off · tap to allow"      // PERMISSION_DENIED
+        : "Couldn't get your location · tap to retry", true);
+    },
+    { timeout: 8000, maximumAge: 5 * 60 * 1000, enableHighAccuracy: false }
+  );
+
+  // Belt and braces: some browsers fire neither callback when a permission
+  // prompt is dismissed rather than answered.
+  setTimeout(() => {
+    if (done) return;
+    done = true;
+    settle("Couldn't get your location · tap to retry", true);
+  }, 9000);
 };
 
 window.closeLocationPanel = function (event) {
@@ -1273,16 +1323,22 @@ window.closeLocationPanel = function (event) {
 };
 
 window.openDirections = function () {
-  if (navigator.geolocation && SHOP_LAT && SHOP_LNG) {
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        window.open(`https://www.google.com/maps/dir/${coords.latitude},${coords.longitude}/${SHOP_LAT},${SHOP_LNG}`, "_blank");
-      },
-      () => window.open(SHOP_MAPS_URL, "_blank")
-    );
-  } else {
+  if (!navigator.geolocation || !SHOP_LAT || !SHOP_LNG) {
     window.open(SHOP_MAPS_URL, "_blank");
+    return;
   }
+  // Without a timeout this can hang and never open Maps at all. Maps can work
+  // out "from here" on its own, so falling back is no real loss.
+  let opened = false;
+  const openWith = (url) => { if (opened) return; opened = true; window.open(url, "_blank"); };
+
+  navigator.geolocation.getCurrentPosition(
+    ({ coords }) => openWith(
+      `https://www.google.com/maps/dir/${coords.latitude},${coords.longitude}/${SHOP_LAT},${SHOP_LNG}`),
+    () => openWith(SHOP_MAPS_URL),
+    { timeout: 5000, maximumAge: 5 * 60 * 1000 }
+  );
+  setTimeout(() => openWith(SHOP_MAPS_URL), 5500);
 };
 
 function haversineKm(lat1, lon1, lat2, lon2) {
