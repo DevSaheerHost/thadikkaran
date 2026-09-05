@@ -668,7 +668,8 @@ function buildBookingCard(item) {
     </div>
     <div class="booking-separator"></div>
     <div class="booking-info">
-      <div class="booking-name">${item.name || "Blocked"}</div>
+      <div class="booking-name">${item.bookingFor ? escapeHtml(item.bookingFor) : (item.name || "Blocked")}</div>
+      ${item.bookingFor ? `<div class="booking-bookedby">booked by ${escapeHtml(item.name || "—")}</div>` : ""}
       <div class="booking-service">${isBlock ? (item.reason || "Break") : item.serviceName}</div>
       ${!isBlock && item.phone ? `<a class="booking-phone" href="tel:${item.phone.startsWith('+') ? item.phone : '+91' + item.phone}">📞 ${item.phone.startsWith('+') ? item.phone.replace('+91', '+91 ') : '+91 ' + item.phone}</a>` : ""}
       <div class="booking-meta">
@@ -2007,9 +2008,38 @@ window.finishBooking = async function (key, dateKey) {
     status:      "finished",
     finishedAt:  Date.now()
   });
+  await bumpCustomerVisit(snap.val(), dateKey);
   showToast("✓ Booking marked as finished.");
   loadBookings();
 };
+
+/**
+ * Keep a durable per-customer visit record on users/{uid}.
+ * bookings/{date} is only scanned a few weeks back, so loyalty and the
+ * "time for a trim?" nudge need a counter that survives beyond that window.
+ */
+async function bumpCustomerVisit(b, dateKey) {
+  if (!b || !b.uid || b.source === "admin") return;   // walk-ins have no account
+  try {
+    const visitMs = new Date(`${dateKey}T${b.startTime || "00:00"}:00`).getTime();
+    const uref    = ref(db, `users/${b.uid}`);
+    const prev    = (await get(uref)).val() || {};
+    if (prev.lastVisitAt && Math.abs(prev.lastVisitAt - visitMs) < 60000) return; // already counted
+
+    const patch = {
+      visits:      (prev.visits || 0) + 1,
+      lastVisitAt: visitMs,
+      lastServiceName: b.serviceName || prev.lastServiceName || null,
+      lastServiceId:   b.serviceId   || prev.lastServiceId   || null
+    };
+    // Rolling average gap between visits, so the nudge matches this person's rhythm
+    if (prev.lastVisitAt && visitMs > prev.lastVisitAt) {
+      const gap = visitMs - prev.lastVisitAt;
+      patch.avgGapMs = prev.avgGapMs ? Math.round(prev.avgGapMs * 0.6 + gap * 0.4) : gap;
+    }
+    await update(uref, patch);
+  } catch (_) { /* stats are best-effort — never block finishing a job */ }
+}
 
 function loadNoshows() {
   const list  = document.getElementById("noshows-list");

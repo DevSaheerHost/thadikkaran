@@ -2471,3 +2471,10 @@ body {
   .sv-stat-num { font-size: 1.1rem; }
   .sv-stat-label { font-size: 0.56rem; }
 }
+
+/* Name of the person a customer booked on behalf of */
+.booking-bookedby {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin: -2px 0 3px;
+}
