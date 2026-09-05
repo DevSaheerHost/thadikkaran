@@ -156,6 +156,13 @@
       <button class="btn btn-outline" onclick="openMyBookings()">View My Bookings</button>
     </div>
 
+    <!-- Admin announcement (price change, new timings, …) -->
+    <div id="announce-bar" class="announce-bar hidden">
+      <span class="ab-icon">📢</span>
+      <p class="ab-text" id="announce-text"></p>
+      <button class="ab-close" onclick="dismissAnnouncement()" aria-label="Dismiss">&#x2715;</button>
+    </div>
+
     <!-- Step Indicator -->
     <div class="steps-bar">
       <div class="step active" data-step="1"><span class="step-num">1</span><span class="step-label">Date</span></div>

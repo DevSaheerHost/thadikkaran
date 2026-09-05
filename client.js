@@ -361,6 +361,7 @@ async function showApp(user) {
   buildServicesUI();
   buildCalendarUI();
   watchRescheduledBookings();
+  watchAnnouncement();
   initClientFCM();
   loadMyHistory();
   // Seed history so the phone back button navigates between steps
@@ -396,6 +397,52 @@ function watchLunchBreak() {
 // ── Temporary shop closure ──
 let shopClosure     = null;   // { active, startDate, endDate, reason }
 let unsubClosure    = null;
+
+// ── Admin announcement banner ──
+// Lives at settings/announcement with an expiresAt the client checks, so it
+// disappears on its own with no cron job doing the cleanup.
+let unsubAnnounce = null;
+let currentAnnouncement = null;
+
+function watchAnnouncement() {
+  if (unsubAnnounce) { unsubAnnounce(); unsubAnnounce = null; }
+  unsubAnnounce = onValue(ref(db, "settings/announcement"), snap => {
+    currentAnnouncement = snap.exists() ? snap.val() : null;
+    applyAnnouncementUI();
+  }, () => {});
+}
+
+function announcementText(a) {
+  const pretty = a.date
+    ? new Date(a.date + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "long" })
+    : "";
+  return String(a.text || "").replace(/\{date\}/gi, pretty || "the date");
+}
+
+function applyAnnouncementUI() {
+  const bar = document.getElementById("announce-bar");
+  if (!bar) return;
+  const a = currentAnnouncement;
+
+  const live = a && a.text && a.expiresAt && Date.now() < a.expiresAt;
+  // A new announcement gets a new id, so dismissing one doesn't hide the next
+  let dismissed = false;
+  try { dismissed = localStorage.getItem("annDismissed") === (a && a.id); } catch (_) {}
+
+  // A closure notice replaces the whole booking flow — don't compete with it
+  if (!live || dismissed || isShopClosedNow()) { bar.classList.add("hidden"); return; }
+  document.getElementById("announce-text").textContent = announcementText(a);
+  bar.classList.remove("hidden");
+}
+
+window.dismissAnnouncement = function () {
+  try {
+    if (currentAnnouncement && currentAnnouncement.id) {
+      localStorage.setItem("annDismissed", currentAnnouncement.id);
+    }
+  } catch (_) {}
+  document.getElementById("announce-bar")?.classList.add("hidden");
+};
 
 function watchShopClosure() {
   if (unsubClosure) { unsubClosure(); unsubClosure = null; }
@@ -438,6 +485,7 @@ function applyClosureUI() {
       : `Closed from ${fmt(shopClosure.startDate)} until further notice`;
 
     notice.classList.remove("hidden");
+    document.getElementById("announce-bar")?.classList.add("hidden");
     if (stepsBar) stepsBar.classList.add("hidden");
     document.querySelectorAll(".step-content").forEach(el => {
       el.classList.add("hidden");
@@ -446,6 +494,7 @@ function applyClosureUI() {
   } else {
     notice.classList.add("hidden");
     if (stepsBar) stepsBar.classList.remove("hidden");
+    applyAnnouncementUI();   // may have been suppressed while closed
     // Restore the current step if the booking flow was hidden
     const cur = document.getElementById(`step-${currentStep}`);
     if (cur && cur.classList.contains("hidden")) {

@@ -494,7 +494,7 @@ window.switchTab = function (tabId, btn) {
   if (tabId === "bookings") loadBookings();
   if (tabId === "block")    loadActiveBlocks();
   if (tabId === "noshows")  loadNoshows();
-  if (tabId === "settings") { loadLunchSettings(); loadServiceSettings(); loadClosedDates(); loadNotifStatus(); loadClosureSettings(); _presetsPromise = loadSlotPresets(); }
+  if (tabId === "settings") { loadLunchSettings(); loadServiceSettings(); loadClosedDates(); loadNotifStatus(); loadClosureSettings(); loadAnnouncement(); _presetsPromise = loadSlotPresets(); }
   if (tabId === 'reviews') {
     localStorage.setItem('reviewsSeenAt', Date.now());
     updateReviewsBadge();
@@ -2351,6 +2351,212 @@ function showToast(msg, duration = 3000) {
   clearTimeout(window._toastTimer);
   window._toastTimer = setTimeout(() => toast.classList.add("hidden"), duration);
 }
+
+// ═══════════════════════════════════
+//  ANNOUNCEMENT BANNER
+// ═══════════════════════════════════
+
+let announcement = null;     // { id, text, date, createdAt, expiresAt }
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function annPrettyDate(dateKey) {
+  if (!dateKey) return "";
+  const d = new Date(dateKey + "T00:00:00");
+  if (isNaN(d)) return dateKey;
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "long" });
+}
+
+// {date} in the message is swapped for the chosen date, so the admin can put
+// it mid-sentence instead of us bolting a date onto the end.
+function annRender(text, dateKey) {
+  const pretty = annPrettyDate(dateKey);
+  return String(text || "").replace(/\{date\}/gi, pretty || "the date");
+}
+
+async function loadAnnouncement() {
+  try {
+    const snap = await get(ref(db, "settings/announcement"));
+    announcement = snap.exists() ? snap.val() : null;
+  } catch (e) { announcement = null; }
+  renderAnnouncementUI();
+}
+
+function announcementIsLive(a) {
+  return !!(a && a.text && a.expiresAt && Date.now() < a.expiresAt);
+}
+
+function renderAnnouncementUI() {
+  const box = document.getElementById("ann-active-box");
+  if (!box) return;
+
+  if (!announcementIsLive(announcement)) {
+    box.classList.add("hidden");
+  } else {
+    document.getElementById("ann-active-preview").textContent =
+      annRender(announcement.text, announcement.date);
+    const daysLeft = Math.max(0, Math.ceil((announcement.expiresAt - Date.now()) / DAY_MS));
+    document.getElementById("ann-active-meta").textContent =
+      daysLeft <= 1 ? "Disappears today" : `Disappears in ${daysLeft} days`;
+    box.classList.remove("hidden");
+
+    // Prefill the form so "edit" is just changing the text and pressing Show
+    const t = document.getElementById("ann-text");
+    if (t && !t.value) {
+      t.value = announcement.text;
+      if (announcement.date) document.getElementById("ann-date").value = announcement.date;
+    }
+  }
+  updateAnnouncementPreview();
+}
+
+window.insertAnnDate = function () {
+  const t = document.getElementById("ann-text");
+  const at = t.selectionStart ?? t.value.length;
+  t.value = t.value.slice(0, at) + "{date}" + t.value.slice(t.selectionEnd ?? at);
+  t.focus();
+  t.selectionStart = t.selectionEnd = at + 6;
+  updateAnnouncementPreview();
+};
+
+window.updateAnnouncementPreview = function () {
+  const text = document.getElementById("ann-text")?.value || "";
+  const date = document.getElementById("ann-date")?.value || "";
+  const prev = document.getElementById("ann-preview");
+  const cnt  = document.getElementById("ann-count");
+  if (cnt) cnt.textContent = `${text.length} / 200`;
+  if (!prev) return;
+  prev.innerHTML = text.trim()
+    ? `<span class="ann-preview-icon">📢</span><span>${escapeHtml(annRender(text, date))}</span>`
+    : `<span class="ann-preview-empty">Type a message above…</span>`;
+};
+
+window.publishAnnouncement = async function () {
+  const btn  = document.getElementById("btn-ann-publish");
+  const err  = document.getElementById("ann-error");
+  const text = document.getElementById("ann-text").value.trim();
+  const date = document.getElementById("ann-date").value || null;
+  const dur  = document.getElementById("ann-duration").value;
+
+  err.classList.add("hidden");
+  if (!text) {
+    err.textContent = "Write the message customers should see.";
+    err.classList.remove("hidden");
+    return;
+  }
+  if (/\{date\}/i.test(text) && !date) {
+    err.textContent = "Your message uses {date} — pick the date it refers to.";
+    err.classList.remove("hidden");
+    return;
+  }
+
+  let expiresAt;
+  if (dur === "until") {
+    if (!date) {
+      err.textContent = "Pick a date, or choose a fixed duration instead.";
+      err.classList.remove("hidden");
+      return;
+    }
+    // Live through the end of the chosen day
+    expiresAt = new Date(date + "T00:00:00").getTime() + DAY_MS;
+    if (expiresAt <= Date.now()) {
+      err.textContent = "That date has already passed.";
+      err.classList.remove("hidden");
+      return;
+    }
+  } else {
+    expiresAt = Date.now() + parseInt(dur, 10) * DAY_MS;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "Publishing…";
+  try {
+    const entry = {
+      // A fresh id means customers who dismissed the last one still see this
+      id: "a" + Date.now(),
+      text, date, createdAt: Date.now(), expiresAt,
+    };
+    await set(ref(db, "settings/announcement"), entry);
+    announcement = entry;
+    renderAnnouncementUI();
+    const days = Math.ceil((expiresAt - Date.now()) / DAY_MS);
+    showToast(`📢 Announcement is live for ${days} day${days === 1 ? "" : "s"}.`, 5000);
+  } catch (e) {
+    err.textContent = "Couldn't publish. Please try again.";
+    err.classList.remove("hidden");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "📢 Show on Booking Page";
+  }
+};
+
+window.removeAnnouncement = async function () {
+  if (!confirm("Remove the announcement from the booking page?")) return;
+  const btn = document.getElementById("btn-ann-remove");
+  btn.disabled = true;
+  try {
+    await remove(ref(db, "settings/announcement"));
+    announcement = null;
+    document.getElementById("ann-text").value = "";
+    document.getElementById("ann-date").value = "";
+    renderAnnouncementUI();
+    showToast("Announcement removed.");
+  } catch (e) {
+    showToast("Couldn't remove it. Please try again.");
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+// ═══════════════════════════════════
+//  CUSTOM PUSH NOTIFICATION
+// ═══════════════════════════════════
+
+window.updatePushCount = function () {
+  const n = document.getElementById("push-body").value.length;
+  document.getElementById("push-count").textContent = `${n} / 180`;
+};
+
+window.sendCustomPush = async function () {
+  const btn      = document.getElementById("btn-push-send");
+  const err      = document.getElementById("push-error");
+  const title    = document.getElementById("push-title").value.trim();
+  const body     = document.getElementById("push-body").value.trim();
+  const audience = document.getElementById("push-audience").value;
+
+  err.classList.add("hidden");
+  if (!body) {
+    err.textContent = "Write the message to send.";
+    err.classList.remove("hidden");
+    return;
+  }
+
+  const who = {
+    all:      "all customers",
+    inactive: "customers who haven't visited in 60+ days",
+    upcoming: "customers with a booking coming up",
+  }[audience];
+  if (!confirm(`Send this to ${who}?\n\n"${body}"\n\nThis goes straight to their phones and can't be undone.`)) return;
+
+  btn.disabled = true;
+  btn.textContent = "Sending…";
+  try {
+    const data = await adminApiPost("/api/notify-custom", { title, body, audience });
+    if (!data.sent) {
+      showToast("No one matched — nobody has notifications on for that group.", 6000);
+    } else {
+      showToast(`🔔 Sent to ${data.sent} customer${data.sent === 1 ? "" : "s"}.`, 6000);
+      document.getElementById("push-body").value = "";
+      document.getElementById("push-title").value = "";
+      updatePushCount();
+    }
+  } catch (e) {
+    err.textContent = e.message || "Couldn't send. Please try again.";
+    err.classList.remove("hidden");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "🔔 Send Notification";
+  }
+};
 
 // ═══════════════════════════════════
 //  TEMPORARY SHOP CLOSURE
