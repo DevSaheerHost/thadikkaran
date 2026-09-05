@@ -19,15 +19,21 @@ node rules-audit.mjs ../database.rules.json
 
 Exits non-zero if any CRITICAL check fails.
 
-## Known residual
+## Coverage
 
-`[attack] delete someone else's booking` still passes. Customers create
-bookings with a transaction on the whole `bookings/{date}` node (for the
-atomic overlap check), so they need write permission there — and Firebase
-`.validate` rules are skipped for deletes, so nothing can distinguish
-"pass this booking through untouched" from "remove it".
+61 checks, 0 critical, 0 warnings. Every operation the app performs is
+verified to still work, and the destructive things an ordinary signed-in
+customer might try are all blocked.
 
-Closing it means the client no longer transacting on the day node — e.g.
-claiming a per-slot lock that rules can enforce as create-only, then writing
-only its own booking. That is a code change to the booking flow, not a rules
-change.
+### How the booking write is kept safe
+
+`bookings/{date}` is admin-only. A customer writes just their own booking at
+`bookings/{date}/{id}`, and cannot delete it (only cancel it), so nobody can
+touch anyone else's appointment.
+
+Two people tapping the same slot at once is settled by `slots/{date}/{HH:MM}`,
+which the rules make create-only — the database picks the winner and the
+loser's write is rejected. The lock is self-healing: it can be reclaimed once
+the booking it points at is cancelled, marked no-show, deleted, or moved to a
+different time. Nothing has to clean locks up, so a cancellation frees its
+slot on its own.

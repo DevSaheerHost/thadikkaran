@@ -25,6 +25,7 @@ await env.withSecurityRulesDisabled(async c => {
     waitlist: { '2026-09-10': { other1:{at:1} } },
     blockedPhones: { abc123:{last4:'4867',blockedAt:1} },
     settings: { closure:{active:false}, lunch:{start:'13:00'} },
+    slots: { '2026-09-10': { '10:00':'bk1', '11:00':'bk2', '12:00':'bk3' } },
   });
 });
 
@@ -46,12 +47,10 @@ async function probe(sev, label, who, fn, expectAllowed=false){
 const B='bookings/2026-09-10';
 
 // ── the app must keep working ──
-await probe('CRIT','[app] customer books (transaction rewrites whole day)','victim', d=>set(ref(d,B),{
-  bk1:{uid:'victimUid',name:'Victim',serviceName:'Hair Cut (Mens)',price:150,startTime:'10:00',duration:40,status:'confirmed',source:'client'},
-  bk2:{uid:'other1',name:'Someone',serviceName:'Facial',price:200,startTime:'11:00',duration:40,status:'confirmed',source:'client'},
-  bk3:{name:'Walkin',serviceName:'Beard Setting',price:100,startTime:'12:00',duration:40,status:'confirmed',source:'admin'},
-  bk4:{uid:'victimUid',name:'Victim',serviceName:'Facial',price:200,startTime:'14:00',duration:40,status:'confirmed',source:'client'},
-}), true);
+await probe('CRIT','[app] customer claims a free slot','victim', d=>set(ref(d,'slots/2026-09-10/14:00'),'bk4'), true);
+await probe('CRIT','[app] customer writes their own booking','victim', d=>set(ref(d,B+'/bk4'),
+  {uid:'victimUid',name:'Victim',serviceName:'Facial',price:200,startTime:'14:00',duration:40,status:'confirmed',source:'client'}), true);
+await probe('CRIT','[app] customer reads slot locks','victim', d=>get(ref(d,'slots/2026-09-10')), true);
 await probe('CRIT','[app] customer cancels their OWN booking','victim', d=>update(ref(d,B+'/bk1'),{status:'cancelled',cancelReason:'plans'}), true);
 await probe('CRIT','[app] customer confirms own booking from reminder','victim', d=>update(ref(d,B+'/bk4'),{clientConfirmed:true}), true);
 await probe('CRIT','[app] customer writes own contact phone','victim', d=>set(ref(d,'contacts/2026-09-10/bk4'),{phone:'+919812345678',name:'Victim'}), true);
@@ -101,6 +100,28 @@ await probe('CRIT','[app] customer with NO phone still writes contacts','victim'
 await probe('CRIT','[app] admin adds a walk-in (no uid on booking)','admin', d=>set(ref(d,B+'/walkin2'),{name:'Walk In',serviceName:'Hair Cut (Mens)',price:150,startTime:'18:00',duration:40,status:'confirmed',source:'admin'}), true);
 await probe('CRIT','[app] admin edits a customer booking time','admin', d=>update(ref(d,B+'/bk1'),{startTime:'16:00',endTime:'16:40'}), true);
 await probe('CRIT','[app] admin cancels a customer booking','admin', d=>update(ref(d,B+'/bk2'),{status:'cancelled',cancelReason:'shop closed'}), true);
+// seed a definitely-active booking + lock, so earlier probes can't have freed it
+await env.withSecurityRulesDisabled(async c=>{ const d=c.database();
+  await set(ref(d,B+'/live1'),{uid:'other1',name:'Someone',serviceName:'Facial',price:200,startTime:'20:00',duration:40,status:'confirmed',source:'client'});
+  await set(ref(d,'slots/2026-09-10/20:00'),'live1'); });
+await probe('CRIT','[attack] steal an ACTIVE slot lock (double-book)','attacker', d=>set(ref(d,'slots/2026-09-10/20:00'),'evil'));
+await probe('CRIT','[attack] free a slot by deleting its lock','attacker', d=>remove(ref(d,'slots/2026-09-10/20:00')));
+await probe('CRIT','[app] a genuinely free slot is claimable','attacker', d=>set(ref(d,'slots/2026-09-10/21:00'),'newbk'), true);
+await probe('CRIT','[attack] wipe all slot locks','attacker', d=>remove(ref(d,'slots/2026-09-10')));
+await probe('CRIT','[attack] overwrite the whole slots node','attacker', d=>set(ref(d,'slots'),{x:1}));
+await probe('CRIT','[app] slot frees itself once the booking is cancelled','victim', async d=>{
+  await env.withSecurityRulesDisabled(async c=>{ await update(ref(c.database(),B+'/bk2'),{status:'cancelled'}); });
+  await set(ref(d,'slots/2026-09-10/11:00'),'rebooked');
+}, true);
+await probe('CRIT','[app] slot frees itself once the booking is deleted','victim', async d=>{
+  await env.withSecurityRulesDisabled(async c=>{ await remove(ref(c.database(),B+'/bk3')); });
+  await set(ref(d,'slots/2026-09-10/12:00'),'rebooked2');
+}, true);
+await probe('CRIT','[app] slot frees itself when admin moves the booking','victim', async d=>{
+  await env.withSecurityRulesDisabled(async c=>{ await update(ref(c.database(),B+'/bk1'),{startTime:'19:00'}); });
+  await set(ref(d,'slots/2026-09-10/10:00'),'rebooked3');
+}, true);
+await probe('CRIT','[app] admin can always take a slot','admin', d=>set(ref(d,'slots/2026-09-10/09:00'),'walkin'), true);
 await probe('CRIT','[attack] read bookings while signed OUT','anon', d=>get(ref(d,'bookings')));
 await probe('CRIT','[attack] read users while signed OUT','anon', d=>get(ref(d,'users')));
 

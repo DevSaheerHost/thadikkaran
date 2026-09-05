@@ -37,8 +37,37 @@ function makeSnap(value, key = null) {
 
 export function getDatabase(app) { return { app, _stub: true }; }
 export function ref(db, path)    { return { _path: path, _stub: true }; }
-export function push(r, data)    { return Promise.resolve({ key: 'stub-' + Date.now() }); }
-export function set(r, data)     { return Promise.resolve(); }
+let _pushN = 0;
+export function push(r, data)    {
+  // Real Firebase returns a ThenableReference synchronously, so `push(ref).key`
+  // works without awaiting. Mirror that or callers read undefined.
+  const key = 'stub-' + (++_pushN) + '-' + Date.now();
+  const done = data === undefined ? Promise.resolve() : recordWrite('push', r, data);
+  // The resolved value must NOT itself be thenable, or `await push(...)`
+  // recurses on it forever.
+  const plainRef = { key, _path: (r && r._path ? r._path + '/' + key : key), _stub: true };
+  return {
+    ...plainRef,
+    then:    (f, g) => done.then(() => (f ? f(plainRef) : plainRef), g),
+    catch:   (f)    => done.catch(f),
+    finally: (f)    => done.finally(f),
+  };
+}
+function recordWrite(op, r, data) {
+  if (typeof window !== 'undefined') {
+    (window.__stubWrites ||= []).push({ op, path: r && r._path, data });
+    // Preview scripts can make a specific path reject, to exercise error paths
+    const fail = window.__stubFailPaths;
+    const path = r && r._path;
+    // entries may end with '*' to match a prefix (push keys are random)
+    if (fail && path && fail.some(f =>
+          f.endsWith('*') ? path.startsWith(f.slice(0, -1)) : f === path)) {
+      return Promise.reject(new Error('PERMISSION_DENIED'));
+    }
+  }
+  return Promise.resolve();
+}
+export function set(r, data)     { return recordWrite('set', r, data); }
 export function get(r)           {
   // Allow preview scripts to grant admin access via window.__stubAdminUid
   if (typeof window !== 'undefined' && window.__stubAdminUid &&
@@ -53,7 +82,7 @@ export function get(r)           {
   return Promise.resolve(snap);
 }
 export function update(r, data)  { return Promise.resolve(); }
-export function remove(r)        { return Promise.resolve(); }
+export function remove(r)        { return recordWrite('remove', r); }
 export function query(r, ...c)   { return r; }
 export function orderByChild(p)  { return { _type: 'orderByChild', _path: p }; }
 export function equalTo(v)       { return { _type: 'equalTo', _value: v }; }
