@@ -1,15 +1,6 @@
-const { initializeApp, cert, getApps } = require("firebase-admin/app");
 const { getDatabase } = require("firebase-admin/database");
 const { getMessaging } = require("firebase-admin/messaging");
-
-function initFirebase() {
-  if (getApps().length > 0) return;
-  const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || "{}");
-  initializeApp({
-    credential: cert(sa),
-    databaseURL: "https://todolistformarcket-default-rtdb.firebaseio.com",
-  });
-}
+const { initFirebase, requireAdmin } = require("./_adminAuth");
 
 function prettyDate(dateKey) {
   if (!dateKey) return "";
@@ -24,6 +15,9 @@ function prettyDate(dateKey) {
 // Event-driven: called once when the admin closes or reopens the shop. Not a cron.
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
+
+  // This reaches every customer's phone — admins only.
+  if (!(await requireAdmin(req, res))) return;
 
   const { type, startDate, endDate, reason } = req.body || {};
   if (type !== "closed" && type !== "reopened") {

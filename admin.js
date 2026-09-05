@@ -214,6 +214,7 @@ function showApp() {
   initServiceDurations();
   initClosedDates();
   ensureSlotPresets();
+  watchCustomerNotes();
   startNewBookingWatcher();
   switchTab("bookings", document.querySelector('.nav-link[data-tab="bookings"]'));
   loadNoshows();
@@ -668,8 +669,11 @@ function buildBookingCard(item) {
     </div>
     <div class="booking-separator"></div>
     <div class="booking-info">
-      <div class="booking-name">${item.name || "Blocked"}</div>
+      <div class="booking-name">${item.bookingFor ? escapeHtml(item.bookingFor) : (item.name || "Blocked")}</div>
+      ${item.bookingFor ? `<div class="booking-bookedby">booked by ${escapeHtml(item.name || "—")}</div>` : ""}
       <div class="booking-service">${isBlock ? (item.reason || "Break") : item.serviceName}</div>
+      ${!isBlock && item.uid && customerNotes[item.uid]
+        ? `<div class="booking-note" title="Private note">📝 ${escapeHtml(customerNotes[item.uid])}</div>` : ""}
       ${!isBlock && item.phone ? `<a class="booking-phone" href="tel:${item.phone.startsWith('+') ? item.phone : '+91' + item.phone}">📞 ${item.phone.startsWith('+') ? item.phone.replace('+91', '+91 ') : '+91 ' + item.phone}</a>` : ""}
       <div class="booking-meta">
         <span class="status-badge ${badgeClass}">${statusLabel}</span>
@@ -860,6 +864,52 @@ function updateStats(items) {
   document.getElementById("stat-confirmed").textContent = confirmed.length;
   document.getElementById("stat-noshow").textContent    = noshows.length;
   document.getElementById("stat-revenue").textContent   = `₹${revenue}`;
+
+  renderGlance(items, finished, confirmed);
+}
+
+/**
+ * "Today at a glance" — the three things the barber actually checks between
+ * cuts: who's next, how much of the day is left, and what's been earned.
+ * Only meaningful for today, so it hides on any other date.
+ */
+function renderGlance(items, finished, confirmed) {
+  const bar = document.getElementById("glance-bar");
+  if (!bar) return;
+  if (currentDateKey !== formatDateKey(new Date())) { bar.classList.add("hidden"); return; }
+
+  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+
+  // Next appointment still ahead of us
+  const upcoming = confirmed
+    .filter(b => timeToMinutes(b.startTime) >= nowMin)
+    .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+  const next = upcoming[0];
+  document.getElementById("glance-next").textContent = next
+    ? `${formatDisplayTime(next.startTime)} · ${(next.bookingFor || next.name || "").split(" ")[0]}`
+    : "Nothing left";
+
+  document.getElementById("glance-left").textContent =
+    `${upcoming.length} job${upcoming.length === 1 ? "" : "s"}`;
+
+  // Free slots still bookable today, from this day's preset
+  const occupied = items
+    .filter(b => b.status !== "cancelled" && b.status !== "noshow" && b.status !== "finished")
+    .map(b => {
+      const st = timeToMinutes(b.startTime);
+      return { start: st, end: st + (b.duration || 40) };
+    });
+  const free = activeSlotTimes(currentDateKey).filter(sl => {
+    const m = timeToMinutes(sl.start);
+    return m >= nowMin && !occupied.some(o => m >= o.start && m < o.end);
+  }).length;
+  document.getElementById("glance-free").textContent = String(free);
+
+  // Money actually in hand — finished jobs only, not what's still booked
+  const earned = finished.reduce((sum, b) => sum + (b.price || 0), 0);
+  document.getElementById("glance-earned").textContent = `₹${earned}`;
+
+  bar.classList.remove("hidden");
 }
 
 // ═══════════════════════════════════
@@ -868,6 +918,7 @@ function updateStats(items) {
 
 let insightsCustomers = [];          // aggregated customer list
 let insightsDaily     = {};          // dateKey  → { revenue, bookings }
+let insightsHeat      = {};          // "dow|HH:MM" → count of jobs taken
 let insightsMonthly   = {};          // "YYYY-MM" → { revenue, bookings }
 let chartRange        = "daily";     // "daily" | "monthly"
 let chartMetric       = "revenue";   // "revenue" | "bookings"
@@ -896,6 +947,7 @@ async function loadInsights() {
   const serviceStats = {};           // serviceName → { count, revenue }
   insightsDaily   = {};
   insightsMonthly = {};
+  insightsHeat    = {};
   let totalJobs = 0, totalRevenue = 0, monthRevenue = 0;
   const nowMonthKey = formatDateKey(new Date()).slice(0, 7);
 
@@ -932,6 +984,15 @@ async function loadInsights() {
           const ss = (serviceStats[b.serviceName] ||= { count: 0, revenue: 0 });
           ss.count   += 1;
           ss.revenue += price;
+
+          // Busiest-hours heatmap: which weekday + slot actually gets taken
+          if (b.startTime) {
+            const d = new Date((b.dateKey || dateKey) + "T00:00:00");
+            if (!isNaN(d)) {
+              const hourKey = `${d.getDay()}|${String(b.startTime).slice(0, 2)}`;
+              insightsHeat[hourKey] = (insightsHeat[hourKey] || 0) + 1;
+            }
+          }
         }
 
         // Customer aggregation — key by uid, then phone, then name
@@ -1009,6 +1070,7 @@ async function loadInsights() {
 
   renderTopServices(serviceStats, totalRevenue);
   renderChart();
+  renderHeatmap();
   applyCustomerFilters();
 
   loading.classList.add("hidden");
@@ -1028,6 +1090,51 @@ window.switchMetric = function (metric, btn) {
   if (btn) btn.classList.add("active");
   renderChart();
 };
+
+/**
+ * Busiest hours: weekday × hour grid of how often each slot actually gets
+ * taken. Tells the barber when to add slots and when a gap is normal.
+ */
+function renderHeatmap() {
+  const el = document.getElementById("ins-heatmap");
+  if (!el) return;
+
+  const counts = Object.entries(insightsHeat);
+  if (!counts.length) {
+    el.innerHTML = `<p class="no-data-msg">Not enough bookings yet.</p>`;
+    return;
+  }
+
+  const hours = [...new Set(counts.map(([k]) => +k.split("|")[1]))].sort((a, b) => a - b);
+  const days  = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const max   = Math.max(...counts.map(([, v]) => v));
+
+  const hourLabel = h => {
+    const ampm = h >= 12 ? "p" : "a";
+    const h12  = h % 12 === 0 ? 12 : h % 12;
+    return `${h12}${ampm}`;
+  };
+
+  let html = `<div class="heat-row heat-row--head"><span class="heat-day"></span>` +
+    hours.map(h => `<span class="heat-hour-label">${hourLabel(h)}</span>`).join("") + `</div>`;
+
+  days.forEach((name, dow) => {
+    const cells = hours.map(h => {
+      const n = insightsHeat[`${dow}|${String(h).padStart(2, "0")}`] || 0;
+      // Squared-off ramp so a couple of bookings still read as "some activity"
+      const intensity = n ? 0.15 + 0.85 * Math.sqrt(n / max) : 0;
+      const title = `${name} ${hourLabel(h)} — ${n} booking${n === 1 ? "" : "s"}`;
+      return `<span class="heat-cell" title="${title}"
+                    style="background:rgba(212,163,78,${intensity.toFixed(2)})">${n || ""}</span>`;
+    }).join("");
+    const total = hours.reduce((t, h) =>
+      t + (insightsHeat[`${dow}|${String(h).padStart(2, "0")}`] || 0), 0);
+    html += `<div class="heat-row${total ? "" : " heat-row--empty"}">
+               <span class="heat-day">${name}</span>${cells}</div>`;
+  });
+
+  el.innerHTML = html;
+}
 
 function renderChart() {
   const el = document.getElementById("ins-chart");
@@ -1328,10 +1435,22 @@ window.showCustomerDetail = function (idx) {
       <div class="cust-spend-item"><span class="cust-spend-num">${c.noShows}</span><span class="cust-spend-label">No-shows</span></div>
       <div class="cust-spend-item"><span class="cust-spend-num">${c.jobs.length}</span><span class="cust-spend-label">All Bookings</span></div>
     </div>
+    <div class="cust-note-box">
+      <label class="cust-note-label" for="cust-note">
+        Private note <span class="cust-note-hint">only you can see this</span>
+      </label>
+      <textarea id="cust-note" class="cust-note-input" rows="2" maxlength="500"
+                placeholder="e.g. Scissors only, no. 2 on the sides, prefers evenings…"></textarea>
+      <div class="cust-note-foot">
+        <span class="cust-note-status" id="cust-note-status"></span>
+        <button class="btn btn-sm btn-outline" onclick="saveCustomerNote()">Save note</button>
+      </div>
+    </div>
     <div class="cust-jobs-list">${jobsHtml}</div>`;
 
   // Wire the WhatsApp button (only when we have a phone number)
   _detailCustomer = c;
+  loadCustomerNote(c.uid);
   const waBtn = document.getElementById("cust-whatsapp-btn");
   waBtn.classList.toggle("hidden", !c.phone);
 
@@ -1352,6 +1471,80 @@ window.whatsappCurrentCustomer = function () {
     ? `Hi ${first}! 👋 We miss you at Thadikkaran. Come back for a fresh cut 💈 Book here: ${site}`
     : `Hi ${first}! 👋 Thanks for choosing Thadikkaran. Book your next appointment here: ${site}`;
   window.open(`https://wa.me/${digits}?text=${encodeURIComponent(msg)}`, "_blank");
+};
+
+/**
+ * POST to one of our /api endpoints as the signed-in admin.
+ * The broadcast endpoints reach every customer's phone, so they verify this
+ * token server-side rather than trusting anyone who knows the URL.
+ */
+async function adminApiPost(path, payload) {
+  if (!currentUser) throw new Error("Not signed in");
+  const idToken = await currentUser.getIdToken();
+  const resp = await fetch(path, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${idToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(data.error || `Request failed (${resp.status})`);
+  return data;
+}
+
+// ── Private customer notes ──
+// Kept under notes/{uid}, which is admin-only in the security rules, so the
+// customer never sees what the barber jots down about their cut.
+const customerNotes = {};        // uid -> note text, cached for the badges
+
+function watchCustomerNotes() {
+  onValue(ref(db, "notes"), snap => {
+    Object.keys(customerNotes).forEach(k => delete customerNotes[k]);
+    snap.forEach(child => {
+      const t = child.child("text").val();
+      if (t) customerNotes[child.key] = t;
+    });
+  }, () => { /* non-admins simply get no notes */ });
+}
+
+async function loadCustomerNote(uid) {
+  const box = document.getElementById("cust-note");
+  if (!box || !uid) return;
+  box.value = customerNotes[uid] || "";
+  if (customerNotes[uid] === undefined) {
+    try {
+      const snap = await get(ref(db, `notes/${uid}/text`));
+      if (snap.exists()) { customerNotes[uid] = snap.val(); box.value = snap.val(); }
+    } catch (_) {}
+  }
+}
+
+window.saveCustomerNote = async function () {
+  const c   = _detailCustomer;
+  const box = document.getElementById("cust-note");
+  const st  = document.getElementById("cust-note-status");
+  if (!c || !c.uid || !box) return;
+
+  const text = box.value.trim();
+  st.textContent = "Saving…";
+  try {
+    if (text) {
+      await set(ref(db, `notes/${c.uid}`), {
+        text, updatedAt: Date.now(), name: c.name || null,
+      });
+      customerNotes[c.uid] = text;
+    } else {
+      await remove(ref(db, `notes/${c.uid}`));
+      delete customerNotes[c.uid];
+    }
+    st.textContent = "Saved ✓";
+    setTimeout(() => { st.textContent = ""; }, 2500);
+    loadBookings();
+  } catch (e) {
+    st.textContent = "Couldn't save";
+  }
 };
 
 function escapeHtml(str) {
@@ -2007,9 +2200,38 @@ window.finishBooking = async function (key, dateKey) {
     status:      "finished",
     finishedAt:  Date.now()
   });
+  await bumpCustomerVisit(snap.val(), dateKey);
   showToast("✓ Booking marked as finished.");
   loadBookings();
 };
+
+/**
+ * Keep a durable per-customer visit record on users/{uid}.
+ * bookings/{date} is only scanned a few weeks back, so loyalty and the
+ * "time for a trim?" nudge need a counter that survives beyond that window.
+ */
+async function bumpCustomerVisit(b, dateKey) {
+  if (!b || !b.uid || b.source === "admin") return;   // walk-ins have no account
+  try {
+    const visitMs = new Date(`${dateKey}T${b.startTime || "00:00"}:00`).getTime();
+    const uref    = ref(db, `users/${b.uid}`);
+    const prev    = (await get(uref)).val() || {};
+    if (prev.lastVisitAt && Math.abs(prev.lastVisitAt - visitMs) < 60000) return; // already counted
+
+    const patch = {
+      visits:      (prev.visits || 0) + 1,
+      lastVisitAt: visitMs,
+      lastServiceName: b.serviceName || prev.lastServiceName || null,
+      lastServiceId:   b.serviceId   || prev.lastServiceId   || null
+    };
+    // Rolling average gap between visits, so the nudge matches this person's rhythm
+    if (prev.lastVisitAt && visitMs > prev.lastVisitAt) {
+      const gap = visitMs - prev.lastVisitAt;
+      patch.avgGapMs = prev.avgGapMs ? Math.round(prev.avgGapMs * 0.6 + gap * 0.4) : gap;
+    }
+    await update(uref, patch);
+  } catch (_) { /* stats are best-effort — never block finishing a job */ }
+}
 
 function loadNoshows() {
   const list  = document.getElementById("noshows-list");
@@ -2252,12 +2474,9 @@ window.closeShopTemporarily = async function () {
     btn.textContent = "Notifying customers…";
     let notified = 0;
     try {
-      const resp = await fetch("/api/notify-closure", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "closed", startDate: start, endDate: end || null, reason: entry.reason }),
+      const data = await adminApiPost("/api/notify-closure", {
+        type: "closed", startDate: start, endDate: end || null, reason: entry.reason,
       });
-      const data = await resp.json().catch(() => ({}));
       notified = data.sent || 0;
     } catch (_) { /* closure still applied even if push fails */ }
 
@@ -2286,12 +2505,7 @@ window.reopenShop = async function () {
     btn.textContent = "Notifying customers…";
     let notified = 0;
     try {
-      const resp = await fetch("/api/notify-closure", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "reopened" }),
-      });
-      const data = await resp.json().catch(() => ({}));
+      const data = await adminApiPost("/api/notify-closure", { type: "reopened" });
       notified = data.sent || 0;
     } catch (_) { /* reopen still applied even if push fails */ }
 
@@ -2948,12 +3162,52 @@ window.openSlotViewModal = async function () {
         if (mTime) mTime.value = timeStr;
         document.getElementById("m-name")?.focus();
       });
+
+      // Offer the empty slot to customers who are due for a cut
+      const gapBtn = document.createElement("button");
+      gapBtn.className = "sv-gap-btn";
+      gapBtn.title = "Offer this slot to customers";
+      gapBtn.textContent = "📣";
+      gapBtn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        broadcastGap(currentDateKey, timeStr, gapBtn);
+      });
+      el.appendChild(gapBtn);
     }
 
     grid.appendChild(el);
   });
 
   renderSlotSummary(slots.length, nFree, nBooked, nBlocked, nPast, isToday);
+};
+
+/**
+ * Fill-the-gap broadcast: push an open slot to the waitlist for that day and
+ * to customers who are overdue for a visit. Deliberately not "everyone" —
+ * a routine cancellation shouldn't buzz the whole customer base.
+ */
+window.broadcastGap = async function (dateKey, timeStr, btn) {
+  const when = formatDisplayTime(timeStr);
+  if (!confirm(`Offer the ${when} slot to customers?\n\nWe'll notify anyone on that day's waitlist plus customers who are due for a visit.`)) return;
+
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "…";
+  try {
+    const data = await adminApiPost("/api/notify-gap", { dateKey, time: timeStr });
+    if (!data.sent) {
+      showToast("No one to notify for this slot right now.");
+    } else {
+      const w = data.waitlisted
+        ? ` (${data.waitlisted} from the waitlist)` : "";
+      showToast(`📣 ${when} offered to ${data.sent} customer${data.sent === 1 ? "" : "s"}${w}.`, 6000);
+    }
+  } catch (e) {
+    showToast("Couldn't send the offer. Please try again.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
 };
 
 // Summary bar above the slot grid: how many slots this day has, and how they're used

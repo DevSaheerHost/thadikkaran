@@ -169,6 +169,24 @@
 
     <!-- ── STEP 1: DATE ── -->
     <div id="step-1" class="step-content active">
+
+      <!-- Personalised prompts: time-to-rebook nudge and loyalty progress -->
+      <div id="rebook-nudge" class="rebook-nudge hidden">
+        <div class="rn-text">
+          <strong id="rn-title">Time for a trim?</strong>
+          <span id="rn-sub"></span>
+        </div>
+        <button class="btn btn-sm btn-primary" id="rn-btn" onclick="rebookLast()">Book again</button>
+      </div>
+      <div id="loyalty-card" class="loyalty-card hidden">
+        <div class="lc-top">
+          <span class="lc-title">Loyalty</span>
+          <span class="lc-count" id="lc-count"></span>
+        </div>
+        <div class="lc-track"><div class="lc-fill" id="lc-fill"></div></div>
+        <p class="lc-sub" id="lc-sub"></p>
+      </div>
+
       <div class="section-header">
         <h2 class="section-title">Pick a Date</h2>
         <p class="section-sub">Available for the next 6 days · Closed Tuesdays</p>
@@ -228,6 +246,14 @@
         <!-- Populated by JS -->
       </div>
 
+      <div id="combo-upsell" class="combo-upsell hidden">
+        <div class="cu-text">
+          <strong id="cu-title">Add a beard trim?</strong>
+          <span id="cu-sub"></span>
+        </div>
+        <button class="btn btn-sm btn-primary cu-btn" onclick="acceptComboUpsell()">Add</button>
+      </div>
+
       <div class="step-footer">
         <button class="btn btn-ghost" onclick="history.back()">← Back</button>
         <button class="btn btn-primary" onclick="goToStep(4)" id="btn-next-3" disabled>Continue →</button>
@@ -263,6 +289,14 @@
           <span class="confirm-label">Price</span>
           <span class="confirm-value confirm-price" id="confirm-price">—</span>
         </div>
+        <div class="confirm-divider"></div>
+        <label class="confirm-forother">
+          <input type="checkbox" id="for-other-toggle" onchange="toggleForOther()" />
+          <span>Booking for someone else</span>
+        </label>
+        <input type="text" id="for-other-name" class="input-field hidden"
+               placeholder="Their name" maxlength="40" />
+
         <div class="pay-badge">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
           Pay at Store

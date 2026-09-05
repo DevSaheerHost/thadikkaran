@@ -196,6 +196,146 @@ function escapeText(str) {
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
+// ═══════════════════════════════════
+//  LOYALTY, REBOOK NUDGE & UPSELL
+// ═══════════════════════════════════
+
+const LOYALTY_TARGET = 6;      // every 6th completed cut is free
+let myHistory = [];            // this user's recent bookings, newest first
+let myStats   = {};            // durable counters written by admin on "Finish"
+
+// Pull the user's own history + lifetime stats to drive loyalty and the nudge.
+// bookings/{date} is only scanned a couple of weeks back, so the lifetime
+// counters live on users/{uid} where the admin panel maintains them.
+async function loadMyHistory() {
+  if (!currentUser) return;
+  const [hist, stats] = await Promise.all([
+    recoverUserBookings(currentUser.uid).catch(() => []),
+    get(ref(db, `users/${currentUser.uid}`)).then(s => s.val() || {}).catch(() => ({}))
+  ]);
+  myHistory = hist.filter(Boolean).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  myStats   = stats;
+  renderLoyalty();
+  renderRebookNudge();
+}
+
+function completedVisits() {
+  const recent = myHistory.filter(b => b.status === "finished").length;
+  return Math.max(myStats.visits || 0, recent);
+}
+
+function renderLoyalty() {
+  const card = document.getElementById("loyalty-card");
+  if (!card) return;
+  const done = completedVisits();
+  if (done === 0) { card.classList.add("hidden"); return; }
+
+  const inCycle = done % LOYALTY_TARGET;
+  const due     = inCycle === 0;                    // just completed a full cycle
+  const left    = due ? 0 : LOYALTY_TARGET - inCycle;
+
+  document.getElementById("lc-count").textContent =
+    due ? "Free cut earned!" : `${inCycle} / ${LOYALTY_TARGET}`;
+  document.getElementById("lc-fill").style.width =
+    ((due ? LOYALTY_TARGET : inCycle) / LOYALTY_TARGET * 100) + "%";
+  document.getElementById("lc-sub").textContent = due
+    ? "Your next cut is on us — mention it at the shop."
+    : `${left} more visit${left === 1 ? "" : "s"} until a free cut.`;
+  card.classList.toggle("loyalty-card--due", due);
+  card.classList.remove("hidden");
+}
+
+// "Time for a trim?" — paced by this customer's own average gap between visits
+function renderRebookNudge() {
+  const el = document.getElementById("rebook-nudge");
+  if (!el) return;
+  el.classList.add("hidden");
+
+  const lastVisit = myStats.lastVisitAt || 0;
+  const avg       = myStats.avgGapMs   || 0;
+  if (!lastVisit || !avg) return;                    // need at least two visits
+
+  // Don't nudge when something is already on the books
+  const todayMs = new Date().setHours(0, 0, 0, 0);
+  const hasUpcoming = myHistory.some(b =>
+    b.status === "confirmed" && b.dateKey &&
+    new Date(b.dateKey + "T00:00:00").getTime() >= todayMs);
+  if (hasUpcoming) return;
+
+  const since = Date.now() - lastVisit;
+  if (since < avg * 0.85) return;                    // not due yet
+
+  const weeks = Math.max(1, Math.round(since / (7 * 24 * 3600 * 1000)));
+  const svc   = myStats.lastServiceName;
+  document.getElementById("rn-sub").textContent =
+    `It's been about ${weeks} week${weeks === 1 ? "" : "s"}` +
+    (svc ? ` since your ${svc}.` : " since your last visit.");
+  el.classList.remove("hidden");
+}
+
+// Rebook a specific past service straight from a My Bookings card
+window.rebookFrom = function (serviceName) {
+  const svc = SERVICES.find(x => x.name === serviceName);
+  if (svc) selectedService = svc;
+  closeMyBookings();
+  goToStep(1);
+};
+
+// One tap: reuse the last service and jump to picking a date
+window.rebookLast = function () {
+  const last = myHistory.find(b => b.serviceName) || {
+    serviceName: myStats.lastServiceName, serviceId: myStats.lastServiceId };
+  const svc = SERVICES.find(x => x.name === last.serviceName || x.id === last.serviceId);
+  if (svc) selectedService = svc;
+  document.getElementById("rebook-nudge")?.classList.add("hidden");
+  goToStep(1);
+};
+
+// ── Combo upsell: nudge a plain haircut towards the cheaper combined service ──
+const COMBO_FROM = "haircut";        // Hair Cut (Mens)
+const COMBO_TO   = "haircut_beard";  // Hair Cut & Beard
+
+function renderComboUpsell() {
+  const el = document.getElementById("combo-upsell");
+  if (!el) return;
+  const from = SERVICES.find(s => s.id === COMBO_FROM);
+  const to   = SERVICES.find(s => s.id === COMBO_TO);
+  const show = selectedService && selectedService.id === COMBO_FROM &&
+               from && to && to.price != null && from.price != null;
+  if (!show) { el.classList.add("hidden"); return; }
+
+  const diff = to.price - from.price;
+  document.getElementById("cu-title").textContent = "Add a beard trim?";
+  document.getElementById("cu-sub").textContent =
+    `Make it ${to.name} — ₹${diff} more, same slot.`;
+  el.classList.remove("hidden");
+}
+
+window.acceptComboUpsell = function () {
+  const to = SERVICES.find(s => s.id === COMBO_TO);
+  if (!to) return;
+  selectedService = to;
+  document.querySelectorAll(".service-card").forEach(c =>
+    c.classList.toggle("selected", c.dataset.id === COMBO_TO));
+  document.getElementById("btn-next-3").disabled = false;
+  renderComboUpsell();
+};
+
+// ── Booking for someone else ──
+window.toggleForOther = function () {
+  const on = document.getElementById("for-other-toggle").checked;
+  const inp = document.getElementById("for-other-name");
+  inp.classList.toggle("hidden", !on);
+  if (on) inp.focus(); else inp.value = "";
+};
+
+function bookingForName() {
+  const on = document.getElementById("for-other-toggle");
+  const inp = document.getElementById("for-other-name");
+  if (on && on.checked && inp && inp.value.trim()) return inp.value.trim();
+  return null;
+}
+
 // ── Phone-level blocking ──
 // Phones are stored hashed so the public-ish blocklist leaks no numbers.
 function normalizePhone(p) {
@@ -250,6 +390,7 @@ async function showApp(user) {
   buildCalendarUI();
   watchRescheduledBookings();
   initClientFCM();
+  loadMyHistory();
   // Seed history so the phone back button navigates between steps
   history.replaceState({ step: 1 }, '');
   handleReminderParams();
@@ -507,6 +648,7 @@ function buildServicesUI() {
         selectedService = svc;
         document.getElementById("btn-next-3").disabled = false;
       }
+      renderComboUpsell();
     });
 
     container.appendChild(card);
@@ -1023,9 +1165,11 @@ window.confirmBooking = async function () {
   // NOTE: phone is intentionally NOT stored here — bookings/{date} is readable
   // by any signed-in user (needed for slot availability). The phone goes to
   // the admin-only contacts/{date}/{id} branch below instead.
+  const forName = bookingForName();
   const booking = {
     uid:         currentUser.uid,
     name:        currentUser.displayName || "Client",
+    ...(forName ? { bookingFor: forName } : {}),
     serviceId:   selectedService.id,
     serviceName: selectedService.name,
     price:       selectedService.price,
@@ -1091,6 +1235,7 @@ window.confirmBooking = async function () {
     // Schedule client reminder notifications
     scheduleReminders(bookingId, booking);
 
+    loadMyHistory();
     showSuccessModal();
   } catch (err) {
     document.getElementById("booking-error").textContent = "Booking failed. Please try again.";
@@ -1475,8 +1620,10 @@ function buildMyBookingCard(b) {
     </div>
     <div class="mb-date">${dateStr}</div>
     ${timeHtml}
+    ${b.bookingFor ? `<div class="mb-forwhom">For ${escapeText(b.bookingFor)}</div>` : ""}
     <div class="mb-price">${b.price ? `₹${b.price} · Pay at Store` : "Pay at Store"}</div>
     ${canCancel ? `<button class="btn btn-sm mb-cancel-btn" onclick="openClientCancelModal('${b.bookingId}','${b.dateKey}')">Cancel Booking</button>` : ""}
+    ${isFinished ? `<button class="btn btn-sm mb-rebook-btn" onclick="rebookFrom('${(b.serviceName||'').replace(/'/g,"\\'")}')">🔁 Book again</button>` : ""}
     ${reviewHtml}
   `;
 
