@@ -13,6 +13,15 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
+// One tag per notification kind, so a slot offer never replaces a reminder
+const TAGS = {
+  booking:        "thadikkaran-booking",
+  waitlist:       "thadikkaran-waitlist",
+  "slot-open":    "thadikkaran-slot",
+  "shop-closed":  "thadikkaran-shop",
+  "shop-reopened":"thadikkaran-shop",
+};
+
 // ── Background FCM (works for both admin new-booking and client reminders) ──
 messaging.onBackgroundMessage((payload) => {
   const type  = payload.data?.type || "booking";
@@ -32,6 +41,8 @@ messaging.onBackgroundMessage((payload) => {
       { action: "confirm",    title: "✓ I'll be there" },
       { action: "reschedule", title: "Reschedule" },
     ];
+  } else if (type === "slot-open") {
+    actions = [{ action: "view", title: "Book it" }];
   } else if (isClient) {
     actions = [{ action: "view", title: "Open" }];
   } else {
@@ -42,7 +53,7 @@ messaging.onBackgroundMessage((payload) => {
     body,
     icon:  "/icon-192.png",
     badge: "/badge-72.png",
-    tag:   type === "booking" ? "thadikkaran-booking" : (type === "waitlist" ? "thadikkaran-waitlist" : "thadikkaran-reminder"),
+    tag:   TAGS[type] || "thadikkaran-reminder",
     renotify: true,
     requireInteraction: !isClient,
     vibrate: [200, 100, 200],

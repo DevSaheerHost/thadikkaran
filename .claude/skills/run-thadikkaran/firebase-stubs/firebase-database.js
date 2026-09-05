@@ -3,6 +3,7 @@ const snap = {
   exists: () => false,
   val:    () => null,
   forEach: () => {},
+  child:  () => snap,
   key: null,
 };
 
@@ -16,6 +17,20 @@ function makeSnap(value, key = null) {
       if (value && typeof value === 'object') {
         for (const k of Object.keys(value)) cb(makeSnap(value[k], k));
       }
+    },
+    child: (path) => {
+      let v = value;
+      for (const seg of String(path).split('/')) {
+        v = (v && typeof v === 'object') ? v[seg] : undefined;
+      }
+      return makeSnap(v === undefined ? null : v, String(path).split('/').pop());
+    },
+    hasChild: (path) => {
+      let v = value;
+      for (const seg of String(path).split('/')) {
+        v = (v && typeof v === 'object') ? v[seg] : undefined;
+      }
+      return v !== undefined && v !== null;
     },
   };
 }

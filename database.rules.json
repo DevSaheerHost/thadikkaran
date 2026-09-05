@@ -50,6 +50,11 @@
       ".write": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true"
     },
 
+    "notes": {
+      ".read":  "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true"
+    },
+
     "blockedPhones": {
       ".read": "auth != null",
       ".write": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true"

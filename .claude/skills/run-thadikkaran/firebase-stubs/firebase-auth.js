@@ -25,6 +25,11 @@ export function onAuthStateChanged(auth, callback) {
   _authCallback = callback;
   // Simulate unauthenticated after short delay (null = not logged in → auth screen shows)
   const user = (typeof window !== 'undefined' && window.__stubAuthUser) || null;
+  // Real Firebase users carry getIdToken(); code that authenticates API calls
+  // needs it to exist here too.
+  if (user && typeof user.getIdToken !== 'function') {
+    user.getIdToken = () => Promise.resolve('stub-id-token');
+  }
   setTimeout(() => callback(user), 300);
   return () => { _authCallback = null; };
 }

@@ -1,4 +1,4 @@
-const CACHE = "thadikkaran-v1";
+const CACHE = "thadikkaran-v2";
 const PRECACHE = ["/", "/client.css", "/favicon.png", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {
