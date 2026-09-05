@@ -197,16 +197,15 @@ function escapeText(str) {
 }
 
 // ═══════════════════════════════════
-//  LOYALTY, REBOOK NUDGE & UPSELL
+//  REBOOK NUDGE & UPSELL
 // ═══════════════════════════════════
 
-const LOYALTY_TARGET = 6;      // every 6th completed cut is free
 let myHistory = [];            // this user's recent bookings, newest first
 let myStats   = {};            // durable counters written by admin on "Finish"
 
-// Pull the user's own history + lifetime stats to drive loyalty and the nudge.
-// bookings/{date} is only scanned a couple of weeks back, so the lifetime
-// counters live on users/{uid} where the admin panel maintains them.
+// Pull the user's own history + visit stats to drive the rebook nudge.
+// bookings/{date} is only scanned a couple of weeks back, so the visit
+// rhythm lives on users/{uid} where the admin panel maintains it.
 async function loadMyHistory() {
   if (!currentUser) return;
   const [hist, stats] = await Promise.all([
@@ -215,34 +214,7 @@ async function loadMyHistory() {
   ]);
   myHistory = hist.filter(Boolean).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   myStats   = stats;
-  renderLoyalty();
   renderRebookNudge();
-}
-
-function completedVisits() {
-  const recent = myHistory.filter(b => b.status === "finished").length;
-  return Math.max(myStats.visits || 0, recent);
-}
-
-function renderLoyalty() {
-  const card = document.getElementById("loyalty-card");
-  if (!card) return;
-  const done = completedVisits();
-  if (done === 0) { card.classList.add("hidden"); return; }
-
-  const inCycle = done % LOYALTY_TARGET;
-  const due     = inCycle === 0;                    // just completed a full cycle
-  const left    = due ? 0 : LOYALTY_TARGET - inCycle;
-
-  document.getElementById("lc-count").textContent =
-    due ? "Free cut earned!" : `${inCycle} / ${LOYALTY_TARGET}`;
-  document.getElementById("lc-fill").style.width =
-    ((due ? LOYALTY_TARGET : inCycle) / LOYALTY_TARGET * 100) + "%";
-  document.getElementById("lc-sub").textContent = due
-    ? "Your next cut is on us — mention it at the shop."
-    : `${left} more visit${left === 1 ? "" : "s"} until a free cut.`;
-  card.classList.toggle("loyalty-card--due", due);
-  card.classList.remove("hidden");
 }
 
 // "Time for a trim?" — paced by this customer's own average gap between visits

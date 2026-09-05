@@ -1550,32 +1550,6 @@ body {
 .rn-text span   { font-size: 0.8rem; color: var(--text-muted); }
 .rebook-nudge .btn { width: auto; margin-bottom: 0; flex-shrink: 0; }
 
-/* Loyalty progress */
-.loyalty-card {
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 0.85rem 1rem;
-  margin-bottom: 1rem;
-}
-.loyalty-card--due { border-color: #86efac; background: #f0fdf4; }
-.lc-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 0.5rem; }
-.lc-title {
-  font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
-  color: var(--text-muted); font-weight: 600;
-}
-.lc-count { font-size: 0.88rem; font-weight: 700; color: var(--text-main); }
-.loyalty-card--due .lc-count { color: #15803d; }
-.lc-track { height: 7px; background: var(--border); border-radius: 99px; overflow: hidden; }
-.lc-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #e8c07a, #d4a34e);
-  border-radius: 99px;
-  transition: width var(--transition);
-}
-.loyalty-card--due .lc-fill { background: linear-gradient(90deg, #4ade80, #16a34a); }
-.lc-sub { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.45rem; }
-
 /* Combo upsell */
 .combo-upsell {
   display: flex;
