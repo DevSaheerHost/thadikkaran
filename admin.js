@@ -613,7 +613,7 @@ function buildBookingCard(item) {
   card.dataset.bookingKey = item.key || "";
   card.onclick=(e)=>{
     if (e.target.closest('button, a,.booking-tl-line, .booking-actions')) return;
-    if (!isBlock && item.phone) openClientHistory(item.phone, item.name);
+    if (!isBlock && (item.phone || item.uid)) openClientHistory(item.phone, item.name, item.uid);
   }
 
   const endMin = timeToMinutes(item.startTime) + (item.duration || 30);
@@ -699,7 +699,7 @@ function closeClientHistory() {
   document.querySelector('#clientHistoryModal')?.classList.add('hidden');
 }
 
-async function openClientHistory(phone, name) {
+async function openClientHistory(phone, name, uid) {
   let modal = document.getElementById('clientHistoryModal');
   if (!modal) {
     modal = document.createElement('div');
@@ -720,7 +720,8 @@ async function openClientHistory(phone, name) {
     document.getElementById('chCloseBtn').addEventListener('click', closeClientHistory);
   }
 
-  document.getElementById('chTitle').textContent = `${name || 'Client'} — ${phone}`;
+  document.getElementById('chTitle').textContent =
+    `${name || 'Client'}${phone ? ' — ' + phone : ''}`;
   document.getElementById('chStats').innerHTML = `
   <div class="skel-ch-stats">
     ${Array(5).fill('<div class="skel skel-ch-stat"></div>').join('')}
@@ -740,16 +741,31 @@ document.getElementById('chList').innerHTML = `
   modal.classList.add('active');
 
   try {
-    const snap = await get(ref(db, 'bookings'));
+    // Newer bookings deliberately keep the phone out of bookings/{date} (it's
+    // readable by any signed-in user) and store it under admin-only contacts/.
+    // Matching on b.phone alone therefore found nothing for anyone who booked
+    // through the app — hence "no history" for some people but not others.
+    const [snap, cSnap] = await Promise.all([
+      get(ref(db, 'bookings')),
+      get(ref(db, 'contacts')).catch(() => null),
+    ]);
     const allDates = snap.val() || {};
+    const contacts = (cSnap && cSnap.exists()) ? cSnap.val() : {};
+    const target = normalizePhone(phone);
     const matches = [];
 
     Object.keys(allDates).forEach(dateKey => {
       const dayBookings = allDates[dateKey] || {};
       Object.keys(dayBookings).forEach(key => {
         const b = dayBookings[key];
-        if (b.phone && b.phone === phone) {
-          matches.push({ ...b, key, dateKey: b.dateKey || dateKey });
+        if (!b || b.source === 'block') return;
+        const bookingPhone = b.phone || contacts[dateKey]?.[key]?.phone;
+        // uid is the strongest key — it survives a customer changing number.
+        // Phones are compared on digits only, so +91 77… and 77… still match.
+        const sameUid   = uid && b.uid === uid;
+        const samePhone = target && normalizePhone(bookingPhone) === target;
+        if (sameUid || samePhone) {
+          matches.push({ ...b, phone: bookingPhone, key, dateKey: b.dateKey || dateKey });
         }
       });
     });
@@ -773,7 +789,7 @@ function renderClientHistory(bookings) {
   const totalSpent = finished.reduce((sum, b) => sum + (Number(b.price) || 0), 0);
 
   document.getElementById('chStats').innerHTML = `
-    <div class="ch-stat"><span>${total}</span>Total Visits</div>
+    <div class="ch-stat"><span>${total}</span>All Bookings</div>
     <div class="ch-stat"><span>${finished.length}</span>Completed</div>
     <div class="ch-stat"><span>${noshows.length}</span>No-Shows</div>
     <div class="ch-stat"><span>${cancelled.length}</span>Cancelled</div>
@@ -785,15 +801,25 @@ function renderClientHistory(bookings) {
     cancelled: 'badge-cancelled', finished: 'badge-finished'
   };
 
-  document.getElementById('chList').innerHTML = bookings.map(b => `
+  // Two lines rather than five columns: at phone width the single-row layout
+  // squeezed the service name down to nothing.
+  document.getElementById('chList').innerHTML = bookings.map(b => {
+    const d = new Date((b.dateKey || '') + 'T00:00:00');
+    const when = isNaN(d)
+      ? b.dateKey
+      : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    return `
     <div class="ch-row">
-      <div class="ch-row-date">${b.dateKey}</div>
-      <div class="ch-row-time">${formatDisplayTime(b.startTime)}</div>
-      <div class="ch-row-service">${b.serviceName || '-'}</div>
-      <div class="ch-row-price">${b.price ? '₹' + b.price : '-'}</div>
-      <span class="status-badge ${statusMap[b.status] || 'badge-confirmed'}">${b.status || 'confirmed'}</span>
-    </div>
-  `).join('') || `<div class="ch-empty">No history found.</div>`;
+      <div class="ch-row-main">
+        <div class="ch-row-service">${escapeHtml(b.serviceName || '—')}</div>
+        <div class="ch-row-when">${when}${b.startTime ? ' · ' + formatDisplayTime(b.startTime) : ''}</div>
+      </div>
+      <div class="ch-row-right">
+        <div class="ch-row-price">${b.price ? '₹' + b.price : '—'}</div>
+        <span class="status-badge ${statusMap[b.status] || 'badge-confirmed'}">${b.status || 'confirmed'}</span>
+      </div>
+    </div>`;
+  }).join('') || `<div class="ch-empty">No history found.</div>`;
 }
 
 

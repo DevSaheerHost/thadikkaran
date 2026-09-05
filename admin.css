@@ -2077,7 +2077,7 @@ body {
 .ch-list { display: flex; flex-direction: column; gap: 0.5rem; }
 .ch-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.7rem;
   padding: 0.65rem 0.7rem;
   border: 1px solid var(--border);
@@ -2086,18 +2086,23 @@ body {
   transition: var(--transition);
 }
 .ch-row:hover { border-color: var(--mid); box-shadow: var(--shadow-sm); }
-.ch-row-date { width: 78px; flex-shrink: 0; color: var(--mid); font-size: 0.75rem; }
-.ch-row-time { width: 56px; flex-shrink: 0; color: var(--light); font-size: 0.75rem; }
+.ch-row-main { flex: 1; min-width: 0; }
 .ch-row-service {
-  flex: 1;
-  min-width: 0;
   font-weight: 600;
   color: var(--black);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.ch-row-price { font-weight: 600; font-size: 0.82rem; color: var(--black); flex-shrink: 0; }
+.ch-row-when { color: var(--light); font-size: 0.75rem; margin-top: 2px; }
+.ch-row-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.ch-row-price { font-weight: 600; font-size: 0.82rem; color: var(--black); }
 
 .ch-empty, .ch-loading, .ch-error {
   text-align: center;
