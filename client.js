@@ -104,22 +104,27 @@ onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
 
-    // Check if user is blocked before showing anything
+    // Check if this account is blocked before showing anything
     const blockedSnap = await get(ref(db, `users/${user.uid}/blocked`));
     if (blockedSnap.exists() && blockedSnap.val() === true) {
       showBlockedScreen();
       return;
     }
 
-    // Resolve phone: Google profile → Firebase DB → ask user
-    if (user.phoneNumber) {
-      userPhone = user.phoneNumber;
+    // Resolve phone: Google profile → Firebase DB → ask user.
+    // A blocked phone blocks every account that uses it, so a new
+    // Google sign-up with the same number gets nowhere.
+    const proceed = async (phone) => {
+      userPhone = phone;
+      if (await isPhoneBlocked(phone)) { showBlockedScreen(); return; }
       showApp(user);
+    };
+    if (user.phoneNumber) {
+      await proceed(user.phoneNumber);
     } else {
       const snap = await get(ref(db, `users/${user.uid}/phone`));
       if (snap.exists() && snap.val()) {
-        userPhone = snap.val();
-        showApp(user);
+        await proceed(snap.val());
       } else {
         showPhoneModal();
       }
@@ -189,6 +194,30 @@ function escapeText(str) {
   return String(str ?? "")
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+// ── Phone-level blocking ──
+// Phones are stored hashed so the public-ish blocklist leaks no numbers.
+function normalizePhone(p) {
+  const digits = String(p || "").replace(/\D/g, "");
+  return digits.length > 10 ? digits.slice(-10) : digits;   // last 10 = the number itself
+}
+async function phoneKey(p) {
+  const n = normalizePhone(p);
+  if (!n) return null;
+  const buf = new TextEncoder().encode("thadikkaran:" + n);
+  const hash = await crypto.subtle.digest("SHA-256", buf);
+  return [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
+}
+async function isPhoneBlocked(p) {
+  try {
+    const key = await phoneKey(p);
+    if (!key) return false;
+    const snap = await get(ref(db, `blockedPhones/${key}`));
+    return snap.exists();
+  } catch (e) {
+    return false;   // never lock people out because of a read failure
+  }
 }
 
 function showBlockedScreen() {
@@ -395,6 +424,14 @@ window.submitPhoneModal = async function () {
   }
 
   const phone = "+91" + raw;
+
+  // A blocked number cannot be attached to any account, new or old
+  if (await isPhoneBlocked(phone)) {
+    document.getElementById("modal-phone").classList.add("hidden");
+    showBlockedScreen();
+    return;
+  }
+
   try {
     await set(ref(db, `users/${currentUser.uid}/phone`), phone);
     userPhone = phone;
@@ -949,9 +986,14 @@ function populateConfirm() {
 window.confirmBooking = async function () {
   if (!currentUser || !selectedService || !selectedDate || !selectedSlot) return;
 
-  // Guard: re-check block status at submit time
+  // Guard: re-check block status at submit time — account flag AND phone,
+  // so a fresh account reusing a blocked number still can't book.
   const blockedSnap = await get(ref(db, `users/${currentUser.uid}/blocked`));
   if (blockedSnap.exists() && blockedSnap.val() === true) {
+    showBlockedScreen();
+    return;
+  }
+  if (await isPhoneBlocked(userPhone)) {
     showBlockedScreen();
     return;
   }

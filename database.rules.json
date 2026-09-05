@@ -50,6 +50,11 @@
       ".write": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true"
     },
 
+    "blockedPhones": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true"
+    },
+
     "reviews": {
       ".read": true,
       ".write": "auth != null"
@@ -85,7 +90,10 @@
     "users": {
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || root.child('admin/allowedUids').child(auth.uid).val() === true)",
-        ".write": "auth != null && (auth.uid === $uid || root.child('admin/allowedUids').child(auth.uid).val() === true)"
+        ".write": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true",
+        "phone":     { ".write": "auth != null && (auth.uid === $uid || root.child('admin/allowedUids').child(auth.uid).val() === true)" },
+        "fcmToken":  { ".write": "auth != null && (auth.uid === $uid || root.child('admin/allowedUids').child(auth.uid).val() === true)" },
+        "bookings":  { ".write": "auth != null && (auth.uid === $uid || root.child('admin/allowedUids').child(auth.uid).val() === true)" }
       }
     }
   }

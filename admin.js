@@ -1725,6 +1725,69 @@ window.openNoshowModal = async function (bookingKey, dateKey) {
   document.getElementById("modal-noshow").classList.remove("hidden");
 };
 
+// ── Phone-level blocking ──
+// Blocking one account is useless if the same person signs up again with a
+// new Google account, so we block the PHONE and every account that used it.
+// Numbers are stored hashed, so the blocklist carries no readable PII.
+function normalizePhone(p) {
+  const digits = String(p || "").replace(/\D/g, "");
+  return digits.length > 10 ? digits.slice(-10) : digits;
+}
+async function phoneKey(p) {
+  const n = normalizePhone(p);
+  if (!n) return null;
+  const buf = new TextEncoder().encode("thadikkaran:" + n);
+  const hash = await crypto.subtle.digest("SHA-256", buf);
+  return [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
+}
+
+// Every uid that has ever booked with this phone (bookings + contacts)
+async function uidsForPhone(phone) {
+  const target = normalizePhone(phone);
+  if (!target) return [];
+  const uids = new Set();
+  try {
+    const [bSnap, cSnap] = await Promise.all([
+      get(ref(db, "bookings")),
+      get(ref(db, "contacts")).catch(() => null),
+    ]);
+    const contacts = (cSnap && cSnap.exists()) ? cSnap.val() : {};
+    if (bSnap.exists()) {
+      bSnap.forEach(dateNode => {
+        const dk = dateNode.key;
+        dateNode.forEach(child => {
+          const b = child.val() || {};
+          const phoneOnBooking = b.phone || (contacts[dk] && contacts[dk][child.key] && contacts[dk][child.key].phone);
+          if (b.uid && normalizePhone(phoneOnBooking) === target) uids.add(b.uid);
+        });
+      });
+    }
+  } catch (e) { /* best effort */ }
+  return [...uids];
+}
+
+// Block a phone: add to the blocklist and flag every known account using it
+async function blockPhoneEverywhere(phone, name) {
+  const key = await phoneKey(phone);
+  if (!key) return { uids: [], key: null };
+  await set(ref(db, `blockedPhones/${key}`), {
+    name: name || "",
+    last4: normalizePhone(phone).slice(-4),
+    blockedAt: Date.now(),
+  });
+  const uids = await uidsForPhone(phone);
+  await Promise.all(uids.map(u => set(ref(db, `users/${u}/blocked`), true)));
+  return { uids, key };
+}
+
+async function unblockPhoneEverywhere(phone) {
+  const key = await phoneKey(phone);
+  if (key) await remove(ref(db, `blockedPhones/${key}`));
+  const uids = await uidsForPhone(phone);
+  await Promise.all(uids.map(u => set(ref(db, `users/${u}/blocked`), false)));
+  return uids;
+}
+
 window.confirmNoShow = async function () {
   if (!noshowBooking) return;
   const { key, dateKey, booking } = noshowBooking;
@@ -1740,9 +1803,15 @@ window.confirmNoShow = async function () {
 
     await set(userRef, newCount);
 
-    // Auto-block after 3 no-shows
+    // Auto-block after 3 no-shows — block the PHONE too, so the same person
+    // can't just sign up with another Google account and carry on.
     if (newCount >= 3) {
       await set(ref(db, `users/${booking.uid}/blocked`), true);
+      let extra = 0;
+      if (booking.phone) {
+        const r = await blockPhoneEverywhere(booking.phone, booking.name);
+        extra = Math.max(0, r.uids.length - 1);
+      }
       await set(ref(db, `noshows/${booking.uid}`), {
         name:        booking.name,
         phone:       booking.phone || "",
@@ -1750,7 +1819,8 @@ window.confirmNoShow = async function () {
         blocked:     true,
         blockedAt:   Date.now()
       });
-      showToast(`⛔ ${booking.name} has been blocked after 3 no-shows.`);
+      showToast(`⛔ ${booking.name} blocked after 3 no-shows.` +
+        (booking.phone ? ` Number blocked${extra ? ` (+${extra} linked account${extra === 1 ? "" : "s"})` : ""}.` : ""), 6000);
     } else {
       await set(ref(db, `noshows/${booking.uid}`), {
         name:        booking.name,
@@ -1966,13 +2036,13 @@ function loadNoshows() {
           ${ns.phone ? `<a class="noshow-phone" href="tel:${ns.phone}">📞 ${ns.phone}</a>` : `<div class="noshow-phone">No phone</div>`}
           <div class="noshow-count">
             ${ns.noShowCount} no-show${ns.noShowCount !== 1 ? "s" : ""}
-            ${ns.blocked ? " · <strong>BLOCKED</strong>" : ""}
+            ${ns.blocked ? (ns.phone ? " · <strong>BLOCKED (number)</strong>" : " · <strong>BLOCKED</strong>") : ""}
           </div>
         </div>
         <div>
           ${ns.blocked
-            ? `<button class="btn btn-sm btn-outline" onclick="unblockUser('${uid}')">Unblock</button>`
-            : `<button class="btn btn-sm btn-danger"  onclick="blockUser('${uid}', '${ns.name}')">Block</button>`
+            ? `<button class="btn btn-sm btn-outline" onclick="unblockUser('${uid}', '${ns.phone || ""}')">Unblock</button>`
+            : `<button class="btn btn-sm btn-danger"  onclick="blockUser('${uid}', '${String(ns.name || "").replace(/'/g, "\\'")}', '${ns.phone || ""}')">Block</button>`
           }
         </div>
       `;
@@ -1984,17 +2054,28 @@ function loadNoshows() {
   });
 }
 
-window.blockUser = async function (uid, name) {
+window.blockUser = async function (uid, name, phone) {
   await update(ref(db, `users/${uid}`), { blocked: true });
   await update(ref(db, `noshows/${uid}`), { blocked: true, blockedAt: Date.now() });
-  showToast(`${name} has been blocked.`);
+
+  // Block the number as well — otherwise a new Google account with the same
+  // phone books straight through.
+  let extra = 0;
+  if (phone) {
+    const r = await blockPhoneEverywhere(phone, name);
+    extra = Math.max(0, r.uids.length - 1);
+  }
+  showToast(`⛔ ${name} blocked.` +
+    (phone ? ` Number blocked${extra ? ` (+${extra} linked account${extra === 1 ? "" : "s"})` : ""}.` : " No phone on file — only this account is blocked."), 6000);
   loadNoshows();
 };
 
-window.unblockUser = async function (uid) {
+window.unblockUser = async function (uid, phone) {
   await update(ref(db, `users/${uid}`), { blocked: false });
   await update(ref(db, `noshows/${uid}`), { blocked: false });
-  showToast("User unblocked.");
+  let n = 0;
+  if (phone) n = (await unblockPhoneEverywhere(phone)).length;
+  showToast(`✓ Unblocked.` + (n > 1 ? ` ${n} linked accounts restored.` : ""), 5000);
   loadNoshows();
 };
 
