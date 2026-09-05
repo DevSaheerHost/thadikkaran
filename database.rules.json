@@ -5,9 +5,8 @@
 
     "admin": {
       "allowedUids": {
-        ".read": "auth != null",
         "$uid": {
-          ".read": "auth != null"
+          ".read": "auth != null && auth.uid === $uid"
         }
       },
       "fcmTokens": {
@@ -31,7 +30,15 @@
     "bookings": {
       ".read": "auth != null",
       "$date": {
-        ".write": "auth != null"
+        ".write": "auth != null && (root.child('admin/allowedUids').child(auth.uid).val() === true || newData.exists())",
+        "$bookingId": {
+          ".validate": "root.child('admin/allowedUids').child(auth.uid).val() === true || (!data.exists() ? newData.child('uid').val() === auth.uid : (data.child('uid').val() === auth.uid || (newData.child('uid').val() === data.child('uid').val() && newData.child('status').val() === data.child('status').val() && newData.child('startTime').val() === data.child('startTime').val() && newData.child('duration').val() === data.child('duration').val() && newData.child('price').val() === data.child('price').val() && newData.child('name').val() === data.child('name').val() && newData.child('serviceName').val() === data.child('serviceName').val())))",
+          "name":        { ".validate": "!newData.exists() || newData.isString() && newData.val().length <= 60" },
+          "serviceName": { ".validate": "!newData.exists() || newData.isString() && newData.val().length <= 60" },
+          "cancelReason":{ ".validate": "!newData.exists() || newData.isString() && newData.val().length <= 200" },
+          "bookingFor":  { ".validate": "!newData.exists() || newData.isString() && newData.val().length <= 60" },
+          "$other":      { ".validate": "!newData.isString() || newData.val().length <= 200" }
+        }
       }
     },
 
@@ -62,7 +69,14 @@
 
     "reviews": {
       ".read": true,
-      ".write": "auth != null"
+      "$reviewId": {
+        ".write": "auth != null && (root.child('admin/allowedUids').child(auth.uid).val() === true || (!data.exists() && newData.child('uid').val() === auth.uid) || data.child('uid').val() === auth.uid)",
+        ".validate": "!newData.exists() || newData.hasChildren(['uid','rating'])",
+        "text":         { ".validate": "!newData.exists() || newData.isString() && newData.val().length <= 500" },
+        "customerName": { ".validate": "!newData.exists() || newData.isString() && newData.val().length <= 60" },
+        "rating":       { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 5" },
+        "$other":       { ".validate": "!newData.isString() || newData.val().length <= 200" }
+      }
     },
 
     "reminders": {
@@ -77,7 +91,10 @@
       ".write": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true",
       "$date": {
         "$bookingId": {
-          ".write": "auth != null && !data.exists()"
+          ".write": "auth != null && !data.exists()",
+          "phone": { ".validate": "newData.isString() && newData.val().length <= 20" },
+          "name":  { ".validate": "!newData.exists() || newData.isString() && newData.val().length <= 60" },
+          "$other": { ".validate": "!newData.isString() || newData.val().length <= 100" }
         }
       }
     },
@@ -96,8 +113,10 @@
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || root.child('admin/allowedUids').child(auth.uid).val() === true)",
         ".write": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true",
-        "phone":     { ".write": "auth != null && (auth.uid === $uid || root.child('admin/allowedUids').child(auth.uid).val() === true)" },
-        "fcmToken":  { ".write": "auth != null && (auth.uid === $uid || root.child('admin/allowedUids').child(auth.uid).val() === true)" },
+        "phone":     { ".write": "auth != null && (auth.uid === $uid || root.child('admin/allowedUids').child(auth.uid).val() === true)",
+                       ".validate": "!newData.exists() || newData.isString() && newData.val().length <= 20" },
+        "fcmToken":  { ".write": "auth != null && (auth.uid === $uid || root.child('admin/allowedUids').child(auth.uid).val() === true)",
+                       ".validate": "!newData.exists() || newData.isString() && newData.val().length <= 400" },
         "bookings":  { ".write": "auth != null && (auth.uid === $uid || root.child('admin/allowedUids').child(auth.uid).val() === true)" }
       }
     }
