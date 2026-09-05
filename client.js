@@ -25,7 +25,7 @@ import {
   orderByChild,
   equalTo,
   onValue,
-  runTransaction
+  remove
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import {
   getMessaging,
@@ -1210,25 +1210,44 @@ window.confirmBooking = async function () {
     const sMin = selectedSlot[0] * 60 + selectedSlot[1];
     const eMin = sMin + selectedService.duration;
 
-    // Atomic transaction: check for overlaps and write in one operation
-    const txResult = await runTransaction(bookingsRef, (current) => {
-      const data = current || {};
-      for (const b of Object.values(data)) {
-        if (!b || b.status === "cancelled" || b.status === "finished") continue;
-        const bS = timeStrToMin(b.startTime), bE = bS + (b.duration || 30);
-        if (sMin < bE && eMin > bS) return; // conflict — abort
-      }
-      data[bookingKey] = booking;
-      return data;
-    });
-
-    if (!txResult.committed) {
+    const slotTaken = () => {
       document.getElementById("booking-error").textContent =
         "⚡ This slot was just booked by someone else! Please go back and choose a different time.";
       document.getElementById("booking-error").classList.remove("hidden");
       btn.textContent = "Confirm Appointment";
       btn.disabled = false;
+    };
+
+    // Longer services can span more than one slot, so check the whole day for
+    // an overlap first. This read can race; the slot claim below is what
+    // actually settles two people tapping the same slot at once.
+    const daySnap = await get(bookingsRef);
+    const dayData = daySnap.val() || {};
+    for (const b of Object.values(dayData)) {
+      if (!b || b.status === "cancelled" || b.status === "finished") continue;
+      const bS = timeStrToMin(b.startTime), bE = bS + (b.duration || 30);
+      if (sMin < bE && eMin > bS) { slotTaken(); return; }
+    }
+
+    // Claim the slot. slots/{date}/{HH:MM} is create-only in the security
+    // rules, so the database itself picks a winner when two people race —
+    // the loser's write is rejected. This replaces the old transaction on
+    // bookings/{date}, which required giving every customer write access to
+    // the whole day (and with it the ability to delete other people's
+    // appointments).
+    try {
+      await set(ref(db, `slots/${dateKey}/${startStr}`), bookingKey);
+    } catch (_) {
+      slotTaken();
       return;
+    }
+
+    try {
+      await set(ref(db, `bookings/${dateKey}/${bookingKey}`), booking);
+    } catch (err) {
+      // Don't leave the slot claimed for a booking that never landed
+      await remove(ref(db, `slots/${dateKey}/${startStr}`)).catch(() => {});
+      throw err;
     }
 
     const bookingId = bookingKey;

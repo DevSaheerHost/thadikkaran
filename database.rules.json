@@ -30,14 +30,25 @@
     "bookings": {
       ".read": "auth != null",
       "$date": {
-        ".write": "auth != null && (root.child('admin/allowedUids').child(auth.uid).val() === true || newData.exists())",
+        ".write": "auth != null && root.child('admin/allowedUids').child(auth.uid).val() === true",
         "$bookingId": {
-          ".validate": "root.child('admin/allowedUids').child(auth.uid).val() === true || (!data.exists() ? newData.child('uid').val() === auth.uid : (data.child('uid').val() === auth.uid || (newData.child('uid').val() === data.child('uid').val() && newData.child('status').val() === data.child('status').val() && newData.child('startTime').val() === data.child('startTime').val() && newData.child('duration').val() === data.child('duration').val() && newData.child('price').val() === data.child('price').val() && newData.child('name').val() === data.child('name').val() && newData.child('serviceName').val() === data.child('serviceName').val())))",
+          ".write": "auth != null && (root.child('admin/allowedUids').child(auth.uid).val() === true || (!data.exists() && newData.child('uid').val() === auth.uid) || (data.child('uid').val() === auth.uid && newData.exists()))",
+          ".validate": "root.child('admin/allowedUids').child(auth.uid).val() === true || (!data.exists() ? newData.child('uid').val() === auth.uid : data.child('uid').val() === auth.uid && newData.child('uid').val() === auth.uid)",
           "name":        { ".validate": "!newData.exists() || newData.isString() && newData.val().length <= 60" },
           "serviceName": { ".validate": "!newData.exists() || newData.isString() && newData.val().length <= 60" },
           "cancelReason":{ ".validate": "!newData.exists() || newData.isString() && newData.val().length <= 200" },
           "bookingFor":  { ".validate": "!newData.exists() || newData.isString() && newData.val().length <= 60" },
           "$other":      { ".validate": "!newData.isString() || newData.val().length <= 200" }
+        }
+      }
+    },
+
+    "slots": {
+      ".read": "auth != null",
+      "$date": {
+        "$time": {
+          ".validate": "newData.isString() && newData.val().length <= 60",
+          ".write": "auth != null && (root.child('admin/allowedUids').child(auth.uid).val() === true || !data.exists() || !root.child('bookings').child($date).child(data.val()).exists() || root.child('bookings').child($date).child(data.val()).child('status').val() === 'cancelled' || root.child('bookings').child($date).child(data.val()).child('status').val() === 'noshow' || root.child('bookings').child($date).child(data.val()).child('startTime').val() !== $time)"
         }
       }
     },

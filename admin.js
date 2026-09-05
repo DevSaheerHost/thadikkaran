@@ -890,52 +890,6 @@ function updateStats(items) {
   document.getElementById("stat-confirmed").textContent = confirmed.length;
   document.getElementById("stat-noshow").textContent    = noshows.length;
   document.getElementById("stat-revenue").textContent   = `₹${revenue}`;
-
-  renderGlance(items, finished, confirmed);
-}
-
-/**
- * "Today at a glance" — the three things the barber actually checks between
- * cuts: who's next, how much of the day is left, and what's been earned.
- * Only meaningful for today, so it hides on any other date.
- */
-function renderGlance(items, finished, confirmed) {
-  const bar = document.getElementById("glance-bar");
-  if (!bar) return;
-  if (currentDateKey !== formatDateKey(new Date())) { bar.classList.add("hidden"); return; }
-
-  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
-
-  // Next appointment still ahead of us
-  const upcoming = confirmed
-    .filter(b => timeToMinutes(b.startTime) >= nowMin)
-    .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
-  const next = upcoming[0];
-  document.getElementById("glance-next").textContent = next
-    ? `${formatDisplayTime(next.startTime)} · ${(next.bookingFor || next.name || "").split(" ")[0]}`
-    : "Nothing left";
-
-  document.getElementById("glance-left").textContent =
-    `${upcoming.length} job${upcoming.length === 1 ? "" : "s"}`;
-
-  // Free slots still bookable today, from this day's preset
-  const occupied = items
-    .filter(b => b.status !== "cancelled" && b.status !== "noshow" && b.status !== "finished")
-    .map(b => {
-      const st = timeToMinutes(b.startTime);
-      return { start: st, end: st + (b.duration || 40) };
-    });
-  const free = activeSlotTimes(currentDateKey).filter(sl => {
-    const m = timeToMinutes(sl.start);
-    return m >= nowMin && !occupied.some(o => m >= o.start && m < o.end);
-  }).length;
-  document.getElementById("glance-free").textContent = String(free);
-
-  // Money actually in hand — finished jobs only, not what's still booked
-  const earned = finished.reduce((sum, b) => sum + (b.price || 0), 0);
-  document.getElementById("glance-earned").textContent = `₹${earned}`;
-
-  bar.classList.remove("hidden");
 }
 
 // ═══════════════════════════════════
