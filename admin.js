@@ -3531,6 +3531,44 @@ window.deleteBooking = async function (key, dateKey) {
   }
 };
 
+/**
+ * Anything already sitting in this slot, using the same definition as the
+ * Edit Time conflict check: cancelled / no-show / finished bookings don't
+ * hold a slot, blocks and breaks do.
+ */
+async function slotConflicts(dateKey, startTime, duration, ignoreKey) {
+  const start = timeToMinutes(startTime);
+  const end   = start + (duration || 30);
+  const hits  = [];
+
+  const [bookSnap, blkSnap] = await Promise.all([
+    get(ref(db, `bookings/${dateKey}`)),
+    get(ref(db, `blocked/${dateKey}`)).catch(() => null),
+  ]);
+
+  if (bookSnap.exists()) {
+    bookSnap.forEach(child => {
+      if (child.key === ignoreKey) return;
+      const o = child.val() || {};
+      if (!o.startTime) return;
+      if (o.status === "cancelled" || o.status === "noshow" || o.status === "finished") return;
+      const oS = timeToMinutes(o.startTime), oE = oS + (o.duration || 30);
+      if (start < oE && end > oS) {
+        hits.push(`${o.bookingFor || o.name || "Booking"} (${formatDisplayTime(o.startTime)})`);
+      }
+    });
+  }
+  if (blkSnap && blkSnap.exists()) {
+    blkSnap.forEach(child => {
+      const bl = child.val() || {};
+      if (!bl.startTime) return;
+      const oS = timeToMinutes(bl.startTime), oE = oS + (bl.duration || 30);
+      if (start < oE && end > oS) hits.push(bl.reason || "Break");
+    });
+  }
+  return hits;
+}
+
 window.restoreBooking = async function (key, dateKey) {
   try {
     const snap = await get(ref(db, `deleted/${dateKey}/${key}`));
@@ -3538,6 +3576,19 @@ window.restoreBooking = async function (key, dateKey) {
     const data = { ...snap.val() };
     delete data.deletedAt;
     delete data.deletedFrom;
+
+    // Someone may have taken this slot while the booking sat in the bin.
+    // Restoring on top of them would double-book the chair.
+    if (data.startTime) {
+      const hits = await slotConflicts(dateKey, data.startTime, data.duration, key);
+      if (hits.length) {
+        showToast(
+          `Can't restore — ${formatDisplayTime(data.startTime)} is taken by ${hits.join(", ")}. ` +
+          `Free that slot first, or add it again from Add Booking.`, 8000);
+        return;
+      }
+    }
+
     await set(ref(db, `bookings/${dateKey}/${key}`), data);
     await remove(ref(db, `deleted/${dateKey}/${key}`));
     showToast("Booking restored.");
