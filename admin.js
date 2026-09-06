@@ -643,7 +643,7 @@ function buildBookingCard(item) {
         <button class="btn btn-sm btn-warning" onclick="openCancelModal('${item.key}', '${currentDateKey}')">Cancel</button>
         <button class="btn btn-sm btn-danger"  onclick="openNoshowModal('${item.key}', '${currentDateKey}')">No-Show</button>
       `
-      : item.status === "finished"
+      : (item.status === "finished" || item.status === "cancelled")
         ? `<button class="btn btn-sm btn-danger" onclick="deleteBooking('${item.key}','${currentDateKey}')">🗑 Delete</button>`
         : `<span class="source-tag">${statusLabel}</span>`;
 
