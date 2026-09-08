@@ -494,7 +494,7 @@ window.switchTab = function (tabId, btn) {
   if (tabId === "bookings") loadBookings();
   if (tabId === "block")    loadActiveBlocks();
   if (tabId === "noshows")  loadNoshows();
-  if (tabId === "settings") { loadLunchSettings(); loadServiceSettings(); loadClosedDates(); loadNotifStatus(); loadClosureSettings(); loadAnnouncement(); _presetsPromise = loadSlotPresets(); }
+  if (tabId === "settings") { loadLunchSettings(); loadServiceSettings(); loadClosedDates(); loadNotifStatus(); loadClosureSettings(); loadAnnouncement(); loadCombos(); _presetsPromise = loadSlotPresets(); }
   if (tabId === 'reviews') {
     localStorage.setItem('reviewsSeenAt', Date.now());
     updateReviewsBadge();
@@ -2331,6 +2331,206 @@ function showToast(msg, duration = 3000) {
   clearTimeout(window._toastTimer);
   window._toastTimer = setTimeout(() => toast.classList.add("hidden"), duration);
 }
+
+// ═══════════════════════════════════
+//  COMBO OFFERS
+// ═══════════════════════════════════
+
+let combos          = {};     // id → { name, serviceIds, price, duration, active }
+let editingComboId  = null;   // set while editing an existing combo
+
+const svcName  = id => (DEFAULT_SERVICES.find(s => s.id === id) || {}).name || id;
+const svcPrice = id => {
+  const d = DEFAULT_SERVICES.find(s => s.id === id) || {};
+  const p = servicePrices[id] !== undefined ? servicePrices[id] : d.defaultPrice;
+  return p || 0;
+};
+const svcDur = id => {
+  const d = DEFAULT_SERVICES.find(s => s.id === id) || {};
+  return serviceDurations[id] || d.defaultDuration || 40;
+};
+
+async function loadCombos() {
+  try {
+    const snap = await get(ref(db, "settings/combos"));
+    combos = snap.exists() ? (snap.val() || {}) : {};
+  } catch (e) { combos = {}; }
+  renderComboList();
+}
+
+function renderComboList() {
+  const list = document.getElementById("combo-list");
+  if (!list) return;
+  const ids = Object.keys(combos);
+
+  if (!ids.length) {
+    list.innerHTML = `<p class="no-data-msg">No combo offers yet.</p>`;
+    return;
+  }
+
+  list.innerHTML = ids.map(id => {
+    const c = combos[id];
+    const parts = (c.serviceIds || []).map(svcName).join(" + ");
+    const full  = (c.serviceIds || []).reduce((t, sid) => t + svcPrice(sid), 0);
+    const saves = full - (c.price || 0);
+    return `
+      <div class="combo-card${c.active === false ? " combo-card--off" : ""}">
+        <div class="combo-card-main">
+          <div class="combo-card-name">${escapeHtml(c.name || "Combo")}</div>
+          <div class="combo-card-parts">${escapeHtml(parts)}</div>
+          <div class="combo-card-meta">
+            ₹${c.price || 0} · ${c.duration || 0} min
+            ${saves > 0 ? `<span class="combo-save-tag">saves ₹${saves}</span>` : ""}
+          </div>
+        </div>
+        <div class="combo-card-actions">
+          <label class="toggle-switch toggle-sm" title="Show to customers">
+            <input type="checkbox" ${c.active === false ? "" : "checked"}
+                   onchange="toggleCombo('${id}', this.checked)" />
+            <span class="toggle-knob"></span>
+          </label>
+          <button class="btn-icon" title="Edit" onclick="openComboForm('${id}')">✎</button>
+          <button class="btn-icon" title="Delete" onclick="deleteCombo('${id}')">🗑</button>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+window.openComboForm = function (id) {
+  editingComboId = id || null;
+  const c = id ? combos[id] : null;
+
+  document.getElementById("combo-name").value = c ? (c.name || "") : "";
+  document.getElementById("combo-error").classList.add("hidden");
+  document.getElementById("btn-save-combo").textContent = c ? "Save Changes" : "Save Combo";
+
+  // Service checkboxes
+  const picked = new Set(c ? (c.serviceIds || []) : []);
+  document.getElementById("combo-services").innerHTML = DEFAULT_SERVICES.map(s => `
+    <label class="combo-svc">
+      <input type="checkbox" value="${s.id}" ${picked.has(s.id) ? "checked" : ""}
+             onchange="onComboServiceToggle()" />
+      <span class="combo-svc-name">${escapeHtml(s.name)}</span>
+      <span class="combo-svc-price">₹${svcPrice(s.id)}</span>
+    </label>`).join("");
+
+  document.getElementById("combo-price").value    = c ? (c.price || 0) : "";
+  document.getElementById("combo-duration").value = c ? (c.duration || 40) : "";
+
+  document.getElementById("combo-form").classList.remove("hidden");
+  document.getElementById("btn-new-combo").classList.add("hidden");
+  updateComboSummary();
+};
+
+window.closeComboForm = function () {
+  editingComboId = null;
+  document.getElementById("combo-form").classList.add("hidden");
+  document.getElementById("btn-new-combo").classList.remove("hidden");
+};
+
+function pickedComboServices() {
+  return [...document.querySelectorAll("#combo-services input:checked")].map(i => i.value);
+}
+
+// Picking services pre-fills price and duration with the plain totals, so the
+// admin only types when they actually want a discount or a different length.
+window.onComboServiceToggle = function () {
+  const ids = pickedComboServices();
+  const priceEl = document.getElementById("combo-price");
+  const durEl   = document.getElementById("combo-duration");
+  const total   = ids.reduce((t, id) => t + svcPrice(id), 0);
+  const dur     = ids.reduce((t, id) => t + svcDur(id), 0);
+
+  if (!priceEl.dataset.touched) priceEl.value = total || "";
+  if (!durEl.dataset.touched)   durEl.value   = dur || "";
+  updateComboSummary();
+};
+
+["combo-price", "combo-duration"].forEach(id => {
+  document.addEventListener("input", e => {
+    if (e.target && e.target.id === id) e.target.dataset.touched = "1";
+  });
+});
+
+window.updateComboSummary = function () {
+  const el = document.getElementById("combo-summary");
+  if (!el) return;
+  const ids   = pickedComboServices();
+  const total = ids.reduce((t, id) => t + svcPrice(id), 0);
+  const price = parseInt(document.getElementById("combo-price").value, 10) || 0;
+
+  if (ids.length < 2) {
+    el.innerHTML = `<span class="combo-summary-hint">Pick at least two services.</span>`;
+    return;
+  }
+  const saves = total - price;
+  el.innerHTML = `
+    <span>Separately: <strong>₹${total}</strong></span>
+    <span class="combo-summary-arrow">→</span>
+    <span>Combo: <strong>₹${price}</strong></span>
+    ${saves > 0
+      ? `<span class="combo-save-tag">customer saves ₹${saves}</span>`
+      : saves < 0
+        ? `<span class="combo-save-tag combo-save-tag--bad">₹${-saves} MORE than separately</span>`
+        : `<span class="combo-summary-hint">no discount</span>`}`;
+};
+
+window.saveCombo = async function () {
+  const err   = document.getElementById("combo-error");
+  const btn   = document.getElementById("btn-save-combo");
+  const name  = document.getElementById("combo-name").value.trim();
+  const ids   = pickedComboServices();
+  const price = parseInt(document.getElementById("combo-price").value, 10);
+  const dur   = parseInt(document.getElementById("combo-duration").value, 10);
+
+  const fail = msg => { err.textContent = msg; err.classList.remove("hidden"); };
+  err.classList.add("hidden");
+  if (!name)            return fail("Give the combo a name customers will understand.");
+  if (ids.length < 2)   return fail("A combo needs at least two services.");
+  if (!(price >= 0))    return fail("Enter the combo price.");
+  if (!(dur >= 5))      return fail("Enter how long the combo takes (at least 5 minutes).");
+
+  btn.disabled = true;
+  btn.textContent = "Saving…";
+  try {
+    const id = editingComboId || ("c" + Date.now());
+    const entry = {
+      name, serviceIds: ids, price, duration: dur,
+      active: editingComboId ? (combos[id]?.active !== false) : true,
+      updatedAt: Date.now(),
+    };
+    await set(ref(db, `settings/combos/${id}`), entry);
+    combos[id] = entry;
+    renderComboList();
+    closeComboForm();
+    showToast(editingComboId ? "Combo updated." : "✓ Combo offer created.");
+  } catch (e) {
+    fail("Couldn't save. Please try again.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = editingComboId ? "Save Changes" : "Save Combo";
+  }
+};
+
+window.toggleCombo = async function (id, on) {
+  try {
+    await update(ref(db, `settings/combos/${id}`), { active: on });
+    if (combos[id]) combos[id].active = on;
+    renderComboList();
+    showToast(on ? "Combo is live." : "Combo hidden from customers.");
+  } catch (e) { showToast("Couldn't update the combo."); }
+};
+
+window.deleteCombo = async function (id) {
+  const c = combos[id];
+  if (!confirm(`Delete "${c?.name || "this combo"}"?\n\nBookings already made on it are not affected.`)) return;
+  try {
+    await remove(ref(db, `settings/combos/${id}`));
+    delete combos[id];
+    renderComboList();
+    showToast("Combo deleted.");
+  } catch (e) { showToast("Couldn't delete the combo."); }
+};
 
 // ═══════════════════════════════════
 //  ANNOUNCEMENT BANNER

@@ -1639,3 +1639,30 @@ body {
   opacity: 0.65;
 }
 .ab-close:hover { opacity: 1; }
+
+/* Combo offers in the service list */
+.service-card--combo { border-color: #d4a34e; }
+.combo-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 1px 6px;
+  border-radius: 99px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  vertical-align: middle;
+}
+.service-combo-parts {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.service-was {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-decoration: line-through;
+  margin-bottom: 1px;
+}

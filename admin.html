@@ -549,6 +549,50 @@
           <div id="service-settings-list" class="service-settings-list"></div>
         </div>
 
+        <!-- Combo Offers -->
+        <div class="settings-section">
+          <h3 class="section-mini-title">Combo Offers</h3>
+          <p class="settings-hint">Bundle two or more services at one price. Combos show up as their own option when customers pick a service.</p>
+
+          <div id="combo-list" class="combo-list"></div>
+
+          <div id="combo-form" class="combo-form hidden">
+            <div class="input-group">
+              <label class="input-label">Combo name</label>
+              <input type="text" id="combo-name" class="input-field" maxlength="40"
+                     placeholder="e.g. Cut + Beard Combo" />
+            </div>
+
+            <label class="input-label">Services included</label>
+            <div id="combo-services" class="combo-services"></div>
+
+            <div class="closure-row">
+              <div class="input-group" style="flex:1;margin-bottom:0">
+                <label class="input-label">Combo price (₹)</label>
+                <input type="number" id="combo-price" class="input-field" min="0" step="10"
+                       oninput="updateComboSummary()" />
+              </div>
+              <div class="input-group" style="flex:1;margin-bottom:0">
+                <label class="input-label">Duration (min)</label>
+                <input type="number" id="combo-duration" class="input-field" min="5" max="240" step="5"
+                       oninput="updateComboSummary()" />
+              </div>
+            </div>
+
+            <div class="combo-summary" id="combo-summary"></div>
+            <div id="combo-error" class="error-msg hidden"></div>
+
+            <div class="combo-form-actions">
+              <button class="btn btn-sm btn-ghost" onclick="closeComboForm()">Cancel</button>
+              <button class="btn btn-sm btn-primary" onclick="saveCombo()" id="btn-save-combo">Save Combo</button>
+            </div>
+          </div>
+
+          <button class="btn btn-outline btn-full" id="btn-new-combo" onclick="openComboForm()">
+            ＋ Create Combo Offer
+          </button>
+        </div>
+
         <!-- Closed Days -->
         <div class="settings-section">
           <h3 class="section-mini-title">Closed Days</h3>
