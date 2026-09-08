@@ -247,7 +247,7 @@ function renderRebookNudge() {
 
 // Rebook a specific past service straight from a My Bookings card
 window.rebookFrom = function (serviceName) {
-  const svc = SERVICES.find(x => x.name === serviceName);
+  const svc = bookableServices().find(x => x.name === serviceName);
   if (svc) selectedService = svc;
   closeMyBookings();
   goToStep(1);
@@ -257,38 +257,74 @@ window.rebookFrom = function (serviceName) {
 window.rebookLast = function () {
   const last = myHistory.find(b => b.serviceName) || {
     serviceName: myStats.lastServiceName, serviceId: myStats.lastServiceId };
-  const svc = SERVICES.find(x => x.name === last.serviceName || x.id === last.serviceId);
+  const svc = bookableServices().find(x => x.name === last.serviceName || x.id === last.serviceId);
   if (svc) selectedService = svc;
   document.getElementById("rebook-nudge")?.classList.add("hidden");
   goToStep(1);
 };
 
-// ── Combo upsell: nudge a plain haircut towards the cheaper combined service ──
-const COMBO_FROM = "haircut";        // Hair Cut (Mens)
-const COMBO_TO   = "haircut_beard";  // Hair Cut & Beard
+// ── Combo upsell ──
+// Driven entirely by the combos the admin configured: if the service you
+// picked is part of a live combo, offer to upgrade to it.
+let upsellCombo = null;
+
+// Built-in pairing used when the admin hasn't configured any combo that
+// covers the picked service, so the shop keeps its default upsell out of the
+// box. A configured combo always wins over this.
+const BUILTIN_UPSELL = { haircut: "haircut_beard" };
+
+function bestComboFor(serviceId) {
+  const candidates = comboOffers.filter(c => c.serviceIds.includes(serviceId));
+  if (candidates.length) {
+    // Offer the one with the biggest saving; ties go to the cheapest add-on
+    return candidates
+      .map(c => ({ c, saves: comboFullPrice(c) - c.price, extra: c.price }))
+      .sort((a, b) => b.saves - a.saves || a.extra - b.extra)[0].c;
+  }
+  const fallbackId = BUILTIN_UPSELL[serviceId];
+  if (!fallbackId) return null;
+  const svc = SERVICES.find(x => x.id === fallbackId);
+  if (!svc || svc.price == null) return null;
+  // Shape it like a combo so the renderer needs no special case
+  return {
+    id: svc.id, name: svc.name, price: svc.price, duration: svc.duration,
+    serviceIds: [serviceId, fallbackId === "haircut_beard" ? "beard" : fallbackId],
+    isCombo: false, priceDisplay: svc.priceDisplay, _builtin: true,
+  };
+}
 
 function renderComboUpsell() {
   const el = document.getElementById("combo-upsell");
   if (!el) return;
-  const from = SERVICES.find(s => s.id === COMBO_FROM);
-  const to   = SERVICES.find(s => s.id === COMBO_TO);
-  const show = selectedService && selectedService.id === COMBO_FROM &&
-               from && to && to.price != null && from.price != null;
-  if (!show) { el.classList.add("hidden"); return; }
+  upsellCombo = null;
 
-  const diff = to.price - from.price;
-  document.getElementById("cu-title").textContent = "Add a beard trim?";
+  const picked = selectedService;
+  if (!picked || picked.isCombo || picked.price == null) { el.classList.add("hidden"); return; }
+
+  const combo = bestComboFor(picked.id);
+  if (!combo || combo.price == null) { el.classList.add("hidden"); return; }
+
+  const extra = combo.price - picked.price;
+  if (extra < 0) { el.classList.add("hidden"); return; }
+
+  const others = combo.serviceIds
+    .filter(id => id !== picked.id)
+    .map(id => (SERVICES.find(s => s.id === id) || {}).name || id);
+  const saves = combo._builtin ? 0 : comboFullPrice(combo) - combo.price;
+
+  upsellCombo = combo;
+  document.getElementById("cu-title").textContent =
+    others.length === 1 ? `Add ${others[0]}?` : "Make it a combo?";
   document.getElementById("cu-sub").textContent =
-    `Make it ${to.name} — ₹${diff} more, same slot.`;
+    `${combo.name} for ₹${extra} more` + (saves > 0 ? ` — saves you ₹${saves}.` : ".");
   el.classList.remove("hidden");
 }
 
 window.acceptComboUpsell = function () {
-  const to = SERVICES.find(s => s.id === COMBO_TO);
-  if (!to) return;
-  selectedService = to;
+  if (!upsellCombo) return;
+  selectedService = upsellCombo;
   document.querySelectorAll(".service-card").forEach(c =>
-    c.classList.toggle("selected", c.dataset.id === COMBO_TO));
+    c.classList.toggle("selected", c.dataset.id === upsellCombo.id));
   document.getElementById("btn-next-3").disabled = false;
   renderComboUpsell();
 };
@@ -353,6 +389,7 @@ async function showApp(user) {
   document.getElementById("header-greeting").textContent = `${greeting}${name}`;
 
   await loadServiceDurations();
+  await loadCombos();
   await loadServiceRatings();
   watchLunchBreak();
   watchClosedDates();
@@ -367,6 +404,31 @@ async function showApp(user) {
   // Seed history so the phone back button navigates between steps
   history.replaceState({ step: 1 }, '');
   handleReminderParams();
+}
+
+// Combo offers configured by the admin, shown as their own bookable option
+let comboOffers = [];   // [{ id, name, serviceIds, price, duration }]
+
+async function loadCombos() {
+  try {
+    const snap = await get(ref(db, "settings/combos"));
+    comboOffers = [];
+    if (!snap.exists()) return;
+    snap.forEach(child => {
+      const c = child.val() || {};
+      if (c.active === false) return;
+      if (!c.name || !Array.isArray(c.serviceIds) || c.serviceIds.length < 2) return;
+      comboOffers.push({
+        id: child.key,
+        name: c.name,
+        serviceIds: c.serviceIds,
+        price: c.price || 0,
+        duration: c.duration || 40,
+        isCombo: true,
+        priceDisplay: c.price > 0 ? `₹${c.price}` : "At Store",
+      });
+    });
+  } catch (e) { comboOffers = []; }
 }
 
 async function loadServiceDurations() {
@@ -633,26 +695,52 @@ function clearAuthError() {
 //  SERVICES UI
 // ═══════════════════════════════════
 
+// Everything bookable: the plain services plus any live combo offers
+function bookableServices() {
+  return [...SERVICES, ...comboOffers];
+}
+
+// What the parts of a combo would cost booked separately
+function comboFullPrice(combo) {
+  return combo.serviceIds.reduce((t, id) => {
+    const svc = SERVICES.find(s => s.id === id);
+    return t + ((svc && svc.price) || 0);
+  }, 0);
+}
+
 function buildServicesUI() {
   const container = document.getElementById("services-list");
   container.innerHTML = "";
 
-  SERVICES.forEach(svc => {
+  bookableServices().forEach(svc => {
     const card = document.createElement("div");
-    card.className = "service-card";
+    card.className = "service-card" + (svc.isCombo ? " service-card--combo" : "");
     card.dataset.id = svc.id;
     const rd = serviceRatings[svc.name];
     const ratingHtml = rd
       ? `<span class="service-meta-dot"></span><span class="svc-rating">★ ${rd.avg}<span class="svc-rating-count"> (${rd.count})</span></span>`
       : "";
+
+    let comboBadge = "", wasPrice = "", partsLine = "";
+    if (svc.isCombo) {
+      const full  = comboFullPrice(svc);
+      const saves = full - svc.price;
+      comboBadge  = `<span class="combo-badge">COMBO</span>`;
+      partsLine   = `<div class="service-combo-parts">${escapeText(
+        svc.serviceIds.map(id => (SERVICES.find(s => s.id === id) || {}).name || id).join(" + "))}</div>`;
+      if (saves > 0) wasPrice = `<div class="service-was">₹${full}</div>`;
+    }
+
     card.innerHTML = `
       <div class="service-info">
-        <div class="service-name">${svc.name}</div>
+        <div class="service-name">${escapeText(svc.name)}${comboBadge}</div>
+        ${partsLine}
         <div class="service-meta">
           <span>${svc.duration} mins</span>${ratingHtml}
         </div>
       </div>
       <div class="service-right">
+        ${wasPrice}
         <div class="service-price ${svc.price === null ? 'tbd' : ''}">${svc.priceDisplay}</div>
         <div class="service-check">✓</div>
       </div>
@@ -1193,6 +1281,7 @@ window.confirmBooking = async function () {
     ...(forName ? { bookingFor: forName } : {}),
     serviceId:   selectedService.id,
     serviceName: selectedService.name,
+    ...(selectedService.isCombo ? { comboOf: selectedService.serviceIds } : {}),
     price:       selectedService.price,
     duration:    selectedService.duration,
     dateKey:     dateKey,
