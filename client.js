@@ -279,7 +279,7 @@ function bestComboFor(serviceId) {
   if (candidates.length) {
     // Offer the one with the biggest saving; ties go to the cheapest add-on
     return candidates
-      .map(c => ({ c, saves: comboFullPrice(c) - c.price, extra: c.price }))
+      .map(c => ({ c, saves: comboFullPrice(c, currentDateKeyForPricing()) - c.price, extra: c.price }))
       .sort((a, b) => b.saves - a.saves || a.extra - b.extra)[0].c;
   }
   const fallbackId = BUILTIN_UPSELL[serviceId];
@@ -311,7 +311,7 @@ function renderComboUpsell() {
   const others = combo.serviceIds
     .filter(id => id !== picked.id)
     .map(id => (SERVICES.find(s => s.id === id) || {}).name || id);
-  const saves = combo._builtin ? 0 : comboFullPrice(combo) - combo.price;
+  const saves = combo._builtin ? 0 : comboFullPrice(combo, currentDateKeyForPricing()) - combo.price;
 
   upsellCombo = combo;
   document.getElementById("cu-title").textContent =
@@ -391,6 +391,7 @@ async function showApp(user) {
 
   await loadServiceDurations();
   await loadCombos();
+  await loadPriceChange();
   await loadServiceRatings();
   watchLunchBreak();
   watchClosedDates();
@@ -405,6 +406,35 @@ async function showApp(user) {
   // Seed history so the phone back button navigates between steps
   history.replaceState({ step: 1 }, '');
   handleReminderParams();
+}
+
+// A price rise the shop has scheduled. Bookings for dates on or after
+// effectiveDate are quoted (and stored) at the new price, so someone booking
+// on 28 Sep for 1 Oct pays the 1 Oct rate rather than locking in the old one.
+let priceChange = null;   // { effectiveDate, prices: { svcId: number } }
+
+async function loadPriceChange() {
+  try {
+    const snap = await get(ref(db, "settings/priceChange"));
+    const v = snap.exists() ? snap.val() : null;
+    priceChange = (v && v.effectiveDate && v.prices) ? v : null;
+  } catch (e) { priceChange = null; }
+}
+
+function currentDateKeyForPricing() {
+  return selectedDate ? formatDateKey(selectedDate) : null;
+}
+
+function newPricesApplyOn(dateKey) {
+  return !!(priceChange && dateKey && dateKey >= priceChange.effectiveDate);
+}
+
+// The price for this service on this date — base price unless the scheduled
+// rise has kicked in for that date.
+function priceForDate(svcId, basePrice, dateKey) {
+  if (!newPricesApplyOn(dateKey)) return basePrice;
+  const p = priceChange.prices[svcId];
+  return (p === undefined || p === null) ? basePrice : p;
 }
 
 // Combo offers configured by the admin, shown as their own bookable option
@@ -426,6 +456,7 @@ async function loadCombos() {
         price: c.price || 0,
         duration: c.duration || 40,
         isCombo: true,
+        basePrice: c.price || 0,
         priceDisplay: c.price > 0 ? `₹${c.price}` : "At Store",
       });
     });
@@ -435,18 +466,24 @@ async function loadCombos() {
 async function loadServiceDurations() {
   try {
     const snap = await get(ref(db, "settings/services"));
-    if (!snap.exists()) return;
-    snap.forEach(child => {
-      const svc = SERVICES.find(s => s.id === child.key);
-      if (!svc) return;
-      const v = child.val();
-      if (v.duration) svc.duration = v.duration;
-      if (v.price !== undefined) {
-        svc.price = v.price > 0 ? v.price : null;
-        svc.priceDisplay = v.price > 0 ? `₹${v.price}` : "At Store";
-      }
-    });
+    if (snap.exists()) {
+      snap.forEach(child => {
+        const svc = SERVICES.find(s => s.id === child.key);
+        if (!svc) return;
+        const v = child.val();
+        if (v.duration) svc.duration = v.duration;
+        if (v.price !== undefined) {
+          svc.price = v.price > 0 ? v.price : null;
+          svc.priceDisplay = v.price > 0 ? `₹${v.price}` : "At Store";
+        }
+      });
+    }
   } catch (e) { /* keep built-in defaults on error */ }
+
+  // basePrice is the shop's standing price. svc.price is what the selected
+  // date costs and is rewritten on every render, so it can't be the source
+  // of truth once a scheduled price rise is in play.
+  SERVICES.forEach(svc => { svc.basePrice = svc.price; });
 }
 
 function watchLunchBreak() {
@@ -496,7 +533,32 @@ function applyAnnouncementUI() {
   if (!live || dismissed || isShopClosedNow()) { bar.classList.add("hidden"); return; }
   document.getElementById("announce-text").textContent = announcementText(a);
   bar.classList.remove("hidden");
+
+  maybeShowAnnouncementModal(a);
 }
+
+// An "important" announcement also interrupts once, so it can't be scrolled
+// past. Seen state is per announcement id, so a new notice pops up again.
+function maybeShowAnnouncementModal(a) {
+  if (!a.important) return;
+  let seen = false;
+  try { seen = localStorage.getItem("annSeen") === a.id; } catch (_) {}
+  if (seen) return;
+
+  const modal = document.getElementById("announce-modal");
+  if (!modal) return;
+  document.getElementById("announce-modal-text").textContent = announcementText(a);
+  modal.classList.remove("hidden");
+}
+
+window.closeAnnouncementModal = function () {
+  try {
+    if (currentAnnouncement && currentAnnouncement.id) {
+      localStorage.setItem("annSeen", currentAnnouncement.id);
+    }
+  } catch (_) {}
+  document.getElementById("announce-modal")?.classList.add("hidden");
+};
 
 window.dismissAnnouncement = function () {
   try {
@@ -702,16 +764,35 @@ function bookableServices() {
 }
 
 // What the parts of a combo would cost booked separately
-function comboFullPrice(combo) {
+function comboFullPrice(combo, dateKey) {
   return combo.serviceIds.reduce((t, id) => {
     const svc = SERVICES.find(s => s.id === id);
-    return t + ((svc && svc.price) || 0);
+    if (!svc) return t;
+    const base = svc.basePrice !== undefined ? svc.basePrice : svc.price;
+    return t + (priceForDate(id, base, dateKey) || 0);
   }, 0);
 }
 
 function buildServicesUI() {
   const container = document.getElementById("services-list");
   container.innerHTML = "";
+
+  const dateKey = selectedDate ? formatDateKey(selectedDate) : null;
+  const newRates = newPricesApplyOn(dateKey);
+
+  // Say so plainly when the date they picked is on the new rates
+  const note = document.getElementById("price-change-note");
+  if (note) {
+    if (newRates) {
+      const d = new Date(priceChange.effectiveDate + "T00:00:00");
+      note.textContent = `Prices below are the new rates that start ${
+        isNaN(d) ? priceChange.effectiveDate
+                 : d.toLocaleDateString("en-IN", { day: "numeric", month: "long" })}.`;
+      note.classList.remove("hidden");
+    } else {
+      note.classList.add("hidden");
+    }
+  }
 
   bookableServices().forEach(svc => {
     const card = document.createElement("div");
@@ -722,9 +803,17 @@ function buildServicesUI() {
       ? `<span class="service-meta-dot"></span><span class="svc-rating">★ ${rd.avg}<span class="svc-rating-count"> (${rd.count})</span></span>`
       : "";
 
+    const base = svc.basePrice !== undefined ? svc.basePrice : svc.price;
+    const price = priceForDate(svc.id, base, dateKey);
+    const priceDisplay = price === null || price === undefined || price <= 0
+      ? "At Store" : `₹${price}`;
+    // Keep the object in step with the date so confirm + booking agree
+    svc.price = price;
+    svc.priceDisplay = priceDisplay;
+
     let comboBadge = "", wasPrice = "", partsLine = "";
     if (svc.isCombo) {
-      const full  = comboFullPrice(svc);
+      const full  = comboFullPrice(svc, dateKey);
       const saves = full - svc.price;
       comboBadge  = `<span class="combo-badge">COMBO</span>`;
       partsLine   = `<div class="service-combo-parts">${escapeText(
@@ -742,7 +831,7 @@ function buildServicesUI() {
       </div>
       <div class="service-right">
         ${wasPrice}
-        <div class="service-price ${svc.price === null ? 'tbd' : ''}">${svc.priceDisplay}</div>
+        <div class="service-price ${price === null ? 'tbd' : ''}">${priceDisplay}</div>
         <div class="service-check">✓</div>
       </div>
     `;
@@ -838,6 +927,7 @@ function buildCalendarUI() {
 
     const dayEl = document.createElement("div");
     dayEl.className = "cal-day" + (disabled ? " disabled" : "") + (isToday ? " today" : "") + (specialReason ? " special-open" : "");
+    dayEl.dataset.date = formatDateKey(d);
     dayEl.innerHTML = `
       <span class="cal-day-name">${isToday ? "Today" : DAY_NAMES[d.getDay()]}</span>
       <span class="cal-day-num">${d.getDate()}</span>
@@ -851,6 +941,18 @@ function buildCalendarUI() {
         dayEl.classList.add("selected");
         selectedDate = new Date(d);
         document.getElementById("btn-next-1").disabled = false;
+        // Prices can differ for this date, so re-render and re-apply the pick
+        const keepId = selectedService && selectedService.id;
+        buildServicesUI();
+        if (keepId) {
+          const again = bookableServices().find(x => x.id === keepId);
+          if (again) {
+            selectedService = again;
+            document.querySelectorAll(".service-card").forEach(c =>
+              c.classList.toggle("selected", c.dataset.id === keepId));
+          }
+        }
+        renderComboUpsell();
       });
     }
 

@@ -494,7 +494,7 @@ window.switchTab = function (tabId, btn) {
   if (tabId === "bookings") loadBookings();
   if (tabId === "block")    loadActiveBlocks();
   if (tabId === "noshows")  loadNoshows();
-  if (tabId === "settings") { loadLunchSettings(); loadServiceSettings(); loadClosedDates(); loadNotifStatus(); loadClosureSettings(); loadAnnouncement(); loadCombos(); _presetsPromise = loadSlotPresets(); }
+  if (tabId === "settings") { loadLunchSettings(); loadServiceSettings(); loadClosedDates(); loadNotifStatus(); loadClosureSettings(); loadAnnouncement(); loadCombos(); loadPriceChange(); _presetsPromise = loadSlotPresets(); }
   if (tabId === 'reviews') {
     localStorage.setItem('reviewsSeenAt', Date.now());
     updateReviewsBadge();
@@ -1682,7 +1682,11 @@ window.submitManualBooking = async function () {
   }
 
   const [svcId, svcName, priceStr, durStr] = svcRaw.split("|");
-  const price    = parseInt(priceStr) || 0;
+  // Honour a scheduled rise: a walk-in booked today for October pays October's price
+  const basePrice = parseInt(priceStr) || 0;
+  const scheduled = priceChange && dateVal >= priceChange.effectiveDate
+    ? priceChange.prices[svcId] : undefined;
+  const price = (scheduled === undefined || scheduled === null) ? basePrice : scheduled;
   const duration = serviceDurations[svcId] || parseInt(durStr) || 30;
 
   const startMinutes = timeToMinutes(timeVal);
@@ -2410,6 +2414,122 @@ function showToast(msg, duration = 3000) {
 }
 
 // ═══════════════════════════════════
+//  SCHEDULED PRICE CHANGE
+// ═══════════════════════════════════
+
+let priceChange = null;   // { effectiveDate, prices: { svcId: number } }
+
+const pcPretty = k => {
+  const d = new Date(k + "T00:00:00");
+  return isNaN(d) ? k : d.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+};
+
+async function loadPriceChange() {
+  try {
+    const snap = await get(ref(db, "settings/priceChange"));
+    const v = snap.exists() ? snap.val() : null;
+    priceChange = (v && v.effectiveDate && v.prices) ? v : null;
+  } catch (e) { priceChange = null; }
+  renderPriceChangeUI();
+}
+
+/** Price for a service on a given date, honouring a scheduled rise. */
+function priceOnDate(svcId, dateKey) {
+  const base = svcPrice(svcId);
+  if (!priceChange || !dateKey || dateKey < priceChange.effectiveDate) return base;
+  const p = priceChange.prices[svcId];
+  return (p === undefined || p === null) ? base : p;
+}
+
+function renderPriceChangeUI() {
+  const box = document.getElementById("pc-active");
+  if (!box) return;
+
+  if (!priceChange) {
+    box.classList.add("hidden");
+  } else {
+    const started = formatDateKey(new Date()) >= priceChange.effectiveDate;
+    document.getElementById("pc-active-title").textContent = started
+      ? `New prices in effect since ${pcPretty(priceChange.effectiveDate)}`
+      : `New prices start ${pcPretty(priceChange.effectiveDate)}`;
+    document.getElementById("pc-active-list").innerHTML = DEFAULT_SERVICES
+      .filter(sv => priceChange.prices[sv.id] !== undefined && priceChange.prices[sv.id] !== null)
+      .map(sv => `<div class="pc-active-row">
+           <span>${escapeHtml(sv.name)}</span>
+           <span class="pc-arrow">₹${svcPrice(sv.id)} → <strong>₹${priceChange.prices[sv.id]}</strong></span>
+         </div>`).join("") || `<div class="pc-active-row">No price changes listed.</div>`;
+    box.classList.remove("hidden");
+  }
+
+  // Form rows, prefilled with anything already scheduled
+  const rows = document.getElementById("pc-rows");
+  if (rows) {
+    rows.innerHTML = DEFAULT_SERVICES.map(sv => {
+      const planned = priceChange && priceChange.prices[sv.id];
+      return `<div class="pc-row">
+        <span class="pc-row-name">${escapeHtml(sv.name)}</span>
+        <span class="pc-row-now">now ₹${svcPrice(sv.id)}</span>
+        <input type="number" class="input-field pc-row-input" min="0" step="10"
+               id="pc-${sv.id}" placeholder="—"
+               value="${planned === undefined || planned === null ? "" : planned}" />
+      </div>`;
+    }).join("");
+  }
+  const dateEl = document.getElementById("pc-date");
+  if (dateEl && priceChange && !dateEl.value) dateEl.value = priceChange.effectiveDate;
+  const saveBtn = document.getElementById("btn-pc-save");
+  if (saveBtn) saveBtn.textContent = priceChange ? "Update Scheduled Change" : "Schedule Price Change";
+}
+
+window.savePriceChange = async function () {
+  const err  = document.getElementById("pc-error");
+  const btn  = document.getElementById("btn-pc-save");
+  const date = document.getElementById("pc-date").value;
+  err.classList.add("hidden");
+
+  const fail = m => { err.textContent = m; err.classList.remove("hidden"); };
+  if (!date) return fail("Pick the date the new prices start.");
+
+  const prices = {};
+  DEFAULT_SERVICES.forEach(sv => {
+    const raw = document.getElementById(`pc-${sv.id}`).value.trim();
+    if (raw === "") return;
+    const n = parseInt(raw, 10);
+    if (n >= 0) prices[sv.id] = n;
+  });
+  if (!Object.keys(prices).length) return fail("Enter at least one new price.");
+
+  const changed = Object.keys(prices).filter(id => prices[id] !== svcPrice(id));
+  if (!changed.length) return fail("Those are the same as the current prices.");
+
+  btn.disabled = true;
+  btn.textContent = "Saving…";
+  try {
+    const entry = { effectiveDate: date, prices, updatedAt: Date.now() };
+    await set(ref(db, "settings/priceChange"), entry);
+    priceChange = entry;
+    renderPriceChangeUI();
+    showToast(`✓ New prices scheduled for ${pcPretty(date)}.`, 6000);
+  } catch (e) {
+    fail("Couldn't save. Please try again.");
+  } finally {
+    btn.disabled = false;
+    renderPriceChangeUI();
+  }
+};
+
+window.clearPriceChange = async function () {
+  if (!confirm("Cancel the scheduled price change?\n\nBookings already taken keep the price they were quoted.")) return;
+  try {
+    await remove(ref(db, "settings/priceChange"));
+    priceChange = null;
+    document.getElementById("pc-date").value = "";
+    renderPriceChangeUI();
+    showToast("Scheduled price change cancelled.");
+  } catch (e) { showToast("Couldn't cancel it. Please try again."); }
+};
+
+// ═══════════════════════════════════
 //  COMBO OFFERS
 // ═══════════════════════════════════
 
@@ -2653,7 +2773,8 @@ function renderAnnouncementUI() {
       annRender(announcement.text, announcement.date);
     const daysLeft = Math.max(0, Math.ceil((announcement.expiresAt - Date.now()) / DAY_MS));
     document.getElementById("ann-active-meta").textContent =
-      daysLeft <= 1 ? "Disappears today" : `Disappears in ${daysLeft} days`;
+      (announcement.important ? "Pops up once per customer · " : "") +
+      (daysLeft <= 1 ? "Disappears today" : `Disappears in ${daysLeft} days`);
     box.classList.remove("hidden");
 
     // Prefill the form so "edit" is just changing the text and pressing Show
@@ -2661,6 +2782,7 @@ function renderAnnouncementUI() {
     if (t && !t.value) {
       t.value = announcement.text;
       if (announcement.date) document.getElementById("ann-date").value = announcement.date;
+      document.getElementById("ann-important").checked = announcement.important === true;
     }
   }
   updateAnnouncementPreview();
@@ -2682,8 +2804,10 @@ window.updateAnnouncementPreview = function () {
   const cnt  = document.getElementById("ann-count");
   if (cnt) cnt.textContent = `${text.length} / 200`;
   if (!prev) return;
+  const important = document.getElementById("ann-important")?.checked;
   prev.innerHTML = text.trim()
-    ? `<span class="ann-preview-icon">📢</span><span>${escapeHtml(annRender(text, date))}</span>`
+    ? `<span class="ann-preview-icon">📢</span><span>${escapeHtml(annRender(text, date))}${
+        important ? `<em class="ann-preview-note">Also shown as a pop-up.</em>` : ""}</span>`
     : `<span class="ann-preview-empty">Type a message above…</span>`;
 };
 
@@ -2731,6 +2855,7 @@ window.publishAnnouncement = async function () {
       // A fresh id means customers who dismissed the last one still see this
       id: "a" + Date.now(),
       text, date, createdAt: Date.now(), expiresAt,
+      important: document.getElementById("ann-important").checked,
     };
     await set(ref(db, "settings/announcement"), entry);
     announcement = entry;
@@ -2755,6 +2880,7 @@ window.removeAnnouncement = async function () {
     announcement = null;
     document.getElementById("ann-text").value = "";
     document.getElementById("ann-date").value = "";
+    document.getElementById("ann-important").checked = false;
     renderAnnouncementUI();
     showToast("Announcement removed.");
   } catch (e) {
