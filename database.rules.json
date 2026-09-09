@@ -47,8 +47,8 @@
       ".read": "auth != null",
       "$date": {
         "$time": {
-          ".validate": "newData.isString() && newData.val().length <= 60",
-          ".write": "auth != null && (root.child('admin/allowedUids').child(auth.uid).val() === true || !data.exists() || !root.child('bookings').child($date).child(data.val()).exists() || root.child('bookings').child($date).child(data.val()).child('status').val() === 'cancelled' || root.child('bookings').child($date).child(data.val()).child('status').val() === 'noshow' || root.child('bookings').child($date).child(data.val()).child('startTime').val() !== $time)"
+          ".validate": "newData.hasChildren(['bookingId','at']) && newData.child('bookingId').isString() && newData.child('bookingId').val().length <= 60 && newData.child('at').isNumber() && newData.child('at').val() <= now",
+          ".write": "auth != null && (root.child('admin/allowedUids').child(auth.uid).val() === true || !data.exists() || root.child('bookings').child($date).child(data.child('bookingId').val()).child('status').val() === 'cancelled' || root.child('bookings').child($date).child(data.child('bookingId').val()).child('status').val() === 'noshow' || (root.child('bookings').child($date).child(data.child('bookingId').val()).exists() && root.child('bookings').child($date).child(data.child('bookingId').val()).child('startTime').val() !== $time) || (!root.child('bookings').child($date).child(data.child('bookingId').val()).exists() && data.child('at').val() < now - 120000))"
         }
       }
     },

@@ -25,7 +25,9 @@ await env.withSecurityRulesDisabled(async c => {
     waitlist: { '2026-09-10': { other1:{at:1} } },
     blockedPhones: { abc123:{last4:'4867',blockedAt:1} },
     settings: { closure:{active:false}, lunch:{start:'13:00'} },
-    slots: { '2026-09-10': { '10:00':'bk1', '11:00':'bk2', '12:00':'bk3' } },
+    slots: { '2026-09-10': {
+      '10:00':{bookingId:'bk1',at:Date.now()}, '11:00':{bookingId:'bk2',at:Date.now()},
+      '12:00':{bookingId:'bk3',at:Date.now()} } },
   });
 });
 
@@ -47,7 +49,7 @@ async function probe(sev, label, who, fn, expectAllowed=false){
 const B='bookings/2026-09-10';
 
 // ── the app must keep working ──
-await probe('CRIT','[app] customer claims a free slot','victim', d=>set(ref(d,'slots/2026-09-10/14:00'),'bk4'), true);
+await probe('CRIT','[app] customer claims a free slot','victim', d=>set(ref(d,'slots/2026-09-10/14:00'),{bookingId:'bk4',at:Date.now()}), true);
 await probe('CRIT','[app] customer writes their own booking','victim', d=>set(ref(d,B+'/bk4'),
   {uid:'victimUid',name:'Victim',serviceName:'Facial',price:200,startTime:'14:00',duration:40,status:'confirmed',source:'client'}), true);
 await probe('CRIT','[app] customer reads slot locks','victim', d=>get(ref(d,'slots/2026-09-10')), true);
@@ -103,25 +105,44 @@ await probe('CRIT','[app] admin cancels a customer booking','admin', d=>update(r
 // seed a definitely-active booking + lock, so earlier probes can't have freed it
 await env.withSecurityRulesDisabled(async c=>{ const d=c.database();
   await set(ref(d,B+'/live1'),{uid:'other1',name:'Someone',serviceName:'Facial',price:200,startTime:'20:00',duration:40,status:'confirmed',source:'client'});
-  await set(ref(d,'slots/2026-09-10/20:00'),'live1'); });
-await probe('CRIT','[attack] steal an ACTIVE slot lock (double-book)','attacker', d=>set(ref(d,'slots/2026-09-10/20:00'),'evil'));
+  await set(ref(d,'slots/2026-09-10/20:00'),{bookingId:'live1',at:Date.now()}); });
+await probe('CRIT','[attack] steal an ACTIVE slot lock (double-book)','attacker', d=>set(ref(d,'slots/2026-09-10/20:00'),{bookingId:'evil',at:Date.now()}));
 await probe('CRIT','[attack] free a slot by deleting its lock','attacker', d=>remove(ref(d,'slots/2026-09-10/20:00')));
-await probe('CRIT','[app] a genuinely free slot is claimable','attacker', d=>set(ref(d,'slots/2026-09-10/21:00'),'newbk'), true);
+await probe('CRIT','[app] a genuinely free slot is claimable','attacker', d=>set(ref(d,'slots/2026-09-10/21:00'),{bookingId:'newbk',at:Date.now()}), true);
 await probe('CRIT','[attack] wipe all slot locks','attacker', d=>remove(ref(d,'slots/2026-09-10')));
 await probe('CRIT','[attack] overwrite the whole slots node','attacker', d=>set(ref(d,'slots'),{x:1}));
 await probe('CRIT','[app] slot frees itself once the booking is cancelled','victim', async d=>{
   await env.withSecurityRulesDisabled(async c=>{ await update(ref(c.database(),B+'/bk2'),{status:'cancelled'}); });
-  await set(ref(d,'slots/2026-09-10/11:00'),'rebooked');
+  await set(ref(d,'slots/2026-09-10/11:00'),{bookingId:'rebooked',at:Date.now()});
 }, true);
-await probe('CRIT','[app] slot frees itself once the booking is deleted','victim', async d=>{
-  await env.withSecurityRulesDisabled(async c=>{ await remove(ref(c.database(),B+'/bk3')); });
-  await set(ref(d,'slots/2026-09-10/12:00'),'rebooked2');
+// Admin deletion drops the lock explicitly (see releaseSlotLock in admin.js),
+// so the slot reopens at once rather than waiting out the grace period.
+await probe('CRIT','[app] deleting a booking reopens its slot','victim', async d=>{
+  await env.withSecurityRulesDisabled(async c=>{
+    await remove(ref(c.database(),B+'/bk3'));
+    await remove(ref(c.database(),'slots/2026-09-10/12:00'));
+  });
+  await set(ref(d,'slots/2026-09-10/12:00'),{bookingId:'rebooked2',at:Date.now()});
 }, true);
+await probe('CRIT','[app] admin can drop a slot lock','admin', d=>remove(ref(d,'slots/2026-09-10/13:00')), true);
 await probe('CRIT','[app] slot frees itself when admin moves the booking','victim', async d=>{
   await env.withSecurityRulesDisabled(async c=>{ await update(ref(c.database(),B+'/bk1'),{startTime:'19:00'}); });
-  await set(ref(d,'slots/2026-09-10/10:00'),'rebooked3');
+  await set(ref(d,'slots/2026-09-10/10:00'),{bookingId:'rebooked3',at:Date.now()});
 }, true);
-await probe('CRIT','[app] admin can always take a slot','admin', d=>set(ref(d,'slots/2026-09-10/09:00'),'walkin'), true);
+await probe('CRIT','[app] admin can always take a slot','admin', d=>set(ref(d,'slots/2026-09-10/09:00'),{bookingId:'walkin',at:Date.now()}), true);
+// The duplicate-bookings bug: a lock claimed a moment ago whose booking has
+// not been written yet must NOT be claimable by a second, simultaneous tap.
+await env.withSecurityRulesDisabled(async c=>{
+  await set(ref(c.database(),'slots/2026-09-10/22:00'),{bookingId:'notyet',at:Date.now()}); });
+await probe('CRIT','[race] second tap cannot steal a just-claimed lock','victim',
+  d=>set(ref(d,'slots/2026-09-10/22:00'),{bookingId:'dupe',at:Date.now()}));
+// but an abandoned claim (booking never landed) frees up after the grace period
+await env.withSecurityRulesDisabled(async c=>{
+  await set(ref(c.database(),'slots/2026-09-10/23:00'),{bookingId:'abandoned',at:Date.now()-5*60*1000}); });
+await probe('CRIT','[app] an abandoned claim frees up after 2 minutes','victim',
+  d=>set(ref(d,'slots/2026-09-10/23:00'),{bookingId:'retry',at:Date.now()}), true);
+await probe('WARN','[attack] backdate a lock to make it stealable later','attacker',
+  d=>set(ref(d,'slots/2026-09-10/07:00'),{bookingId:'x',at:Date.now()+60*60*1000}));
 await probe('CRIT','[attack] read bookings while signed OUT','anon', d=>get(ref(d,'bookings')));
 await probe('CRIT','[attack] read users while signed OUT','anon', d=>get(ref(d,'users')));
 

@@ -181,6 +181,14 @@
           </div>
         </div>
 
+        <!-- Shown only when a day has the same customer booked twice at one time -->
+        <div id="dupe-banner" class="dupe-banner hidden">
+          <span class="dupe-banner-msg" id="dupe-banner-msg"></span>
+          <button class="btn btn-sm btn-danger" id="btn-clean-dupes" onclick="cleanDuplicates()">
+            Move extras to Trash
+          </button>
+        </div>
+
         <div id="bookings-loading" class="skel-list">
           <div class="skel-booking">
             <span class="skel skb-time"></span><div class="skb-sep"></div>

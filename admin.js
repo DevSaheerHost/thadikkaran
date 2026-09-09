@@ -555,6 +555,7 @@ function loadBookings() {
 
     // Update stats immediately from bookings snapshot — don't wait for blocks
     updateStats(bookingItems);
+    renderDuplicateBanner(bookingItems);
 
     // Also load blocks + contacts (admin-only phone branch) for full card rendering
     Promise.all([
@@ -878,6 +879,82 @@ async function updateFutureBadge() {
     badge.remove();
   }
 }
+
+/**
+ * The same customer booked twice at the same time is always a mistake — it
+ * used to happen when an impatient tap on a slow connection fired the booking
+ * more than once. Offer to bin the extras rather than making the admin cancel
+ * and delete each one by hand.
+ */
+function duplicateGroups(items) {
+  const live = items.filter(b =>
+    b && b.uid && b.startTime && b.source !== "block" &&
+    b.status !== "cancelled" && b.status !== "noshow" && b.status !== "finished");
+
+  const byKey = {};
+  live.forEach(b => {
+    const k = `${b.uid}|${b.startTime}|${b.serviceId || ""}`;
+    (byKey[k] ||= []).push(b);
+  });
+  return Object.values(byKey)
+    .filter(g => g.length > 1)
+    // Keep the first one booked, bin the rest
+    .map(g => g.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)));
+}
+
+function renderDuplicateBanner(items) {
+  const bar = document.getElementById("dupe-banner");
+  if (!bar) return;
+  const groups = duplicateGroups(items);
+  const extras = groups.reduce((n, g) => n + g.length - 1, 0);
+
+  if (!extras) { bar.classList.add("hidden"); return; }
+  document.getElementById("dupe-banner-msg").textContent =
+    `${extras} duplicate booking${extras === 1 ? "" : "s"} on this day` +
+    ` (${groups.length} customer${groups.length === 1 ? "" : "s"} booked twice at the same time).`;
+  bar.classList.remove("hidden");
+}
+
+window.cleanDuplicates = async function () {
+  const snap = await get(ref(db, `bookings/${currentDateKey}`));
+  if (!snap.exists()) return;
+  const items = [];
+  snap.forEach(c => items.push({ key: c.key, ...c.val() }));
+
+  const groups = duplicateGroups(items);
+  const extras = groups.flatMap(g => g.slice(1));      // keep g[0]
+  if (!extras.length) { showToast("No duplicates left."); return; }
+
+  if (!confirm(
+    `Move ${extras.length} duplicate booking${extras.length === 1 ? "" : "s"} to the Recycle Bin?\n\n` +
+    `The first booking each customer made is kept. Nothing is permanently deleted.`)) return;
+
+  const btn = document.getElementById("btn-clean-dupes");
+  btn.disabled = true;
+  btn.textContent = "Cleaning…";
+  let done = 0;
+  try {
+    for (const b of extras) {
+      const { key, ...rest } = b;
+      await set(ref(db, `deleted/${currentDateKey}/${key}`), {
+        ...rest, deletedAt: Date.now(), deletedFrom: currentDateKey, deletedReason: "duplicate",
+      });
+      await remove(ref(db, `bookings/${currentDateKey}/${key}`));
+      done++;
+    }
+    // The kept booking still holds the slot, so re-point the lock at it
+    for (const g of groups) {
+      await claimSlotLock(currentDateKey, g[0].startTime, g[0].key);
+    }
+    showToast(`✓ ${done} duplicate${done === 1 ? "" : "s"} moved to the Recycle Bin.`, 6000);
+    loadBookings();
+  } catch (e) {
+    showToast(`Cleaned ${done}, then hit an error. Try again.`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Move extras to Trash";
+  }
+};
 
 function updateStats(items) {
   const bookings  = items.filter(b => b.source !== "block");
@@ -3724,6 +3801,7 @@ window.deleteBooking = async function (key, dateKey) {
     const data = { ...snap.val(), deletedAt: Date.now(), deletedFrom: dateKey };
     await set(ref(db, `deleted/${dateKey}/${key}`), data);
     await remove(ref(db, `bookings/${dateKey}/${key}`));
+    await releaseSlotLock(dateKey, data.startTime, key);
     showToast("Moved to Recycle Bin.");
     loadBookings();
   } catch (e) {
@@ -3769,6 +3847,32 @@ async function slotConflicts(dateKey, startTime, duration, ignoreKey) {
   return hits;
 }
 
+/**
+ * Slot locks (slots/{date}/{HH:MM}) are what stop two customers grabbing the
+ * same time. The rules let an abandoned lock be reclaimed after a couple of
+ * minutes, but when we knowingly free or take a slot we say so immediately
+ * rather than leaving customers waiting out the grace period.
+ */
+async function releaseSlotLock(dateKey, startTime, bookingKey) {
+  if (!dateKey || !startTime) return;
+  try {
+    const lockRef = ref(db, `slots/${dateKey}/${startTime}`);
+    const snap = await get(lockRef);
+    // Only drop it if it's still ours — the slot may have been re-taken
+    if (snap.exists() && snap.val() && snap.val().bookingId !== bookingKey) return;
+    await remove(lockRef);
+  } catch (_) { /* the grace period still frees it */ }
+}
+
+async function claimSlotLock(dateKey, startTime, bookingKey) {
+  if (!dateKey || !startTime) return;
+  try {
+    await set(ref(db, `slots/${dateKey}/${startTime}`), {
+      bookingId: bookingKey, at: Date.now(),
+    });
+  } catch (_) { /* booking is restored either way */ }
+}
+
 window.restoreBooking = async function (key, dateKey) {
   try {
     const snap = await get(ref(db, `deleted/${dateKey}/${key}`));
@@ -3791,6 +3895,7 @@ window.restoreBooking = async function (key, dateKey) {
 
     await set(ref(db, `bookings/${dateKey}/${key}`), data);
     await remove(ref(db, `deleted/${dateKey}/${key}`));
+    await claimSlotLock(dateKey, data.startTime, key);
     showToast("Booking restored.");
     loadTrash();
   } catch (e) {
