@@ -2653,7 +2653,8 @@ function renderAnnouncementUI() {
       annRender(announcement.text, announcement.date);
     const daysLeft = Math.max(0, Math.ceil((announcement.expiresAt - Date.now()) / DAY_MS));
     document.getElementById("ann-active-meta").textContent =
-      daysLeft <= 1 ? "Disappears today" : `Disappears in ${daysLeft} days`;
+      (announcement.important ? "Pops up once per customer · " : "") +
+      (daysLeft <= 1 ? "Disappears today" : `Disappears in ${daysLeft} days`);
     box.classList.remove("hidden");
 
     // Prefill the form so "edit" is just changing the text and pressing Show
@@ -2661,6 +2662,7 @@ function renderAnnouncementUI() {
     if (t && !t.value) {
       t.value = announcement.text;
       if (announcement.date) document.getElementById("ann-date").value = announcement.date;
+      document.getElementById("ann-important").checked = announcement.important === true;
     }
   }
   updateAnnouncementPreview();
@@ -2682,8 +2684,10 @@ window.updateAnnouncementPreview = function () {
   const cnt  = document.getElementById("ann-count");
   if (cnt) cnt.textContent = `${text.length} / 200`;
   if (!prev) return;
+  const important = document.getElementById("ann-important")?.checked;
   prev.innerHTML = text.trim()
-    ? `<span class="ann-preview-icon">📢</span><span>${escapeHtml(annRender(text, date))}</span>`
+    ? `<span class="ann-preview-icon">📢</span><span>${escapeHtml(annRender(text, date))}${
+        important ? `<em class="ann-preview-note">Also shown as a pop-up.</em>` : ""}</span>`
     : `<span class="ann-preview-empty">Type a message above…</span>`;
 };
 
@@ -2731,6 +2735,7 @@ window.publishAnnouncement = async function () {
       // A fresh id means customers who dismissed the last one still see this
       id: "a" + Date.now(),
       text, date, createdAt: Date.now(), expiresAt,
+      important: document.getElementById("ann-important").checked,
     };
     await set(ref(db, "settings/announcement"), entry);
     announcement = entry;
@@ -2755,6 +2760,7 @@ window.removeAnnouncement = async function () {
     announcement = null;
     document.getElementById("ann-text").value = "";
     document.getElementById("ann-date").value = "";
+    document.getElementById("ann-important").checked = false;
     renderAnnouncementUI();
     showToast("Announcement removed.");
   } catch (e) {

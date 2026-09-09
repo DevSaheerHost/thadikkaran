@@ -496,7 +496,32 @@ function applyAnnouncementUI() {
   if (!live || dismissed || isShopClosedNow()) { bar.classList.add("hidden"); return; }
   document.getElementById("announce-text").textContent = announcementText(a);
   bar.classList.remove("hidden");
+
+  maybeShowAnnouncementModal(a);
 }
+
+// An "important" announcement also interrupts once, so it can't be scrolled
+// past. Seen state is per announcement id, so a new notice pops up again.
+function maybeShowAnnouncementModal(a) {
+  if (!a.important) return;
+  let seen = false;
+  try { seen = localStorage.getItem("annSeen") === a.id; } catch (_) {}
+  if (seen) return;
+
+  const modal = document.getElementById("announce-modal");
+  if (!modal) return;
+  document.getElementById("announce-modal-text").textContent = announcementText(a);
+  modal.classList.remove("hidden");
+}
+
+window.closeAnnouncementModal = function () {
+  try {
+    if (currentAnnouncement && currentAnnouncement.id) {
+      localStorage.setItem("annSeen", currentAnnouncement.id);
+    }
+  } catch (_) {}
+  document.getElementById("announce-modal")?.classList.add("hidden");
+};
 
 window.dismissAnnouncement = function () {
   try {

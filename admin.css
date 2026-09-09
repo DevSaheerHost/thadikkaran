@@ -2723,3 +2723,31 @@ body {
   border-radius: var(--radius-sm);
 }
 .dupe-banner-msg { flex: 1; min-width: 180px; font-size: 0.82rem; color: #7f1d1d; }
+
+/* "Make sure they see it" toggle */
+.ann-important {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.6rem 0.7rem;
+  margin-bottom: 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card, #fff);
+  cursor: pointer;
+}
+.ann-important input {
+  width: 16px; height: 16px;
+  margin-top: 2px;
+  accent-color: var(--black);
+  flex-shrink: 0;
+}
+.ann-important strong { display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-main); }
+.ann-important em {
+  display: block;
+  font-style: normal;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.ann-preview-note { display: block; font-style: normal; font-size: 0.72rem; opacity: 0.8; margin-top: 3px; }

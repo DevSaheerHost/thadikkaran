@@ -156,6 +156,16 @@
       <button class="btn btn-outline" onclick="openMyBookings()">View My Bookings</button>
     </div>
 
+    <!-- Important announcement — shown once per customer, per announcement -->
+    <div id="announce-modal" class="modal-overlay hidden">
+      <div class="modal-box announce-modal-box">
+        <div class="am-icon">📢</div>
+        <h3 class="am-title">A quick note</h3>
+        <p class="am-text" id="announce-modal-text"></p>
+        <button class="btn btn-primary btn-full" onclick="closeAnnouncementModal()">Got it</button>
+      </div>
+    </div>
+
     <!-- Admin announcement (price change, new timings, …) -->
     <div id="announce-bar" class="announce-bar hidden">
       <span class="ab-icon">📢</span>
