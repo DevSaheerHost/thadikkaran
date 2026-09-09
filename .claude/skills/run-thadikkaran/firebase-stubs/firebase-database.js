@@ -68,21 +68,26 @@ function recordWrite(op, r, data) {
   return Promise.resolve();
 }
 export function set(r, data)     { return recordWrite('set', r, data); }
+function maybeDelay(v) {
+  const ms = (typeof window !== 'undefined' && window.__stubReadDelayMs) || 0;
+  return ms ? new Promise(res => setTimeout(() => res(v), ms)) : Promise.resolve(v);
+}
 export function get(r)           {
   // Allow preview scripts to grant admin access via window.__stubAdminUid
   if (typeof window !== 'undefined' && window.__stubAdminUid &&
       r._path && r._path.includes('allowedUids/' + window.__stubAdminUid)) {
-    return Promise.resolve(makeSnap(true, window.__stubAdminUid));
+    return maybeDelay(makeSnap(true, window.__stubAdminUid));
   }
   // Allow preview scripts to seed data by exact path via window.__stubData
   if (typeof window !== 'undefined' && window.__stubData && r._path &&
       Object.prototype.hasOwnProperty.call(window.__stubData, r._path)) {
-    return Promise.resolve(makeSnap(window.__stubData[r._path], r._path.split('/').pop()));
+    return maybeDelay(makeSnap(window.__stubData[r._path], r._path.split('/').pop()));
   }
-  return Promise.resolve(snap);
+  return maybeDelay(snap);
 }
 export function update(r, data)  { return Promise.resolve(); }
 export function remove(r)        { return recordWrite('remove', r); }
+export function serverTimestamp() { return Date.now(); }
 export function query(r, ...c)   { return r; }
 export function orderByChild(p)  { return { _type: 'orderByChild', _path: p }; }
 export function equalTo(v)       { return { _type: 'equalTo', _value: v }; }

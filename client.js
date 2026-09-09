@@ -25,7 +25,8 @@ import {
   orderByChild,
   equalTo,
   onValue,
-  remove
+  remove,
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import {
   getMessaging,
@@ -1234,17 +1235,46 @@ function populateConfirm() {
 //  BOOKING SUBMISSION
 // ═══════════════════════════════════
 
+let bookingInFlight = false;
+
 window.confirmBooking = async function () {
   if (!currentUser || !selectedService || !selectedDate || !selectedSlot) return;
 
+  // Lock the button BEFORE any await. The block/closure checks below are
+  // network round-trips; leaving the button live during them let an impatient
+  // customer fire this handler repeatedly and create a booking per tap.
+  if (bookingInFlight) return;
+  bookingInFlight = true;
+  const confirmBtn = document.getElementById("btn-confirm");
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = "Booking...";
+
+  const release = () => {
+    bookingInFlight = false;
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = "Confirm Appointment";
+  };
+
+  try {
+    await runConfirmBooking(release);
+  } catch (err) {
+    release();
+    document.getElementById("booking-error").textContent = "Booking failed. Please try again.";
+    document.getElementById("booking-error").classList.remove("hidden");
+  }
+};
+
+async function runConfirmBooking(release) {
   // Guard: re-check block status at submit time — account flag AND phone,
   // so a fresh account reusing a blocked number still can't book.
   const blockedSnap = await get(ref(db, `users/${currentUser.uid}/blocked`));
   if (blockedSnap.exists() && blockedSnap.val() === true) {
+    release();
     showBlockedScreen();
     return;
   }
   if (await isPhoneBlocked(userPhone)) {
+    release();
     showBlockedScreen();
     return;
   }
@@ -1255,6 +1285,7 @@ window.confirmBooking = async function () {
     shopClosure = cSnap.exists() ? cSnap.val() : null;
   } catch (_) { /* fall back to the watched value */ }
   if (isDateClosedByClosure(formatDateKey(selectedDate))) {
+    release();
     applyClosureUI();
     document.getElementById("booking-error").textContent =
       "The shop just closed for this date. Please check back later.";
@@ -1263,8 +1294,6 @@ window.confirmBooking = async function () {
   }
 
   const btn = document.getElementById("btn-confirm");
-  btn.textContent = "Booking...";
-  btn.disabled = true;
 
   const dateKey  = formatDateKey(selectedDate);
   const startStr = `${String(selectedSlot[0]).padStart(2,"0")}:${String(selectedSlot[1]).padStart(2,"0")}`;
@@ -1303,8 +1332,7 @@ window.confirmBooking = async function () {
       document.getElementById("booking-error").textContent =
         "⚡ This slot was just booked by someone else! Please go back and choose a different time.";
       document.getElementById("booking-error").classList.remove("hidden");
-      btn.textContent = "Confirm Appointment";
-      btn.disabled = false;
+      release();
     };
 
     // Longer services can span more than one slot, so check the whole day for
@@ -1325,7 +1353,14 @@ window.confirmBooking = async function () {
     // the whole day (and with it the ability to delete other people's
     // appointments).
     try {
-      await set(ref(db, `slots/${dateKey}/${startStr}`), bookingKey);
+      // The lock is stamped with a server timestamp: the rules only let a
+      // later claimer take over a lock whose booking never landed after a
+      // two-minute grace period, so simultaneous taps can't all claim it
+      // during the gap between claiming and writing the booking.
+      await set(ref(db, `slots/${dateKey}/${startStr}`), {
+        bookingId: bookingKey,
+        at: serverTimestamp(),
+      });
     } catch (_) {
       slotTaken();
       return;
@@ -1366,13 +1401,14 @@ window.confirmBooking = async function () {
 
     loadMyHistory();
     showSuccessModal();
+    // Stays locked on success — the success modal resets the flow.
+    bookingInFlight = false;
   } catch (err) {
+    release();
     document.getElementById("booking-error").textContent = "Booking failed. Please try again.";
     document.getElementById("booking-error").classList.remove("hidden");
-    btn.textContent = "Confirm Appointment";
-    btn.disabled = false;
   }
-};
+}
 
 function showSuccessModal() {
   document.getElementById("success-details").innerHTML = `
