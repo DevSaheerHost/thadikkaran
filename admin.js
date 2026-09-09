@@ -2762,6 +2762,22 @@ function announcementIsLive(a) {
   return !!(a && a.text && a.expiresAt && Date.now() < a.expiresAt);
 }
 
+/**
+ * Which "Show for" option a live announcement was published with. Older ones
+ * pre-date the stored value, so fall back to working it back out from how long
+ * it was set to run.
+ */
+function announcementDuration(a) {
+  if (!a) return null;
+  if (a.duration) return String(a.duration);
+  if (a.date && a.expiresAt === new Date(a.date + "T00:00:00").getTime() + DAY_MS) return "until";
+  if (a.createdAt && a.expiresAt) {
+    const days = Math.round((a.expiresAt - a.createdAt) / DAY_MS);
+    if (["3", "7", "14", "30"].includes(String(days))) return String(days);
+  }
+  return null;
+}
+
 function renderAnnouncementUI() {
   const box = document.getElementById("ann-active-box");
   if (!box) return;
@@ -2772,9 +2788,11 @@ function renderAnnouncementUI() {
     document.getElementById("ann-active-preview").textContent =
       annRender(announcement.text, announcement.date);
     const daysLeft = Math.max(0, Math.ceil((announcement.expiresAt - Date.now()) / DAY_MS));
+    const goneOn = new Date(announcement.expiresAt)
+      .toLocaleDateString("en-IN", { day: "numeric", month: "short" });
     document.getElementById("ann-active-meta").textContent =
       (announcement.important ? "Pops up once per customer · " : "") +
-      (daysLeft <= 1 ? "Disappears today" : `Disappears in ${daysLeft} days`);
+      (daysLeft <= 1 ? "Disappears today" : `Disappears ${goneOn} (in ${daysLeft} days)`);
     box.classList.remove("hidden");
 
     // Prefill the form so "edit" is just changing the text and pressing Show
@@ -2783,6 +2801,11 @@ function renderAnnouncementUI() {
       t.value = announcement.text;
       if (announcement.date) document.getElementById("ann-date").value = announcement.date;
       document.getElementById("ann-important").checked = announcement.important === true;
+      // Show the live setting, so pressing Show again doesn't silently
+      // shorten an announcement that was set to run longer.
+      const dur = announcementDuration(announcement);
+      const sel = document.getElementById("ann-duration");
+      if (dur && sel && [...sel.options].some(o => o.value === dur)) sel.value = dur;
     }
   }
   updateAnnouncementPreview();
@@ -2855,6 +2878,7 @@ window.publishAnnouncement = async function () {
       // A fresh id means customers who dismissed the last one still see this
       id: "a" + Date.now(),
       text, date, createdAt: Date.now(), expiresAt,
+      duration: dur,            // so the form can show what's actually live
       important: document.getElementById("ann-important").checked,
     };
     await set(ref(db, "settings/announcement"), entry);
@@ -2881,6 +2905,7 @@ window.removeAnnouncement = async function () {
     document.getElementById("ann-text").value = "";
     document.getElementById("ann-date").value = "";
     document.getElementById("ann-important").checked = false;
+    document.getElementById("ann-duration").value = "7";
     renderAnnouncementUI();
     showToast("Announcement removed.");
   } catch (e) {
