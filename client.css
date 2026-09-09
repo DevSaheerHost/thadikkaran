@@ -1682,3 +1682,15 @@ body {
   color: var(--text-muted);
   margin: 0 0 1.25rem;
 }
+
+/* Note shown when the chosen date is on new prices */
+.price-change-note {
+  margin: 0 0 0.9rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: var(--radius-sm);
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #713f12;
+}

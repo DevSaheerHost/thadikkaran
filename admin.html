@@ -565,6 +565,33 @@
           <div id="service-settings-list" class="service-settings-list"></div>
         </div>
 
+        <!-- Scheduled Price Change -->
+        <div class="settings-section">
+          <h3 class="section-mini-title">Scheduled Price Change</h3>
+          <p class="settings-hint">Set new prices to start on a future date. Bookings customers make now for that date onwards are quoted and charged at the new price, so nobody locks in the old rate early.</p>
+
+          <div id="pc-active" class="pc-active hidden">
+            <div class="pc-active-head"><span class="pc-dot"></span><strong id="pc-active-title"></strong></div>
+            <div class="pc-active-list" id="pc-active-list"></div>
+            <button class="btn btn-sm btn-outline" onclick="clearPriceChange()" id="btn-pc-clear">
+              Cancel scheduled change
+            </button>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label">New prices start on</label>
+            <input type="date" id="pc-date" class="input-field" />
+          </div>
+
+          <label class="input-label">New prices <span class="ann-optional">(leave blank to keep the current price)</span></label>
+          <div id="pc-rows" class="pc-rows"></div>
+
+          <div id="pc-error" class="error-msg hidden"></div>
+          <button class="btn btn-primary" onclick="savePriceChange()" id="btn-pc-save">
+            Schedule Price Change
+          </button>
+        </div>
+
         <!-- Combo Offers -->
         <div class="settings-section">
           <h3 class="section-mini-title">Combo Offers</h3>

@@ -2751,3 +2751,42 @@ body {
   margin-top: 2px;
 }
 .ann-preview-note { display: block; font-style: normal; font-size: 0.72rem; opacity: 0.8; margin-top: 3px; }
+
+/* Scheduled price change */
+.pc-active {
+  padding: 0.85rem 1rem;
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+  border-radius: var(--radius-sm);
+  margin-bottom: 1rem;
+}
+.pc-active-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #713f12;
+  margin-bottom: 0.6rem;
+}
+.pc-dot { width: 8px; height: 8px; border-radius: 50%; background: #d4a34e; flex-shrink: 0; }
+.pc-active-list { display: flex; flex-direction: column; gap: 3px; margin-bottom: 0.75rem; }
+.pc-active-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.7rem;
+  font-size: 0.82rem;
+  color: var(--text-main);
+}
+.pc-arrow { color: var(--text-muted); white-space: nowrap; }
+.pc-arrow strong { color: var(--text-main); }
+
+.pc-rows { display: flex; flex-direction: column; gap: 4px; margin: 0.4rem 0 1rem; }
+.pc-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0;
+}
+.pc-row-name { flex: 1; min-width: 0; font-size: 0.85rem; }
+.pc-row-now  { font-size: 0.76rem; color: var(--text-muted); white-space: nowrap; }
+.pc-row-input { width: 92px; flex-shrink: 0; text-align: right; }
