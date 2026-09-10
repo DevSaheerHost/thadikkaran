@@ -57,8 +57,8 @@ const VAPID_KEY = "BJljfSryCZol-Pg9YfT2x9OKMP4kom5Q6OBeuzgN4773-PLqhvhTPFOVA2PRv
 // Shop location — update coordinates after confirming on Google Maps
 const SHOP_MAPS_URL = "https://maps.app.goo.gl/154dzix1R8gMgs938";
 const SHOP_AREA = "Kizhakkambalam, Ernakulam";
-const SHOP_LAT = 10.1787967;
-const SHOP_LNG = 76.3307853;
+const SHOP_LAT = 10.1788178;
+const SHOP_LNG = 76.3307866;
 // ── Services Data ──
 const SERVICES = [
   { id: "haircut",       name: "Hair Cut (Mens)",    price: 150,  duration: 40,  priceDisplay: "₹150" },
