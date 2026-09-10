@@ -1694,3 +1694,12 @@ body {
   line-height: 1.45;
   color: #713f12;
 }
+
+/* Shown when the browser has location blocked — the setting is the only fix */
+.loc-help {
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--mid-gray);
+}
+.loc-help strong { color: var(--text-main); font-weight: 600; }

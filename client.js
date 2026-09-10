@@ -1563,21 +1563,9 @@ window.openLocationPanel = function () {
  * leave "Getting your distance…" on screen forever. Every path below now
  * ends in a final message, and the line is tappable to try again.
  */
-// Once a browser has blocked location for a site it never re-prompts, so
-// offering "tap to allow" there is a dead end — the retry fails instantly and
-// re-renders the same text, which just looks broken.
-let geoBlocked = false;
-
-async function geoPermissionState() {
-  try {
-    if (!navigator.permissions || !navigator.permissions.query) return null;
-    const st = await navigator.permissions.query({ name: "geolocation" });
-    return st.state;                       // granted | denied | prompt
-  } catch (_) { return null; }             // Safari doesn't support this query
-}
-
 window.requestDistance = async function () {
-  const el = document.getElementById("loc-distance");
+  const el   = document.getElementById("loc-distance");
+  const help = document.getElementById("loc-help");
   if (!el) return;
 
   const settle = (text, retryable) => {
@@ -1585,20 +1573,19 @@ window.requestDistance = async function () {
     el.classList.toggle("loc-distance--retry", !!retryable);
     el.onclick = retryable ? requestDistance : null;
   };
-  // Blocked: show where the shop is and say why there's no distance, rather
-  // than inviting a tap that cannot do anything.
-  const settleBlocked = () => {
-    geoBlocked = true;
-    settle(`${SHOP_AREA} · location off`, false);
-  };
+  const showHelp = (on) => help && help.classList.toggle("hidden", !on);
 
-  if (lastKnownDistance) { settle(lastKnownDistance, false); return; }
-  if (!SHOP_LAT || !SHOP_LNG || !navigator.geolocation) { settle(SHOP_AREA, false); return; }
-  if (geoBlocked) { settleBlocked(); return; }
+  if (lastKnownDistance) { settle(lastKnownDistance, false); showHelp(false); return; }
+  if (!SHOP_LAT || !SHOP_LNG || !navigator.geolocation) {
+    settle(SHOP_AREA, false); showHelp(false); return;
+  }
 
   settle("Getting your distance…", false);
-  if (await geoPermissionState() === "denied") { settleBlocked(); return; }
+  showHelp(false);
 
+  // Always actually ask. Calling getCurrentPosition is the only thing that can
+  // raise the browser's permission prompt, and the customer may have changed
+  // the setting since last time — so never skip it or cache a refusal.
   let done = false;
   navigator.geolocation.getCurrentPosition(
     ({ coords }) => {
@@ -1609,23 +1596,30 @@ window.requestDistance = async function () {
       lastKnownDistance =
         `${km < 1 ? (km * 1000).toFixed(0) + " m" : km.toFixed(1) + " km"} away · ~${driveMin} min drive`;
       settle(lastKnownDistance, false);
+      showHelp(false);
     },
     (err) => {
       if (done) return;
       done = true;
-      // code 1 = PERMISSION_DENIED. Re-asking won't bring the prompt back.
-      if (err && err.code === 1) { settleBlocked(); return; }
-      settle("Couldn't get your location · tap to retry", true);
+      // code 1 = the browser refused. It won't re-prompt on its own, so show
+      // the one thing that does work — the setting — and keep the retry live
+      // for when they come back from changing it.
+      if (err && err.code === 1) {
+        settle("Location is off · tap to try again", true);
+        showHelp(true);
+        return;
+      }
+      settle("Couldn't get your location · tap to try again", true);
+      showHelp(false);
     },
     { timeout: 8000, maximumAge: 5 * 60 * 1000, enableHighAccuracy: false }
   );
 
-  // Belt and braces: some browsers fire neither callback when a permission
-  // prompt is dismissed rather than answered — that one is worth retrying.
+  // Some browsers fire neither callback when a prompt is dismissed
   setTimeout(() => {
     if (done) return;
     done = true;
-    settle("Couldn't get your location · tap to retry", true);
+    settle("Couldn't get your location · tap to try again", true);
   }, 9000);
 };
 
