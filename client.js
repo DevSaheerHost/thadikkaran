@@ -1563,6 +1563,15 @@ window.openLocationPanel = function () {
  * leave "Getting your distance…" on screen forever. Every path below now
  * ends in a final message, and the line is tappable to try again.
  */
+// Only ever used to word an error correctly — never to skip asking.
+async function geoPermissionState() {
+  try {
+    if (!navigator.permissions || !navigator.permissions.query) return null;
+    const st = await navigator.permissions.query({ name: "geolocation" });
+    return st.state;                       // granted | denied | prompt
+  } catch (_) { return null; }             // Safari doesn't support this query
+}
+
 window.requestDistance = async function () {
   const el   = document.getElementById("loc-distance");
   const help = document.getElementById("loc-help");
@@ -1573,15 +1582,24 @@ window.requestDistance = async function () {
     el.classList.toggle("loc-distance--retry", !!retryable);
     el.onclick = retryable ? requestDistance : null;
   };
-  const showHelp = (on) => help && help.classList.toggle("hidden", !on);
+  const HELP = {
+    site:   'Allow it in your browser: <strong>⋮ → Site settings → Location → Allow</strong>, then tap above.',
+    device: 'Switch on <strong>Location</strong> in your phone\'s settings (and let your browser use it), then tap above.',
+  };
+  const showHelp = (kind) => {
+    if (!help) return;
+    if (!kind) { help.classList.add("hidden"); return; }
+    help.innerHTML = HELP[kind];
+    help.classList.remove("hidden");
+  };
 
-  if (lastKnownDistance) { settle(lastKnownDistance, false); showHelp(false); return; }
+  if (lastKnownDistance) { settle(lastKnownDistance, false); showHelp(null); return; }
   if (!SHOP_LAT || !SHOP_LNG || !navigator.geolocation) {
-    settle(SHOP_AREA, false); showHelp(false); return;
+    settle(SHOP_AREA, false); showHelp(null); return;
   }
 
   settle("Getting your distance…", false);
-  showHelp(false);
+  showHelp(null);
 
   // Always actually ask. Calling getCurrentPosition is the only thing that can
   // raise the browser's permission prompt, and the customer may have changed
@@ -1596,21 +1614,29 @@ window.requestDistance = async function () {
       lastKnownDistance =
         `${km < 1 ? (km * 1000).toFixed(0) + " m" : km.toFixed(1) + " km"} away · ~${driveMin} min drive`;
       settle(lastKnownDistance, false);
-      showHelp(false);
+      showHelp(null);
     },
     (err) => {
       if (done) return;
       done = true;
-      // code 1 = the browser refused. It won't re-prompt on its own, so show
-      // the one thing that does work — the setting — and keep the retry live
-      // for when they come back from changing it.
-      if (err && err.code === 1) {
-        settle("Location is off · tap to try again", true);
-        showHelp(true);
-        return;
-      }
-      settle("Couldn't get your location · tap to try again", true);
-      showHelp(false);
+      const code = err && err.code;   // 1 denied, 2 unavailable, 3 timeout
+
+      // "Denied" can mean two very different things: this site is blocked in
+      // the browser, or the site is allowed and the phone's own location is
+      // off (or Android hasn't given the browser location access). Ask the
+      // browser which it is rather than guessing, so the advice is right.
+      geoPermissionState().then(state => {
+        if (code === 1 && state === "denied") {
+          settle("Location is off for this site · tap to try again", true);
+          showHelp("site");
+        } else if (code === 1 || code === 2) {
+          settle("Your phone's location is off · tap to try again", true);
+          showHelp("device");
+        } else {
+          settle("Couldn't get your location · tap to try again", true);
+          showHelp(null);
+        }
+      });
     },
     { timeout: 8000, maximumAge: 5 * 60 * 1000, enableHighAccuracy: false }
   );
