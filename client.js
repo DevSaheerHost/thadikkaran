@@ -56,6 +56,7 @@ const messaging = getMessaging(app);
 const VAPID_KEY = "BJljfSryCZol-Pg9YfT2x9OKMP4kom5Q6OBeuzgN4773-PLqhvhTPFOVA2PRvwTKDCc3ZeN1h1Uc0ilieNj6NQQ";
 // Shop location — update coordinates after confirming on Google Maps
 const SHOP_MAPS_URL = "https://maps.app.goo.gl/jXQPye2JHpAyTq4M9";
+const SHOP_AREA = "Kizhakkambalam, Ernakulam";
 const SHOP_LAT = 10.1787967;
 const SHOP_LNG = 76.3307853;
 // ── Services Data ──
@@ -1562,7 +1563,20 @@ window.openLocationPanel = function () {
  * leave "Getting your distance…" on screen forever. Every path below now
  * ends in a final message, and the line is tappable to try again.
  */
-window.requestDistance = function () {
+// Once a browser has blocked location for a site it never re-prompts, so
+// offering "tap to allow" there is a dead end — the retry fails instantly and
+// re-renders the same text, which just looks broken.
+let geoBlocked = false;
+
+async function geoPermissionState() {
+  try {
+    if (!navigator.permissions || !navigator.permissions.query) return null;
+    const st = await navigator.permissions.query({ name: "geolocation" });
+    return st.state;                       // granted | denied | prompt
+  } catch (_) { return null; }             // Safari doesn't support this query
+}
+
+window.requestDistance = async function () {
   const el = document.getElementById("loc-distance");
   if (!el) return;
 
@@ -1571,17 +1585,21 @@ window.requestDistance = function () {
     el.classList.toggle("loc-distance--retry", !!retryable);
     el.onclick = retryable ? requestDistance : null;
   };
+  // Blocked: show where the shop is and say why there's no distance, rather
+  // than inviting a tap that cannot do anything.
+  const settleBlocked = () => {
+    geoBlocked = true;
+    settle(`${SHOP_AREA} · location off`, false);
+  };
 
   if (lastKnownDistance) { settle(lastKnownDistance, false); return; }
-
-  if (!SHOP_LAT || !SHOP_LNG || !navigator.geolocation) {
-    settle("Kizhakkambalam, Ernakulam", false);
-    return;
-  }
+  if (!SHOP_LAT || !SHOP_LNG || !navigator.geolocation) { settle(SHOP_AREA, false); return; }
+  if (geoBlocked) { settleBlocked(); return; }
 
   settle("Getting your distance…", false);
-  let done = false;
+  if (await geoPermissionState() === "denied") { settleBlocked(); return; }
 
+  let done = false;
   navigator.geolocation.getCurrentPosition(
     ({ coords }) => {
       if (done) return;
@@ -1595,15 +1613,15 @@ window.requestDistance = function () {
     (err) => {
       if (done) return;
       done = true;
-      settle(err && err.code === 1
-        ? "Location off · tap to allow"      // PERMISSION_DENIED
-        : "Couldn't get your location · tap to retry", true);
+      // code 1 = PERMISSION_DENIED. Re-asking won't bring the prompt back.
+      if (err && err.code === 1) { settleBlocked(); return; }
+      settle("Couldn't get your location · tap to retry", true);
     },
     { timeout: 8000, maximumAge: 5 * 60 * 1000, enableHighAccuracy: false }
   );
 
   // Belt and braces: some browsers fire neither callback when a permission
-  // prompt is dismissed rather than answered.
+  // prompt is dismissed rather than answered — that one is worth retrying.
   setTimeout(() => {
     if (done) return;
     done = true;
