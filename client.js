@@ -56,7 +56,7 @@ const messaging = getMessaging(app);
 const VAPID_KEY = "BJljfSryCZol-Pg9YfT2x9OKMP4kom5Q6OBeuzgN4773-PLqhvhTPFOVA2PRvwTKDCc3ZeN1h1Uc0ilieNj6NQQ";
 // Shop location — update coordinates after confirming on Google Maps
 const SHOP_MAPS_URL = "https://maps.app.goo.gl/154dzix1R8gMgs938";
-const SHOP_AREA = "Kizhakkambalam, Ernakulam";
+const SHOP_AREA = "Kurumassery, Ernakulam";
 const SHOP_LAT = 10.1788178;
 const SHOP_LNG = 76.3307866;
 // ── Services Data ──
