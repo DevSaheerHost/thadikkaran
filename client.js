@@ -55,7 +55,7 @@ const messaging = getMessaging(app);
 
 const VAPID_KEY = "BJljfSryCZol-Pg9YfT2x9OKMP4kom5Q6OBeuzgN4773-PLqhvhTPFOVA2PRvwTKDCc3ZeN1h1Uc0ilieNj6NQQ";
 // Shop location — update coordinates after confirming on Google Maps
-const SHOP_MAPS_URL = "https://maps.app.goo.gl/jXQPye2JHpAyTq4M9";
+const SHOP_MAPS_URL = "https://maps.app.goo.gl/154dzix1R8gMgs938";
 const SHOP_AREA = "Kizhakkambalam, Ernakulam";
 const SHOP_LAT = 10.1787967;
 const SHOP_LNG = 76.3307853;
@@ -1563,90 +1563,34 @@ window.openLocationPanel = function () {
  * leave "Getting your distance…" on screen forever. Every path below now
  * ends in a final message, and the line is tappable to try again.
  */
-// Only ever used to word an error correctly — never to skip asking.
-async function geoPermissionState() {
-  try {
-    if (!navigator.permissions || !navigator.permissions.query) return null;
-    const st = await navigator.permissions.query({ name: "geolocation" });
-    return st.state;                       // granted | denied | prompt
-  } catch (_) { return null; }             // Safari doesn't support this query
-}
-
-window.requestDistance = async function () {
-  const el   = document.getElementById("loc-distance");
-  const help = document.getElementById("loc-help");
+window.requestDistance = function () {
+  const el = document.getElementById("loc-distance");
   if (!el) return;
 
-  const settle = (text, retryable) => {
-    el.textContent = text;
-    el.classList.toggle("loc-distance--retry", !!retryable);
-    el.onclick = retryable ? requestDistance : null;
-  };
-  const HELP = {
-    site:   'Allow it in your browser: <strong>⋮ → Site settings → Location → Allow</strong>, then tap above.',
-    device: 'Switch on <strong>Location</strong> in your phone\'s settings (and let your browser use it), then tap above.',
-  };
-  const showHelp = (kind) => {
-    if (!help) return;
-    if (!kind) { help.classList.add("hidden"); return; }
-    help.innerHTML = HELP[kind];
-    help.classList.remove("hidden");
-  };
+  // The distance is a bonus. The address is what a customer actually needs,
+  // and Get Directions works without any of this — so when location isn't
+  // available we simply leave the address up. No error, no instructions to
+  // follow, nothing that looks broken.
+  el.textContent = SHOP_AREA;
+  el.classList.remove("loc-distance--retry");
+  el.onclick = null;
 
-  if (lastKnownDistance) { settle(lastKnownDistance, false); showHelp(null); return; }
-  if (!SHOP_LAT || !SHOP_LNG || !navigator.geolocation) {
-    settle(SHOP_AREA, false); showHelp(null); return;
-  }
+  if (lastKnownDistance) { el.textContent = lastKnownDistance; return; }
+  if (!SHOP_LAT || !SHOP_LNG || !navigator.geolocation) return;
 
-  settle("Getting your distance…", false);
-  showHelp(null);
-
-  // Always actually ask. Calling getCurrentPosition is the only thing that can
-  // raise the browser's permission prompt, and the customer may have changed
-  // the setting since last time — so never skip it or cache a refusal.
-  let done = false;
+  // Still always ask — this is what raises the permission prompt when the
+  // customer hasn't answered it yet.
   navigator.geolocation.getCurrentPosition(
     ({ coords }) => {
-      if (done) return;
-      done = true;
       const km = haversineKm(coords.latitude, coords.longitude, SHOP_LAT, SHOP_LNG);
       const driveMin = Math.max(1, Math.round(km / 30 * 60));
       lastKnownDistance =
         `${km < 1 ? (km * 1000).toFixed(0) + " m" : km.toFixed(1) + " km"} away · ~${driveMin} min drive`;
-      settle(lastKnownDistance, false);
-      showHelp(null);
+      el.textContent = lastKnownDistance;
     },
-    (err) => {
-      if (done) return;
-      done = true;
-      const code = err && err.code;   // 1 denied, 2 unavailable, 3 timeout
-
-      // "Denied" can mean two very different things: this site is blocked in
-      // the browser, or the site is allowed and the phone's own location is
-      // off (or Android hasn't given the browser location access). Ask the
-      // browser which it is rather than guessing, so the advice is right.
-      geoPermissionState().then(state => {
-        if (code === 1 && state === "denied") {
-          settle("Location is off for this site · tap to try again", true);
-          showHelp("site");
-        } else if (code === 1 || code === 2) {
-          settle("Your phone's location is off · tap to try again", true);
-          showHelp("device");
-        } else {
-          settle("Couldn't get your location · tap to try again", true);
-          showHelp(null);
-        }
-      });
-    },
+    () => { /* leave the address showing */ },
     { timeout: 8000, maximumAge: 5 * 60 * 1000, enableHighAccuracy: false }
   );
-
-  // Some browsers fire neither callback when a prompt is dismissed
-  setTimeout(() => {
-    if (done) return;
-    done = true;
-    settle("Couldn't get your location · tap to try again", true);
-  }, 9000);
 };
 
 window.closeLocationPanel = function (event) {
