@@ -794,6 +794,9 @@ body {
 /* Manual / walk-in booking corner sticker */
 .booking-manual-sticker {
   position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 4px;
   top: -1px;
   right: -1px;
   background: linear-gradient(135deg, #f6c453, #e8a020);
@@ -805,6 +808,13 @@ body {
   border-radius: 0 var(--radius-md) 0 10px;
   box-shadow: -1px 1px 4px rgba(0,0,0,0.08);
   z-index: 2;
+}
+.walkin-icon {
+  width: 1.05em;
+  height: 1.05em;
+  flex-shrink: 0;
+  /* nudge onto the text baseline — the glyph sits high in its viewBox */
+  margin-top: -1px;
 }
 .badge-finished  { background: #e0f2fe; color: #0369a1; }
 .badge-cconfirmed { background: #e6f7ee; color: #276749; }
