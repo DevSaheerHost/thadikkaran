@@ -62,8 +62,8 @@ const DEFAULT_SERVICES = [
   { id: "haircut",       name: "Hair Cut (Mens)",  defaultDuration: 40, defaultPrice: 150 },
   { id: "beard",         name: "Beard Setting",    defaultDuration: 40, defaultPrice: 100 },
   { id: "haircut_beard", name: "Hair Cut & Beard", defaultDuration: 40, defaultPrice: 250 },
-  { id: "haircut_beard_hwash_dtan", name: "Hair cut & beard + hair wash + D tan", defaultDuration: 40, defaultPrice: 599},
-  { id: 'haircut_beard_clean_dtan_face', name: "Hair cut& beard + clean up (D tan + scrub + face pack)", price: 999, duration: 40, priceDisplay:"₹999"},
+  { id: "haircut_beard_hwash_dtan", name: "Hair cut & beard + hair wash + D tan", defaultDuration: 0, defaultPrice: 599},
+  { id: 'haircut_beard_clean_dtan_face', name: "Hair cut& beard + clean up (D tan + scrub + face pack)", defaultDuration: 0, defaultPrice:999},
   { id: "facial",        name: "Facial",           defaultDuration: 40, defaultPrice: 0   },
   { id: "hair_spa",      name: "Hair Spa",         defaultDuration: 40, defaultPrice: 0   },
 ];
