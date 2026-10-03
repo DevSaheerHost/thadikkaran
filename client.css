@@ -634,9 +634,10 @@ body {
   color: var(--text-main);
   margin-bottom: 0.2rem;
   transition: color var(--transition);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /*overflow: hidden;
+  text-overflow: ellipsis;*/
+  overflow-wrap: break-word;
+  white-space: normal;
 }
 
 .service-card.selected .service-name { color: var(--white); }

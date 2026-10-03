@@ -62,6 +62,7 @@ const DEFAULT_SERVICES = [
   { id: "haircut",       name: "Hair Cut (Mens)",  defaultDuration: 40, defaultPrice: 150 },
   { id: "beard",         name: "Beard Setting",    defaultDuration: 40, defaultPrice: 100 },
   { id: "haircut_beard", name: "Hair Cut & Beard", defaultDuration: 40, defaultPrice: 250 },
+  { id: "haircut_beard_hwash_dtan", name: "Hair cut & beard + hair wash + D tan", defaultDuration: 40, defaultPrice: 599}
   { id: "facial",        name: "Facial",           defaultDuration: 40, defaultPrice: 0   },
   { id: "hair_spa",      name: "Hair Spa",         defaultDuration: 40, defaultPrice: 0   },
 ];
@@ -119,7 +120,7 @@ onAuthStateChanged(auth, async (user) => {
   try {
     const snap = await get(ref(db, `admin/allowedUids/${user.uid}`));
     if (!snap.exists()) {
-      showAccessDenied("Your UID is not listed under admin/allowedUids.", user.uid, user.email || "");
+      showAccessDenied("Your account isn’t authorized to access this page. Please contact the administrator for access.", user.uid, user.email || "");
       return;
     }
     if (snap.val() !== true) {
@@ -154,11 +155,7 @@ function showAccessDenied(reason = "", uid = "", email = "") {
            ${email ? `<div><span style="color:#666">Signed in as:</span> ${email}</div>` : ""}
            ${uid ? `<div><span style="color:#666">Your UID:</span> <code style="color:#8fd18f">${uid}</code></div>` : ""}
          </div>
-         <div style="color:#666;font-size:.72rem;margin-top:.7rem;line-height:1.6">
-           Check Firebase Console → Realtime Database → Data →
-           <code style="color:#999">admin/allowedUids/${uid || "&lt;uid&gt;"}</code>
-           is set to boolean <code style="color:#999">true</code>.
-         </div>
+         
        </div>`
     : "";
 

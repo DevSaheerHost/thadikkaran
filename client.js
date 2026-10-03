@@ -61,9 +61,11 @@ const SHOP_LAT = 10.1788178;
 const SHOP_LNG = 76.3307866;
 // ── Services Data ──
 const SERVICES = [
-  { id: "haircut",       name: "Hair Cut (Mens)",    price: 150,  duration: 40,  priceDisplay: "₹150" },
-  { id: "beard",         name: "Beard Setting",      price: 100,  duration: 40,  priceDisplay: "₹100" },
-  { id: "haircut_beard", name: "Hair Cut & Beard",   price: 250,  duration: 40,  priceDisplay: "₹250" },
+  { id: "haircut",       name: "Hair Cut (Mens)",    price: 200,  duration: 40,  priceDisplay: "₹200" },
+  { id: "beard",         name: "Beard Setting",      price: 150,  duration: 40,  priceDisplay: "₹150" },
+  { id: "haircut_beard", name: "Hair Cut & Beard",   price: 350,  duration: 40,  priceDisplay: "₹350" },
+  { id: "haircut_beard_hwash_dtan", name: "Hair cut & beard + hair wash + D tan", defaultDuration: 40, defaultPrice: 599},
+  { id: '', name: "Hair cut& beard + clean up (D tan + scrub + face pack)", price: 999, duration: 40, priceDisplay:"₹999"},
   { id: "facial",        name: "Facial",             price: null, duration: 40,  priceDisplay: "At Store" },
   { id: "hair_spa",      name: "Hair Spa",           price: null, duration: 40,  priceDisplay: "At Store" },
 ];
